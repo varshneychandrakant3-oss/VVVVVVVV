@@ -276,6 +276,8 @@ App.loadLeaflet = () => {
   });
   return App._leafletP;
 };
+// India's official boundary (DataMeet "India composite", CC BY 4.0), loaded once
+App.loadIndiaBoundary = () => App._indiaP || (App._indiaP = fetch('assets/data/india-boundary.geojson').then(r => (r.ok ? r.json() : null)).catch(() => null));
 /* markers: [{lat, lng, html, label, kind:'van'|'dest'|'camp', price}]  */
 App.mountMap = async (el, markers, { zoom = 5, center, circle } = {}) => {
   try {
@@ -285,7 +287,15 @@ App.mountMap = async (el, markers, { zoom = 5, center, circle } = {}) => {
     // On touch screens one finger scrolls the page; two fingers pan/zoom the map
     const touch = L.Browser.mobile || matchMedia('(pointer: coarse)').matches;
     const map = L.map(el, { scrollWheelZoom: false, dragging: !touch, tap: false }).setView(center || [22.5, 79], zoom);
-    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 18, attribution: '&copy; OpenStreetMap contributors' }).addTo(map);
+    // Base map with no political boundaries; India's official boundary is drawn on top
+    L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
+      maxZoom: 18,
+      attribution: 'Imagery &copy; Esri, Maxar, Earthstar Geographics · <a href="https://github.com/datameet/maps" target="_blank" rel="noopener">India boundary: DataMeet</a> (CC BY 4.0)'
+    }).addTo(map);
+    App.loadIndiaBoundary().then(geo => {
+      if (!geo || !map.getContainer().isConnected) return;
+      L.geoJSON(geo, { interactive: false, style: { color: '#ffd28a', weight: 2, opacity: 0.95, fillColor: '#ffffff', fillOpacity: 0.06 } }).addTo(map).bringToBack();
+    });
     const layer = [];
     markers.forEach(m => {
       const icon = L.divIcon({ className: 'map-pin-wrap', html: `<span class="map-pin map-pin-${m.kind || 'dest'}">${App.esc(m.label || '')}</span>`, iconSize: null });

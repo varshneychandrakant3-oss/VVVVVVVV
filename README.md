@@ -149,4 +149,5 @@ _headers                   Security headers for static hosting
 - **Document storage:** uploaded files need encrypted object storage with access logging. Today only file names are kept.
 - **Face match:** compare the selfie with the Aadhaar photo through the provider's face-match and liveness APIs.
 - **Scheduled jobs:** re-check VAHAN nightly for documents close to expiry, and send email and SMS through a provider.
-- **Maps and images:** move to a commercial map tile plan and a CDN at scale.
+- **Maps:** the maps use Esri satellite imagery, which has no country borders, and draw **India's official boundary** on top (`assets/data/india-boundary.geojson`). That file is simplified from [DataMeet's India composite boundary](https://github.com/datameet/maps/blob/master/Country/india-composite.geojson) (CC BY 4.0, credited on the map). Don't switch back to OpenStreetMap or similar street maps: they show the de facto lines in Jammu & Kashmir and Ladakh. For labelled street maps at launch, use Survey-of-India-compliant tiles such as Mappls (MapmyIndia), and check Esri's terms for production use of its imagery.
+- **Images:** serve photos through object storage and a CDN at scale.
