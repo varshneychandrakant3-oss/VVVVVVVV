@@ -28,7 +28,7 @@ const compact = (v) => v >= 100000 ? '₹' + (v / 100000).toFixed(1) + 'L' : v >
 
 App.pages.owner = (el, { tab = 'overview', id }) => {
   const me = App.me();
-  const vans = App.db.vans.filter(v => v.ownerId === me.id);
+  const vans = App.db.vans.filter(v => v.ownerId === me.id && v.status !== 'hidden');
   const vanIds = vans.map(v => v.id);
   const bookings = App.db.bookings.filter(b => vanIds.includes(b.vanId));
   const docs = App.db.documents.filter(d => d.ownerId === me.id);
@@ -111,11 +111,15 @@ const vansTab = (m, { vans }) => {
           </div>
         </div></article>`;
     })}</div>` : App.emptyState('🚐', 'No vans yet', 'Add your first van to start earning.', h`<a class="btn btn-primary" href="#/owner/onboarding?van=new">Add a van</a>`)}`);
+  const setStatus = async (id, status, msg) => {
+    try { await App.market('POST', `/api/owner/vans/${id}/status`, { status }); App.toast(msg, 'good'); App.render(); }
+    catch (e) { App.toast(e.message, 'bad'); }
+  };
   m.querySelectorAll('[data-pause]').forEach(b => b.onclick = async () => {
     if (!(await App.confirm('Pause listing?', 'Travellers won’t be able to find or book this van. Existing bookings are not affected.', 'Pause'))) return;
-    App.get.van(b.dataset.pause).status = 'paused'; App.save(); App.render();
+    setStatus(b.dataset.pause, 'paused', 'Listing paused');
   });
-  m.querySelectorAll('[data-resume]').forEach(b => b.onclick = () => { App.get.van(b.dataset.resume).status = 'published'; App.save(); App.toast('Listing is live again', 'good'); App.render(); });
+  m.querySelectorAll('[data-resume]').forEach(b => b.onclick = () => setStatus(b.dataset.resume, 'published', 'Listing is live again'));
 };
 
 const vanEditor = (m, { me, id }) => {
@@ -153,12 +157,14 @@ const vanEditor = (m, { me, id }) => {
     m.querySelector('#price-preview').textContent = `Example 7-night trip: traveller pays ${money(q.total)}, you receive ${money(q.ownerPayout)} after ${Math.round(App.C.ownerCommissionRate * 100)}% commission.`;
   };
   f.oninput = preview; preview();
-  f.onsubmit = (e) => {
+  f.onsubmit = async (e) => {
     e.preventDefault();
     if (!f.checkValidity()) return f.reportValidity();
     const d = App.formData(f);
-    Object.assign(van, { pricePerNight: +d.pricePerNight, weekendPrice: +d.weekendPrice || +d.pricePerNight, cleaningFee: +d.cleaningFee, deposit: +d.deposit, discounts: { weekly: +d.weekly, monthly: +d.monthly }, minNights: +d.minNights, cancellation: d.cancellation, instantBook: !!d.instantBook });
-    App.save(); App.toast('Pricing saved', 'good');
+    try {
+      await App.market('PATCH', `/api/owner/vans/${van.id}`, { pricePerNight: +d.pricePerNight, weekendPrice: +d.weekendPrice || +d.pricePerNight, cleaningFee: +d.cleaningFee, deposit: +d.deposit, discounts: { weekly: +d.weekly, monthly: +d.monthly }, minNights: +d.minNights, cancellation: d.cancellation, instantBook: !!d.instantBook });
+      App.toast('Pricing saved', 'good');
+    } catch (err) { App.toast(err.message, 'bad'); }
   };
 };
 
@@ -212,7 +218,7 @@ const bookingsTab = (m, { bookings }) => {
 /* ---------- Calendar ---------- */
 const calendarTab = (m, { vans }) => {
   const q = App.parseHash().query;
-  const pub = vans.filter(v => v.status !== 'draft');
+  const pub = vans.filter(v => !['draft', 'hidden'].includes(v.status));
   if (!pub.length) { m.innerHTML = String(h`<h1>Calendar</h1>${App.emptyState('📅', 'No vans yet', 'Add a van first.')}`); return; }
   const van = App.get.van(q.van) || pub[0];
   m.innerHTML = String(h`<h1>Calendar & availability</h1>
@@ -226,13 +232,21 @@ const calendarTab = (m, { vans }) => {
       </div>
     </div>`);
   m.querySelector('#cal-van').onchange = (e) => App.go('#/owner/calendar?van=' + e.target.value);
+  // Edits show instantly, then the server stores them (undone if the server refuses)
+  const saveBlocked = async (before) => {
+    App.save(); drawList(); cal.redraw();
+    if (!App.serverOnline) return;
+    try { await App.server('PUT', `/api/owner/vans/${van.id}/blocked`, { blocked: van.blocked }); }
+    catch (e) { van.blocked = before; App.save(); drawList(); cal.redraw(); App.toast(e.message, 'bad'); }
+  };
   const drawList = () => {
     m.querySelector('#blocked-list').innerHTML = String(van.blocked.length ? h`${van.blocked.map((r, i) => h`<li><span>${fmtDate(r.start)} → ${fmtDate(r.end)} <span class="small muted">${r.note || ''}</span></span><button class="link" data-unblock="${i}">Remove</button></li>`)}` : h`<li class="muted">No blocked dates.</li>`);
-    m.querySelectorAll('[data-unblock]').forEach(b => b.onclick = () => { van.blocked.splice(+b.dataset.unblock, 1); App.save(); drawList(); cal.redraw(); });
+    m.querySelectorAll('[data-unblock]').forEach(b => b.onclick = () => { const before = [...van.blocked]; van.blocked.splice(+b.dataset.unblock, 1); saveBlocked(before); });
   };
   const cal = App.calendar(m.querySelector('#cal'), {
     vanId: van.id, mode: 'block', months: 2,
     onChange: (d) => {
+      const before = van.blocked.map(r => ({ ...r }));
       const idx = van.blocked.findIndex(r => d >= r.start && d <= r.end);
       const bookedSet = App.unavailableDates(van.id);
       if (idx >= 0) {
@@ -243,7 +257,7 @@ const calendarTab = (m, { vans }) => {
       } else if (bookedSet.has(d)) { App.toast('That date is booked by a traveller.', 'bad'); return; }
       else van.blocked.push({ start: d, end: d, note: 'Blocked' });
       van.blocked.sort((a, b) => a.start.localeCompare(b.start));
-      App.save(); drawList();
+      saveBlocked(before);
     }
   });
   drawList();
@@ -252,7 +266,8 @@ const calendarTab = (m, { vans }) => {
     const d = App.formData(e.target);
     if (d.end < d.start) return App.toast('End date must be after start date.', 'bad');
     if (!App.isAvailable(van.id, d.start, App.addDays(d.end, 1))) return App.toast('That range overlaps an existing booking or block.', 'bad');
-    van.blocked.push({ start: d.start, end: d.end, note: d.note }); App.save(); e.target.reset(); drawList(); cal.redraw(); App.toast('Dates blocked', 'good');
+    const before = van.blocked.map(r => ({ ...r }));
+    van.blocked.push({ start: d.start, end: d.end, note: d.note }); e.target.reset(); saveBlocked(before); App.toast('Dates blocked', 'good');
   };
 };
 

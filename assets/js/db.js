@@ -178,35 +178,11 @@ App.audit = (action, target) => {
   App.db.audit.unshift({ id: App.uid('a'), actorId: me ? me.id : 'system', action, target, at: new Date().toISOString() });
 };
 
-/* ---------------- Document expiry job ---------------- */
-// Runs on every load (would be a daily cron job on a real server).
+/* ---------------- Daily housekeeping ---------------- */
+// Document expiry runs on the server (server/market.js). Here we only close finished trips.
 App.runExpiryChecks = () => {
   const today = App.today();
-  const warn = App.C.expiryWarningDays;
   let changed = false;
-  for (const doc of App.db.documents) {
-    if (!doc.expiry || doc.status === 'rejected') continue;
-    const days = App.nightsBetween(today, doc.expiry);
-    const van = doc.vanId && App.get.van(doc.vanId);
-    if (days < 0 && doc.status === 'verified') {
-      doc.status = 'action_required';
-      doc.note = 'Document expired on ' + doc.expiry + '. Upload a renewed copy.';
-      if (van) {
-        const key = doc.type === 'insurance' ? 'insurance' : doc.type === 'inspection' ? 'inspection' : 'registration';
-        van.verification[key] = 'action_required';
-        if (van.status === 'published' && ['insurance', 'rc', 'rent_cab_licence', 'fitness', 'puc'].includes(doc.type)) {
-          van.status = 'suspended';
-          App.db.audit.unshift({ id: App.uid('a'), actorId: 'system', action: 'listing.suspend', target: `${van.id} ${van.name} — ${doc.label} expired`, at: new Date().toISOString() });
-        }
-      }
-      App.notify(doc.ownerId, `${doc.label}${van ? ' for ' + van.name : ''} has expired. ${van ? 'The listing is paused until you upload a renewed copy.' : ''}`, '#/owner/documents');
-      changed = true;
-    } else if (days >= 0 && days <= warn && !doc.reminded) {
-      doc.reminded = true;
-      App.notify(doc.ownerId, `${doc.label}${van ? ' for ' + van.name : ''} expires in ${days} days.`, '#/owner/documents');
-      changed = true;
-    }
-  }
   // Move trips past their end date to completed and release deposits
   for (const b of App.db.bookings) {
     if (b.status === 'confirmed' && b.end < today) {
@@ -260,10 +236,42 @@ App.syncSession = async () => {
     App.serverOnline = true;
     App.verifyConfig = cfg;
     if (user) bindLocalUser(user); else { App.db.session = null; App.save(); }
+    await App.syncMarket();
   } catch (e) {
     App.serverOnline = false;
     App.verifyConfig = null;
   }
+};
+
+// Vans, documents, owner verification and their notifications come from the
+// server, which decides every status. Bookings, messages and reviews are still
+// local demo data, so vans the server doesn't return are kept (hidden) for them.
+App.syncMarket = async () => {
+  if (!App.serverOnline) return;
+  const m = await App.server('GET', '/api/market');
+  const local = new Map(App.db.vans.map(v => [v.id, v]));
+  const ids = new Set(m.vans.map(v => v.id));
+  App.db.vans = [
+    ...m.vans.map(v => ({ ...v, views: local.get(v.id)?.views ?? v.views })),
+    ...[...local.values()].filter(v => !ids.has(v.id)).map(v => ({ ...v, status: 'hidden' }))
+  ];
+  App.db.documents = m.documents;
+  App.db.owners = m.owners;
+  // People this browser hasn't seen yet (e.g. an owner who signed up elsewhere)
+  for (const p of m.people || []) {
+    const u = App.get.user(p.id);
+    if (u) Object.assign(u, { name: p.name, role: p.role, ...(p.status ? { status: p.status } : {}) });
+    else App.db.users.push({ id: p.id, name: p.name, email: p.email || '', phone: '', role: p.role, status: p.status || 'active', emailVerified: false, phoneVerified: false, savedVans: [], createdAt: p.createdAt || new Date().toISOString(), avatarHue: [...p.id].reduce((a, c) => a + c.charCodeAt(0), 0) % 360 });
+  }
+  App.db.notifications = [...m.notifications.map(n => ({ ...n, server: true })), ...App.db.notifications.filter(n => !n.server)];
+  App.save();
+};
+// Ask the server to change something, then refresh from it
+App.market = async (method, path, body) => {
+  if (!App.serverOnline) throw new Error('This needs the VanYatra server. Start it with npm start.');
+  const r = await App.server(method, path, body);
+  await App.syncMarket();
+  return r;
 };
 
 // Verification calls. Results: { status: 'verified' | 'review' | 'failed', reasons: [{level, text}], data, source, checkedAt }
@@ -283,6 +291,7 @@ App.api = {
       const { user } = await App.server('POST', '/api/auth/login', { email, password });
       const u = bindLocalUser(user);
       App.audit('user.login', u.email); App.save();
+      await App.syncMarket();
       return u;
     }
     const u = App.db.users.find(x => x.email.toLowerCase() === String(email).trim().toLowerCase());
@@ -296,6 +305,7 @@ App.api = {
   async logout() {
     if (App.serverOnline) await App.server('POST', '/api/auth/logout', {}).catch(() => {});
     App.db.session = null; App.save();
+    await App.syncMarket().catch(() => {});
   },
   async signup({ name, email, phone, password, role }) {
     if (App.db.users.some(u => u.email.toLowerCase() === email.toLowerCase())) throw new Error('An account with this email already exists.');
@@ -311,6 +321,7 @@ App.api = {
     App.notify(u.id, 'Welcome to VanYatra! Please verify your email and phone.');
     App.audit('user.signup', email);
     App.save();
+    await App.syncMarket();
     return u;
   },
   toggleSave(vanId) {
@@ -415,86 +426,8 @@ App.api = {
     App.save();
     return flagged;
   },
-  uploadDocument({ ownerId, vanId, type, label, number, expiry, fileName }) {
-    let doc = App.db.documents.find(d => d.ownerId === ownerId && d.vanId === vanId && d.type === type);
-    if (!doc) { doc = { id: App.uid('doc'), ownerId, vanId, type, label }; App.db.documents.push(doc); }
-    Object.assign(doc, { number, expiry, fileName, status: 'pending', note: '', submittedAt: new Date().toISOString(), reminded: false });
-    App.db.users.filter(u => u.role === 'admin').forEach(a => App.notify(a.id, `${label} submitted by ${App.get.user(ownerId).name} for review.`, '#/admin/verifications', false));
-    App.save();
-    return doc;
-  },
-  reviewDocument(docId, status, note = '') {
-    const doc = App.db.documents.find(d => d.id === docId);
-    doc.status = status; doc.note = note; doc.reviewedAt = new Date().toISOString();
-    App.audit('document.' + status, `${doc.label} (${doc.id})`);
-    App.notify(doc.ownerId, `${doc.label}: ${App.VERIFICATION_STATUS[status].label}${note ? ' — ' + note : ''}`, '#/owner/documents');
-    App.recomputeVerification(doc.ownerId, doc.vanId);
-    App.save();
-  },
-  setStepStatus(ownerId, vanId, key, status, note = '') {
-    if (vanId) {
-      const van = App.get.van(vanId);
-      van.verification[key] = status;
-      if (note) van.verificationNotes = { ...(van.verificationNotes || {}), [key]: note };
-    } else {
-      App.db.owners[ownerId][key] = { ...(App.db.owners[ownerId][key] || {}), status, note };
-    }
-    App.audit('verification.' + status, `${key} for ${vanId || ownerId}`);
-    App.notify(ownerId, `Verification step “${key}” is now ${App.VERIFICATION_STATUS[status].label}${note ? ': ' + note : ''}.`, '#/owner/onboarding' + (vanId ? '?van=' + vanId : ''));
-    App.save();
-  },
-  approveListing(vanId, approve, note = '') {
-    const van = App.get.van(vanId);
-    van.verification.review = approve ? 'verified' : 'rejected';
-    if (approve) {
-      van.approvedAt = new Date().toISOString();
-      App.notify(van.ownerId, `${van.name} is approved! Publish it from your dashboard to go live.`, '#/owner/onboarding?van=' + vanId + '&step=12');
-    } else {
-      van.status = 'draft';
-      App.notify(van.ownerId, `${van.name} needs changes before approval: ${note}`, '#/owner/onboarding?van=' + vanId);
-    }
-    App.audit(approve ? 'listing.approve' : 'listing.reject', `${van.id} ${van.name}${note ? ' — ' + note : ''}`);
-    App.save();
-  },
-  saveVan(van) {
-    const i = App.db.vans.findIndex(v => v.id === van.id);
-    if (i >= 0) App.db.vans[i] = van; else App.db.vans.push(van);
-    App.save();
-  }
 };
 
-// Recompute a van's registration / insurance / inspection step from its documents
-App.recomputeVerification = (ownerId, vanId) => {
-  if (!vanId) {
-    const kycDocs = App.get.docsFor({ ownerId }).filter(d => !d.vanId && ['aadhaar', 'pan', 'selfie'].includes(d.type));
-    const o = App.db.owners[ownerId];
-    if (o && kycDocs.length) o.kyc = { ...(o.kyc || {}), status: App.rollup(kycDocs.map(d => d.status)) };
-    return;
-  }
-  const van = App.get.van(vanId);
-  const docs = App.get.docsFor({ vanId });
-  const own = docs.filter(d => d.type.startsWith('ownership'));
-  if (own.length) van.verification.ownership = App.rollup(own.map(d => d.status));
-  // A step is only complete when every required document exists
-  const stepStatus = (defs) => {
-    const req = defs.filter(r => r.required);
-    const have = docs.filter(d => req.some(r => r.type === d.type));
-    if (!have.length) return null;
-    const s = App.rollup(have.map(d => d.status));
-    return have.length < req.length && ['verified', 'pending'].includes(s) ? 'not_started' : s;
-  };
-  const reg = stepStatus(App.C.registrationDocs);
-  if (reg) van.verification.registration = reg;
-  const ins = stepStatus(App.C.insuranceDocs);
-  if (ins) van.verification.insurance = ins;
-  const insp = docs.filter(d => d.type === 'inspection');
-  if (insp.length) van.verification.inspection = App.rollup(insp.map(d => d.status));
-  // Un-suspend a listing once every blocking document is valid again
-  if (van.status === 'suspended' && ['registration', 'insurance', 'inspection'].every(k => van.verification[k] === 'verified')) {
-    van.status = 'published';
-    App.notify(van.ownerId, `${van.name} is live again — all documents are valid.`, '#/owner/vans');
-  }
-};
 App.rollup = (statuses) => {
   if (statuses.includes('rejected')) return 'rejected';
   if (statuses.includes('action_required')) return 'action_required';

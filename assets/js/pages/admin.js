@@ -80,11 +80,17 @@ const users = (m) => {
       const u = App.get.user(b.dataset.suspend);
       const reason = await App.prompt('Suspend ' + u.name + '?', 'Reason (recorded in the audit log)');
       if (!reason) return;
-      u.status = 'suspended';
-      if (u.role === 'owner') App.db.vans.filter(v => v.ownerId === u.id && v.status === 'published').forEach(v => v.status = 'suspended');
-      App.audit('user.suspend', `${u.email} — ${reason}`); App.save(); App.toast('User suspended'); draw();
+      await setUserStatus(u, 'suspended', reason);
     });
-    m.querySelectorAll('[data-restore]').forEach(b => b.onclick = () => { const u = App.get.user(b.dataset.restore); u.status = 'active'; App.audit('user.reactivate', u.email); App.save(); App.toast('User reactivated', 'good'); draw(); });
+    m.querySelectorAll('[data-restore]').forEach(b => b.onclick = () => setUserStatus(App.get.user(b.dataset.restore), 'active', ''));
+  };
+  // The server ends the user's sessions and pauses their listings
+  const setUserStatus = async (u, status, note) => {
+    try {
+      await App.market('POST', `/api/admin/users/${u.id}/status`, { status, note });
+      u.status = status; App.save();
+      App.toast(status === 'suspended' ? 'User suspended' : 'User reactivated', status === 'suspended' ? 'info' : 'good'); draw();
+    } catch (e) { App.toast(e.message, 'bad'); }
   };
   m.innerHTML = String(h`<h1>Users & owners</h1>
     <div class="filter-row"><label class="field inline grow"><span class="sr-only">Search users</span><input type="search" id="u-q" placeholder="Search name or email…"></label>
@@ -117,36 +123,32 @@ const listings = (m) => {
     }) : h`<p class="muted">No listings waiting. 🎉</p>`}
     <h2 class="section-sub">All listings</h2>
     <div class="table-wrap"><table class="table"><thead><tr><th>Van</th><th>Owner</th><th>Destination</th><th class="num">Price</th><th>Status</th><th></th></tr></thead><tbody>
-      ${App.db.vans.map(v => h`<tr><td><a href="#/vans/${v.id}">${v.name || 'Untitled'}</a></td><td>${userName(v.ownerId)}</td><td>${App.get.dest(v.destinationId)?.name || ''}</td><td class="num">${money(v.pricePerNight)}</td><td>${App.pill(v.status)}</td>
+      ${App.db.vans.filter(v => v.status !== 'hidden').map(v => h`<tr><td><a href="#/vans/${v.id}">${v.name || 'Untitled'}</a></td><td>${userName(v.ownerId)}</td><td>${App.get.dest(v.destinationId)?.name || ''}</td><td class="num">${money(v.pricePerNight)}</td><td>${App.pill(v.status)}</td>
         <td class="actions">${v.status === 'published' ? h`<button class="btn btn-sm btn-ghost danger-text" data-suspendv="${v.id}">Suspend</button>` : v.status === 'suspended' ? h`<button class="btn btn-sm btn-ghost" data-restorev="${v.id}">Reinstate</button>` : ''}</td></tr>`)}
     </tbody></table></div>`);
+  const act = async (path, body, msg) => {
+    try { await App.market('POST', path, body); App.toast(msg, 'good'); App.render(); }
+    catch (e) { App.toast(e.message, 'bad'); }
+  };
   m.querySelectorAll('[data-approve]').forEach(b => b.onclick = async () => {
     if (!(await App.confirm('Approve listing?', 'The owner will be notified and can publish immediately.', 'Approve'))) return;
-    App.api.approveListing(b.dataset.approve, true); App.toast('Listing approved', 'good'); App.render();
+    act(`/api/admin/vans/${b.dataset.approve}/review`, { approve: true }, 'Listing approved');
   });
   m.querySelectorAll('[data-changes]').forEach(b => b.onclick = async () => {
     const note = await App.prompt('Request changes', 'What does the owner need to fix?', 'e.g. Add a clear photo of the kitchen');
-    if (!note) return;
-    App.api.approveListing(b.dataset.changes, false, note); App.toast('Owner notified'); App.render();
+    if (note) act(`/api/admin/vans/${b.dataset.changes}/review`, { approve: false, note }, 'Owner notified');
   });
   m.querySelectorAll('[data-suspendv]').forEach(b => b.onclick = async () => {
     const note = await App.prompt('Suspend listing', 'Reason (sent to the owner)');
-    if (!note) return;
-    const v = App.get.van(b.dataset.suspendv); v.status = 'suspended';
-    App.notify(v.ownerId, `${v.name} was suspended by VanYatra: ${note}`, '#/owner/vans'); App.audit('listing.suspend', `${v.id} ${v.name} — ${note}`); App.save(); App.render();
+    if (note) act(`/api/admin/vans/${b.dataset.suspendv}/status`, { status: 'suspended', note }, 'Listing suspended');
   });
-  m.querySelectorAll('[data-restorev]').forEach(b => b.onclick = () => { const v = App.get.van(b.dataset.restorev); v.status = 'published'; App.audit('listing.reinstate', v.id + ' ' + v.name); App.notify(v.ownerId, `${v.name} has been reinstated.`, '#/owner/vans'); App.save(); App.render(); });
+  m.querySelectorAll('[data-restorev]').forEach(b => b.onclick = () => act(`/api/admin/vans/${b.dataset.restorev}/status`, { status: 'published' }, 'Listing reinstated'));
 };
 
 /* ---------- Verifications ---------- */
 const VAHAN_TYPES = ['rc', 'puc', 'insurance', 'tourist_permit'];
-const recheckVan = async (van) => {
-  const r = await App.verify.run('vehicle', { regNo: van.regNo, relation: van.relation || 'owner', vanId: van.id, subjectId: van.ownerId });
-  if (r.data.docs) App.applyVehicleCheck(van, r);
-  App.audit('document.registry_recheck', `${van.id} ${van.regNo} → ${r.status}`);
-  App.save();
-  return r;
-};
+// The server looks up the registration number, checks VAHAN and updates the documents
+const recheckVan = async (van) => (await App.market('POST', `/api/admin/vans/${van.id}/recheck`, {})).result;
 // Seeded demo vans store the registration number only on their RC document
 const regNoOf = (van) => van.regNo || (App.db.documents.find(d => d.vanId === van.id && d.type === 'rc')?.number || '').replace(/[\s-]/g, '');
 
@@ -185,12 +187,13 @@ const verifications = (m) => {
       const status = b.dataset.dec;
       let note = '';
       if (status !== 'verified') { note = await App.prompt(status === 'rejected' ? 'Reject document' : 'Request action', 'Explain what the owner needs to do'); if (!note) return; }
-      App.api.reviewDocument(b.dataset.doc, status, note);
-      App.toast('Decision recorded', 'good'); draw();
+      b.disabled = true;
+      try { await App.market('POST', `/api/admin/documents/${b.dataset.doc}/decision`, { status, note }); App.toast('Decision recorded', 'good'); }
+      catch (e) { App.toast(e.message, 'bad'); }
+      draw();
     });
     m.querySelectorAll('[data-recheck]').forEach(b => b.onclick = async () => {
       const van = App.get.van(b.dataset.recheck);
-      van.regNo = regNoOf(van);
       b.disabled = true; b.textContent = 'Checking…';
       try { const r = await recheckVan(van); App.toast(`${van.name}: VAHAN check ${r.status}`, r.status === 'failed' ? 'bad' : 'good'); }
       catch (e) { App.toast(e.message, 'bad'); }
@@ -201,13 +204,16 @@ const verifications = (m) => {
       bulk.disabled = true;
       let n = 0;
       for (const id of expiringVans) {
-        const van = App.get.van(id); van.regNo = regNoOf(van);
+        const van = App.get.van(id);
         bulk.textContent = `Checking ${++n} of ${expiringVans.length}…`;
         try { await recheckVan(van); } catch (e) { App.toast(`${van.name}: ${e.message}`, 'bad'); }
       }
       App.toast('VAHAN re-check complete', 'good'); draw();
     };
-    m.querySelectorAll('[data-remind]').forEach(b => b.onclick = () => { const d = App.db.documents.find(x => x.id === b.dataset.remind); App.notify(d.ownerId, `Reminder: please renew ${d.label}${d.vanId ? ' for ' + App.get.van(d.vanId).name : ''} (${App.docExpiryState(d).label}).`, '#/owner/documents'); App.audit('document.reminder', d.label + ' ' + d.id); App.save(); App.toast('Reminder sent', 'good'); });
+    m.querySelectorAll('[data-remind]').forEach(b => b.onclick = async () => {
+      try { await App.market('POST', `/api/admin/documents/${b.dataset.remind}/remind`, {}); App.toast('Reminder sent', 'good'); }
+      catch (e) { App.toast(e.message, 'bad'); }
+    });
   };
 
   const header = () => h`<h1>KYC & document verification</h1>
@@ -423,16 +429,25 @@ const notifications = (m) => {
 };
 
 /* ---------- Audit log ---------- */
-const audit = (m) => {
+const audit = async (m) => {
   let q = '';
+  // Server entries (verification decisions, listings, checks) plus this browser's demo events
+  let server = [];
   const draw = () => {
-    const list = App.db.audit.filter(a => !q || (a.action + a.target + userName(a.actorId)).toLowerCase().includes(q));
-    m.querySelector('#a-body').innerHTML = String(h`${list.slice(0, 200).map(a => h`<tr><td>${App.fmtDateTime(a.at)}</td><td>${userName(a.actorId)}</td><td><code>${a.action}</code></td><td>${a.target}</td></tr>`)}`);
+    const all = [
+      ...server.map(e => ({ at: e.at, actor: e.actorName, action: e.action, target: e.target || [e.subject, e.ref, e.outcome].filter(Boolean).join(' · '), src: 'server' })),
+      ...App.db.audit.map(a => ({ at: a.at, actor: userName(a.actorId), action: a.action, target: a.target, src: 'local' }))
+    ].sort((a, b) => b.at.localeCompare(a.at));
+    const list = all.filter(a => !q || (a.action + a.target + a.actor).toLowerCase().includes(q));
+    m.querySelector('#a-body').innerHTML = String(h`${list.slice(0, 300).map(a => h`<tr><td>${App.fmtDateTime(a.at)}</td><td>${a.actor}</td><td><code>${a.action}</code>${a.src === 'server' ? h` <span class="source-tag">server</span>` : ''}</td><td>${a.target}</td></tr>`)}`);
   };
-  m.innerHTML = String(h`<h1>Audit log</h1><p class="small muted">Immutable record of sign-ins, verification decisions, listing changes, refunds and data requests.</p>
+  m.innerHTML = String(h`<h1>Audit log</h1><p class="small muted">Record of sign-ins, verification decisions, listing changes, refunds and data requests. Entries tagged “server” are stored on the server and can’t be edited from a browser.</p>
     <label class="field"><span class="sr-only">Filter</span><input type="search" id="a-q" placeholder="Filter by action, user or target…"></label>
     <div class="table-wrap"><table class="table"><thead><tr><th>When</th><th>Actor</th><th>Action</th><th>Target</th></tr></thead><tbody id="a-body"></tbody></table></div>`);
   m.querySelector('#a-q').oninput = (e) => { q = e.target.value.toLowerCase(); draw(); };
   draw();
+  if (App.serverOnline) {
+    try { server = (await App.server('GET', '/api/admin/audit')).entries; draw(); } catch (e) { App.toast(e.message, 'bad'); }
+  }
 };
 })();

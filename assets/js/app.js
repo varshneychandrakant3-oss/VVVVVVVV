@@ -135,7 +135,12 @@ App.renderHeader = () => {
     const list = App.db.notifications.filter(n => n.userId === me.id).slice(0, 8);
     $('notif-menu').innerHTML = String(App.h`<div class="menu-head row-between"><strong>Notifications</strong><button class="link" id="mark-read">Mark all read</button></div>
       ${list.length ? list.map(n => App.h`<a href="${n.link || '#'}" class="notif ${n.read ? '' : 'unread'}" data-n="${n.id}"><span>${n.text}</span><small class="muted">${App.timeAgo(n.at)}</small></a>`) : App.h`<p class="muted pad">You’re all caught up.</p>`}`);
-    $('mark-read').onclick = (e) => { e.stopPropagation(); App.db.notifications.forEach(n => { if (n.userId === me.id) n.read = true; }); App.save(); App.renderHeader(); };
+    $('mark-read').onclick = (e) => {
+      e.stopPropagation();
+      App.db.notifications.forEach(n => { if (n.userId === me.id) n.read = true; });
+      if (App.serverOnline) App.server('POST', '/api/notifications/read', {}).catch(() => {});
+      App.save(); App.renderHeader();
+    };
     $('notif-menu').querySelectorAll('[data-n]').forEach(a => a.onclick = () => { const n = App.db.notifications.find(x => x.id === a.dataset.n); n.read = true; App.save(); });
   });
   $('logout').onclick = async () => { await App.api.logout(); App.toast('Signed out'); App.go('#/'); };
@@ -158,7 +163,7 @@ App.renderFooter = () => {
       ${App.serverOnline ? App.h` · Document checks: ${App.verifyConfig.provider}` : App.h` · Verification server offline (run <code>npm start</code>)`}</span><button class="link" id="reset-demo">Reset demo data</button></div>`);
   document.getElementById('reset-demo').onclick = async () => {
     if (await App.confirm('Reset demo data?', 'This restores all vans, bookings and accounts to their original state and signs you out.', 'Reset')) {
-      await App.api.logout(); App.resetDemo(); App.runExpiryChecks(); App.toast('Demo data reset', 'good'); App.go('#/');
+      await App.api.logout(); App.resetDemo(); await App.syncMarket().catch(() => {}); App.runExpiryChecks(); App.toast('Demo data reset', 'good'); App.go('#/');
     }
   };
 };

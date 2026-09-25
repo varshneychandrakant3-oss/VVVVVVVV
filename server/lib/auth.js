@@ -81,6 +81,22 @@ export function changePassword(userId, oldPw, newPw) {
   write('sessions', sessions);
 }
 
+export function setAccountStatus(admin, userId, status) {
+  if (!['active', 'suspended'].includes(status)) throw new HttpError(400, 'Invalid status.');
+  const list = accounts();
+  const u = list.find(a => a.id === userId);
+  if (!u) throw new HttpError(404, 'User not found.');
+  if (u.role === 'admin') throw new HttpError(400, 'Admins can’t be suspended here.');
+  u.status = status;
+  write('accounts', list);
+  if (status === 'suspended') { // end their sessions immediately
+    const sessions = read('sessions', {});
+    for (const [k, s] of Object.entries(sessions)) if (s.userId === userId) delete sessions[k];
+    write('sessions', sessions);
+  }
+  return u;
+}
+
 const sign = (id) => id + '.' + crypto.createHmac('sha256', config.sessionSecret).update(id).digest('base64url');
 const unsign = (v) => {
   const i = String(v).lastIndexOf('.');

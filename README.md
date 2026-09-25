@@ -2,7 +2,12 @@
 
 A working prototype of a camper van marketplace for India: travellers discover destinations and book vans, owners get verified and manage their fleet, and admins run verification, payments and moderation.
 
-The web app is plain HTML, CSS and JavaScript with no build step. A small Node.js server (no third-party packages) handles sign-in and **government document verification**: Aadhaar through DigiLocker, and PAN, GSTIN, vehicle RC/insurance/PUC/permit, driving licence and bank-account checks through an authorised verification provider. Marketplace data (vans, bookings, messages) still lives in the browser's `localStorage` behind a mock API (`assets/js/db.js`).
+The web app is plain HTML, CSS and JavaScript with no build step. A small Node.js server (no third-party packages) handles:
+- **Sign-in**
+- **Government document verification:** Aadhaar through DigiLocker, and PAN, GSTIN, vehicle RC/insurance/PUC/permit, driving licence and bank-account checks through an authorised verification provider
+- **Everything that affects trust:** vans and their verification status, documents, owner verification steps, admin decisions, owner notifications and the audit log
+
+The server decides every status. Browsers can only display it and ask for changes, and every admin sees the same queue. Bookings, messages and reviews are still demo data in each browser's `localStorage` (`assets/js/db.js`).
 
 ## Run it
 
@@ -54,6 +59,8 @@ Names are matched across all documents, allowing for initials, titles, word orde
 - Checks are rate-limited per user, because each one costs money.
 - Every check is recorded server-side (`data/verifications.json`) and in an audit log (`data/audit.jsonl`). Admins see it under **KYC & documents → Government checks log**.
 - Admins can re-check any vehicle with VAHAN, one at a time or in bulk for expiring documents, to pick up renewals.
+- **Statuses can't be faked from a browser.** Check results feed straight into the server's records (`server/market.js`, stored in `data/market.json`). There is no endpoint that sets a status directly. Owners can only submit details and files. Only admins decide on documents and listings, and the server enforces the order: all 10 steps verified before approval, approval before publishing.
+- **Document expiry** is a server job (run at startup and hourly). Owners get reminders 30 days ahead. A listing is suspended when a required document expires, and reinstated automatically once renewed documents are verified.
 
 ### Test-mode values
 
@@ -124,6 +131,7 @@ package.json               npm start / npm test
 .env.example               Settings template (copy to .env)
 server/index.js            HTTP server: static files, auth, verification API, DigiLocker callback
 server/verify.js           Checks, cross-document name matching, outcomes, records
+server/market.js           Vans, documents, owner verification, admin decisions, expiry job
 server/digilocker.js       DigiLocker OAuth + PKCE, eAadhaar parsing, test-mode consent page
 server/providers/          cashfree.js (real) and sandbox.js (test mode)
 server/lib/                auth (scrypt, sessions), validation (PAN/GSTIN/IFSC…), names, rate limits, store
@@ -135,7 +143,8 @@ _headers                   Security headers for static hosting
 
 ## Still to do before a real launch
 
-- **Marketplace data:** move vans, bookings and messages from `localStorage` into a real database behind the server, next to accounts and verification records. Swap `server/lib/store.js` for Postgres or similar.
+- **Bookings, messages and reviews:** these are still per-browser demo data. Move them to the server the same way vans and documents were moved.
+- **Database:** the server stores JSON files, which is fine for a single-server pilot. Swap `server/lib/store.js` for Postgres or similar before running more than one server.
 - **Payments:** use a PCI-DSS gateway with hosted checkout (UPI, cards with 3-D Secure, net banking), deposit pre-authorisation and marketplace payouts.
 - **Document storage:** uploaded files need encrypted object storage with access logging. Today only file names are kept.
 - **Face match:** compare the selfie with the Aadhaar photo through the provider's face-match and liveness APIs.

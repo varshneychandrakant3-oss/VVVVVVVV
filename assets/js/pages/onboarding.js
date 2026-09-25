@@ -2,45 +2,38 @@
  * Van owner onboarding wizard (12 steps).
  * Owner-level steps (account, KYC, business, payout) are done once.
  * Vehicle-level steps are done for every van (?van=<id> or ?van=new).
+ *
+ * Every status shown here is decided by the server (server/market.js): this
+ * page only collects details, runs government checks and asks for changes.
  */
 (() => {
 const { h, money, photo } = App;
 
 App.ONBOARDING_STEPS = [
   { id: 'account', scope: 'owner', title: 'Account & contact verification', blurb: 'Verify your email and mobile number.' },
-  { id: 'kyc', scope: 'owner', title: 'Identity verification (KYC)', blurb: 'Government ID and a live selfie.' },
+  { id: 'kyc', scope: 'owner', title: 'Identity verification (KYC)', blurb: 'Aadhaar via DigiLocker, PAN and a live selfie.' },
   { id: 'business', scope: 'owner', title: 'Business & contact details', blurb: 'How travellers and our team reach you.' },
-  { id: 'ownership', scope: 'van', title: 'Vehicle ownership', blurb: 'Prove the van is yours or that you’re authorised.' },
+  { id: 'ownership', scope: 'van', title: 'Vehicle ownership', blurb: 'Checked against the VAHAN registry.' },
   { id: 'registration', scope: 'van', title: 'Registration & legal documents', blurb: 'RC, rental licence, PUC, fitness and permits.' },
   { id: 'insurance', scope: 'van', title: 'Insurance', blurb: 'Commercial cover for self-drive rental.' },
   { id: 'inspection', scope: 'van', title: 'Safety inspection', blurb: 'Roadworthiness and habitation checks.' },
   { id: 'photos', scope: 'van', title: 'Photos & specifications', blurb: 'Show travellers what they’re booking.' },
   { id: 'listing', scope: 'van', title: 'Amenities, pricing & rules', blurb: 'Prices, availability, deposit, cancellation.' },
-  { id: 'payout', scope: 'owner', title: 'Payout setup', blurb: 'Where we send your earnings.' },
+  { id: 'payout', scope: 'owner', title: 'Payout setup', blurb: 'Bank account checked with a ₹1 deposit.' },
   { id: 'review', scope: 'van', title: 'Platform review', blurb: 'Our team checks everything (≈2 business days).' },
   { id: 'publish', scope: 'van', title: 'Publish listing', blurb: 'Go live and start taking bookings.' }
 ];
-
-App.newVan = (ownerId) => ({
-  id: App.uid('v'), ownerId, name: '', type: 'Campervan', destinationId: App.db.destinations[0].id, city: '', sleeps: 4, seats: 4,
-  make: '', model: '', year: new Date().getFullYear(), fuel: 'Diesel', transmission: 'Manual', amenities: [], familyFriendly: false, petFriendly: false,
-  instantBook: false, cancellation: 'moderate', pricePerNight: 5000, weekendPrice: 5500, cleaningFee: 1200, deposit: 15000, minNights: 2,
-  discounts: { weekly: 10, monthly: 20 }, kmPerDay: 250, extraKmFee: 12, beds: '', length: '', licence: 'Standard LMV car licence', mileage: '',
-  pickup: { city: '', address: '', lat: 0, lng: 0, time: '11:00', returnTime: '10:00' }, rules: ['No smoking inside the van', 'Return with the same fuel level'],
-  description: '', photos: [], blocked: [], status: 'draft',
-  verification: { ownership: 'not_started', registration: 'not_started', insurance: 'not_started', inspection: 'not_started', photos: 'not_started', listing: 'not_started', review: 'not_started' },
-  views: 0, createdAt: new Date().toISOString()
-});
 
 App.stepStatus = (step, ownerId, van) => {
   const o = App.db.owners[ownerId] || {};
   if (step.scope === 'owner') return o[step.id]?.status || 'not_started';
   if (!van) return 'not_started';
   if (step.id === 'publish') return van.status === 'published' ? 'verified' : van.status === 'suspended' ? 'action_required' : 'not_started';
-  return van.verification[step.id] || 'not_started';
+  return van.verification?.[step.id] || 'not_started';
 };
 
-const fileField = (name, label, required = true) => h`<label class="field"><span>${label}${required ? '' : ' (optional)'}</span><input type="file" name="${name}" accept=".pdf,image/jpeg,image/png" ${required ? 'required' : ''}><small class="muted">PDF, JPG or PNG up to 10 MB. Stored encrypted; only our verification team can view it.</small></label>`;
+/* ---------- Small helpers ---------- */
+const fileField = (name, label, required = true) => h`<label class="field"><span>${label}${required ? '' : ' (optional)'}</span><input type="file" name="${name}" accept=".pdf,image/jpeg,image/png" ${required ? 'required' : ''}><small class="muted">PDF, JPG or PNG up to 10 MB. Only our verification team can view it.</small></label>`;
 const checkFile = (input) => {
   const f = input?.files?.[0];
   if (!f) return null;
@@ -48,68 +41,42 @@ const checkFile = (input) => {
   if (!/(pdf|jpe?g|png)$/i.test(f.name)) throw new Error('Upload a PDF, JPG or PNG.');
   return f.name;
 };
-
-/* ---------- Government verification helpers ---------- */
 const OUTCOME = { verified: ['good', '✓ Verified'], review: ['warn', '⏳ Needs review'], failed: ['bad', '✕ Failed'] };
 App.checkResultBox = (r) => {
   if (!r) return '';
   const [tone, label] = OUTCOME[r.status] || ['muted', r.status];
   return h`<div class="check-result check-${tone}" role="status">
     <div class="row-between wrap"><strong>${label}</strong><span class="small muted">${r.source} · ${App.fmtDateTime(r.checkedAt)}</span></div>
-    <ul>${r.reasons.map(x => h`<li class="lvl-${x.level}">${x.level === 'ok' ? '✓' : x.level === 'review' ? '!' : '✕'} ${x.text}</li>`)}</ul>
+    <ul>${(r.reasons || []).map(x => h`<li class="lvl-${x.level}">${x.level === 'ok' ? '✓' : x.level === 'review' ? '!' : '✕'} ${x.text}</li>`)}</ul>
   </div>`;
 };
 const testHint = (text) => App.verifyConfig?.testMode ? h`<p class="test-hint">🧪 <strong>Test mode</strong> — no real government check is made. ${text}</p>` : '';
+// Run an async action with a busy button; server errors become toasts
 const busy = async (btn, fn) => {
   const label = btn.innerHTML;
-  btn.disabled = true; btn.innerHTML = '<span class="spinner" aria-hidden="true"></span> Checking…';
+  btn.disabled = true; btn.innerHTML = '<span class="spinner" aria-hidden="true"></span> Working…';
   try { return await fn(); }
   catch (e) { App.toast(e.status === 401 ? 'Your session expired — please sign in again.' : e.message, 'bad'); return null; }
-  finally { btn.disabled = false; btn.innerHTML = label; }
+  finally { if (btn.isConnected) { btn.disabled = false; btn.innerHTML = label; } }
 };
 const consentBox = (id, text) => h`<label class="check consent"><input type="checkbox" id="${id}"> ${text}</label>`;
 const needConsent = (c, id) => { if (c.querySelector('#' + id)?.checked) return true; App.toast('Please tick the consent box first.', 'bad'); return false; };
-
-// Create or update a document whose status comes from a registry check (no admin queue noise)
-const upsertCheckedDoc = (ownerId, vanId, type, label, fields) => {
-  let d = App.db.documents.find(x => x.ownerId === ownerId && x.vanId === vanId && x.type === type);
-  if (!d) { d = { id: App.uid('doc'), ownerId, vanId, type, label, submittedAt: new Date().toISOString() }; App.db.documents.push(d); }
-  Object.assign(d, { reminded: false }, fields);
-  return d;
-};
-
-// Turn one VAHAN lookup into RC / PUC / permit / insurance document records
-App.applyVehicleCheck = (van, r) => {
-  const check = { source: r.source, checkedAt: r.checkedAt, outcome: r.status };
-  van.registry = { ...r.data, status: r.status, checkedAt: r.checkedAt, source: r.source, reasons: r.reasons };
-  const docs = r.data.docs;
-  if (!docs) return;
-  const st = (s) => s === 'valid' ? 'verified' : 'action_required';
-  upsertCheckedDoc(van.ownerId, van.id, 'rc', 'Registration Certificate (RC)', {
-    number: r.data.regNo, expiry: docs.rc.validUpto, check,
-    status: docs.rc.status !== 'valid' ? 'action_required' : r.data.isCommercial ? 'verified' : 'action_required',
-    note: docs.rc.status !== 'valid' ? 'RC is not active in VAHAN.' : r.data.isCommercial ? '' : 'Registered as a private vehicle — self-drive rental needs commercial registration.'
-  });
-  upsertCheckedDoc(van.ownerId, van.id, 'puc', 'Pollution Under Control (PUC) certificate', { number: docs.puc.number, expiry: docs.puc.validUpto, check, status: st(docs.puc.status), note: docs.puc.status === 'valid' ? '' : 'PUC expired or missing in VAHAN.' });
-  if (docs.permit.validUpto) upsertCheckedDoc(van.ownerId, van.id, 'tourist_permit', 'All India Tourist Permit (for interstate trips)', { number: docs.permit.type, expiry: docs.permit.validUpto, check, status: st(docs.permit.status), note: '' });
-  // VAHAN proves the policy is valid, not that it covers self-drive rental: a person
-  // checks the policy schedule once; re-checks keep that approval for the same policy.
-  const prev = App.db.documents.find(x => x.vanId === van.id && x.type === 'insurance');
-  const samePolicyApproved = prev && prev.status === 'verified' && prev.number === docs.insurance.policyNumber;
-  upsertCheckedDoc(van.ownerId, van.id, 'insurance', 'Commercial comprehensive insurance (self-drive rental cover)', {
-    number: docs.insurance.policyNumber, insurer: docs.insurance.company, expiry: docs.insurance.validUpto, check,
-    status: docs.insurance.status !== 'valid' ? 'action_required' : samePolicyApproved ? 'verified' : 'pending',
-    note: docs.insurance.status !== 'valid' ? 'Insurance expired or missing in VAHAN.' : samePolicyApproved ? '' : 'Valid in VAHAN. Upload the policy schedule so we can confirm self-drive rental cover.'
-  });
-  App.recomputeVerification(van.ownerId, van.id);
-};
+const docsOf = (vanId, types) => App.db.documents.filter(d => d.vanId === vanId && (!types || types.includes(d.type)));
+const addDoc = (van, body) => App.market('POST', `/api/owner/vans/${van.id}/documents`, body);
+const patchVan = (van, body) => App.market('PATCH', `/api/owner/vans/${van.id}`, body);
 
 App.pages.onboarding = (el, _p, q) => {
   const me = App.me();
-  App.db.owners[me.id] = App.db.owners[me.id] || { account: { status: 'action_required', note: 'Verify your email and mobile number.' } };
-  const owner = App.db.owners[me.id];
-  if (me.emailVerified && me.phoneVerified && owner.account?.status !== 'verified') { owner.account = { status: 'verified' }; App.save(); }
-  const myVans = App.db.vans.filter(v => v.ownerId === me.id);
+  if (!App.serverOnline) {
+    el.innerHTML = String(App.emptyState('🔌', 'Onboarding needs the VanYatra server', 'Government document checks and approvals run on the server. Start it with npm start and reload this page.'));
+    return;
+  }
+  const owner = App.db.owners[me.id] || {};
+  // Contact verification is confirmed on this device (OTP demo) and recorded on the server
+  if (me.emailVerified && me.phoneVerified && owner.account?.status !== 'verified') {
+    App.market('POST', '/api/owner/profile', { accountVerified: true }).then(() => App.render()).catch(e => App.toast(e.message, 'bad'));
+  }
+  const myVans = App.db.vans.filter(v => v.ownerId === me.id && v.status !== 'hidden');
   let van = q.van && q.van !== 'new' ? App.get.van(q.van) : null;
   if (van && van.ownerId !== me.id) return App.pages.notFound(el);
   if (!van && q.van !== 'new') van = myVans.find(v => v.status !== 'published') || myVans[0] || null;
@@ -118,7 +85,7 @@ App.pages.onboarding = (el, _p, q) => {
   const stepIdx = Math.max(0, Math.min(11, q.step ? +q.step - 1 : firstOpen === -1 ? 11 : firstOpen));
   const step = App.ONBOARDING_STEPS[stepIdx];
   const done = statuses.filter(s => s === 'verified').length;
-  const link = (i) => `#/owner/onboarding?${van ? 'van=' + van.id + '&' : q.van === 'new' ? 'van=new&' : ''}step=${i + 1}`;
+  const link = (i, v = van) => `#/owner/onboarding?${v ? 'van=' + v.id + '&' : q.van === 'new' ? 'van=new&' : ''}step=${i + 1}`;
 
   el.innerHTML = String(h`
   <div class="container onboard">
@@ -136,45 +103,58 @@ App.pages.onboarding = (el, _p, q) => {
         <p class="eyebrow">Step ${stepIdx + 1} of 12 · ${step.scope === 'owner' ? 'Your profile' : 'This vehicle'}</p>
         <h2>${step.title}</h2>
         ${statuses[stepIdx] !== 'not_started' ? h`<div class="step-status">${App.statusBadge(statuses[stepIdx])} ${statusNote(step, owner, van)}</div>` : ''}
+        ${van?.status === 'in_review' && step.scope === 'van' && step.id !== 'review' ? h`<p class="callout">⏳ This listing is under review, so it can’t be edited until our team decides.</p>` : ''}
         <div id="step-content"></div>
       </section>
     </div>
   </div>`);
   const sw = el.querySelector('#van-switch');
   if (sw) sw.onchange = () => App.go('#/owner/onboarding?van=' + sw.value);
-  const next = () => App.go(link(Math.min(11, stepIdx + 1)));
-  const ctx = { me, owner, van, next, statuses, el, link };
+  const next = (v = van) => App.go(link(Math.min(11, stepIdx + 1), v));
+  const ctx = { me, owner, van, next, statuses, el, link, q };
   STEPS[step.id](el.querySelector('#step-content'), ctx);
 };
 
 const statusNote = (step, owner, van) => {
-  const note = step.scope === 'owner' ? owner[step.id]?.note : van?.verificationNotes?.[step.id];
-  const docs = van ? App.get.docsFor({ vanId: van.id }).filter(d => d.note && ['action_required', 'rejected'].includes(d.status)) : [];
-  const relevant = docs.filter(d => (step.id === 'insurance' && d.type === 'insurance') || (step.id === 'registration' && App.C.registrationDocs.some(r => r.type === d.type)) || (step.id === 'inspection' && d.type === 'inspection') || (step.id === 'ownership' && d.type.startsWith('ownership')));
-  return h`${note ? h`<span class="small">${note}</span>` : ''}${relevant.map(d => h`<div class="small"><strong>${d.label}:</strong> ${d.note}</div>`)}`;
+  const note = step.scope === 'owner' ? owner[step.id]?.note : '';
+  const types = { ownership: (t) => t.startsWith('ownership'), registration: (t) => App.C.registrationDocs.some(r => r.type === t), insurance: (t) => t === 'insurance', inspection: (t) => t === 'inspection' }[step.id];
+  const relevant = van && types ? docsOf(van.id).filter(d => types(d.type) && d.note && ['action_required', 'rejected', 'pending'].includes(d.status)) : [];
+  const kyc = step.id === 'kyc' ? App.db.documents.filter(d => !d.vanId && ['aadhaar', 'pan', 'selfie'].includes(d.type) && d.note) : [];
+  return h`${note ? h`<span class="small">${note}</span>` : ''}${[...relevant, ...kyc].map(d => h`<div class="small"><strong>${d.label}:</strong> ${d.note}</div>`)}`;
 };
 
-// Vehicle steps need a van; create a draft one the first time
+// Vehicle steps need a van; it's created at the ownership step
 const needVan = (c, ctx) => {
   if (ctx.van) return false;
-  c.innerHTML = String(h`<p>Let’s start with your vehicle. Complete <a href="${ctx.link(3)}">Step 4 · Vehicle ownership</a> first to create your van.</p>`);
+  c.innerHTML = String(h`<p>Let’s start with your vehicle. Complete <a href="${ctx.link(3)}">Step 4 · Vehicle ownership</a> first to add your van.</p>`);
   return true;
 };
 
 const docStatusList = (docs) => docs.length ? h`<ul class="doc-status">${docs.map(d => { const ex = App.docExpiryState(d); return h`<li><span>${d.label}${d.fileName ? h` <span class="small muted">· ${d.fileName}</span>` : ''}${d.check ? h`<span class="source-tag">✓ ${d.check.source}</span>` : ''}</span>${ex ? h`<span class="badge badge-${ex.tone}">${ex.label}</span>` : ''}${App.statusBadge(d.status)}</li>`; })}</ul>` : '';
 
+const registryTable = (r) => {
+  const d = r.data || r, docs = d.docs || {};
+  if (!d.owner) return '';
+  return h`<table class="spec-table small registry"><tbody>
+    <tr><th scope="row">Registered owner</th><td>${d.owner}</td></tr>
+    <tr><th scope="row">Vehicle</th><td>${d.makeModel || '—'} · ${d.vehicleClass || ''} · ${d.fuel || ''}</td></tr>
+    <tr><th scope="row">Registered</th><td>${App.fmtDate(d.regDate)} · ${d.regAuthority || ''} · ${d.isCommercial ? 'Commercial' : 'Private'}</td></tr>
+    <tr><th scope="row">RC valid until</th><td>${App.fmtDate(docs.rc?.validUpto) || '—'}</td></tr>
+    <tr><th scope="row">Insurance</th><td>${docs.insurance?.company || '—'} · ${docs.insurance?.validUpto ? 'until ' + App.fmtDate(docs.insurance.validUpto) : 'none on record'}</td></tr>
+    <tr><th scope="row">PUC</th><td>${docs.puc?.validUpto ? 'until ' + App.fmtDate(docs.puc.validUpto) : 'none on record'}</td></tr>
+    <tr><th scope="row">Permit</th><td>${docs.permit?.type || '—'}${docs.permit?.validUpto ? ' · until ' + App.fmtDate(docs.permit.validUpto) : ''}</td></tr>
+  </tbody></table>`;
+};
+
 const STEPS = {
   account(c, { me, owner, next }) {
     c.innerHTML = String(h`<p>We send booking alerts and payout updates to these. Both must be verified.</p><div id="otp"></div>
       <div class="form-actions"><button class="btn btn-primary" id="nx" ${owner.account?.status === 'verified' ? '' : 'disabled'}>Continue</button></div>`);
-    App.otpWidget(c.querySelector('#otp'), me, () => { owner.account = { status: 'verified' }; App.save(); App.render(); });
-    c.querySelector('#nx').onclick = next;
+    App.otpWidget(c.querySelector('#otp'), me, () => App.market('POST', '/api/owner/profile', { accountVerified: true }).then(() => App.render()).catch(e => App.toast(e.message, 'bad')));
+    c.querySelector('#nx').onclick = () => next();
   },
 
-  async kyc(c, ctx) {
-    if (!App.serverOnline) return STEPS.kycManual(c, ctx);
-    const { me, owner, next } = ctx;
-    const q = App.parseHash().query;
+  async kyc(c, { me, next, q }) {
     if (q.digilocker) {
       const msgs = { verified: ['Aadhaar verified with DigiLocker', 'good'], review: ['Aadhaar received — our team will review the name match', 'info'], failed: ['Aadhaar check failed — see details below', 'bad'], denied: [q.msg || 'DigiLocker consent was cancelled', 'bad'], error: [q.msg || 'DigiLocker error', 'bad'] };
       const [m, t] = msgs[q.digilocker] || ['DigiLocker finished', 'info'];
@@ -186,7 +166,7 @@ const STEPS = {
     try { mine = await App.verify.mine(); } catch (e) { c.innerHTML = String(h`<p class="error">${e.message}</p>`); return; }
     const last = (t) => mine.records.filter(r => r.type === t).at(-1);
     const aad = last('aadhaar'), pan = last('pan');
-    const selfieDoc = App.get.docsFor({ ownerId: me.id, type: 'selfie' }).find(d => !d.vanId);
+    const selfie = App.db.documents.find(d => !d.vanId && d.type === 'selfie' && d.ownerId === me.id);
     c.innerHTML = String(h`
       <p>We check your identity directly with government sources. Only the last 4 digits of Aadhaar and a masked PAN are stored.</p>
       ${testHint('In DigiLocker you can type any name. PANs ending in X are “not found”; a Z as the 5th letter gives a name mismatch.')}
@@ -205,8 +185,8 @@ const STEPS = {
         <button type="button" class="btn ${pan && pan.status !== 'failed' ? 'btn-ghost' : 'btn-primary'}" id="pan-btn">${pan ? 'Check PAN again' : 'Verify PAN'}</button>
       </div>
       <div class="kyc-block"><h3>3. Live selfie</h3>
-        ${selfieDoc ? h`<p class="small">${App.statusBadge(selfieDoc.status)} ${selfieDoc.fileName}</p>` : ''}
-        <label class="field"><span>${selfieDoc ? 'Replace selfie (optional)' : 'Take a selfie'}</span><input type="file" id="selfie" accept="image/*" capture="user"><small class="muted">Our team matches it to your Aadhaar photo.</small></label>
+        ${selfie ? h`<p class="small">${App.statusBadge(selfie.status)} ${selfie.fileName}${selfie.note ? ' — ' + selfie.note : ''}</p>` : ''}
+        <label class="field"><span>${selfie ? 'Replace selfie (optional)' : 'Take a selfie'}</span><input type="file" id="selfie" accept="image/*" capture="user"><small class="muted">Our team matches it to your Aadhaar photo.</small></label>
       </div>
       <div class="form-actions"><button class="btn btn-primary" id="kyc-done">Save & continue</button></div>`);
     c.querySelector('#dl-btn').onclick = (e) => {
@@ -217,90 +197,51 @@ const STEPS = {
       const f = c.querySelector('#pan-form');
       f.pan.value = f.pan.value.toUpperCase().trim();
       if (!needConsent(c, 'kyc-consent') || !f.reportValidity()) return;
-      busy(e.currentTarget, async () => { await App.verify.run('pan', { pan: f.pan.value, dob: f.dob.value, name: f.name.value }); App._keepScroll = true; App.render(); });
+      busy(e.currentTarget, async () => { await App.verify.run('pan', { pan: f.pan.value, dob: f.dob.value, name: f.name.value }); await App.syncMarket(); App._keepScroll = true; App.render(); });
     };
-    c.querySelector('#kyc-done').onclick = () => {
+    c.querySelector('#kyc-done').onclick = (e) => {
       if (!aad || aad.status === 'failed') return App.toast('Complete Aadhaar verification with DigiLocker first.', 'bad');
       if (!pan || pan.status === 'failed') return App.toast('Verify your PAN first.', 'bad');
       const sf = c.querySelector('#selfie').files[0];
-      if (!sf && !selfieDoc) return App.toast('Please add a selfie.', 'bad');
-      const src = (r) => ({ source: r.source, checkedAt: r.checkedAt, outcome: r.status });
-      upsertCheckedDoc(me.id, undefined, 'aadhaar', 'Aadhaar (via DigiLocker)', { number: 'XXXX-XXXX-' + aad.data.aadhaarLast4, status: App.verify.docStatus(aad), note: App.verify.note(aad), check: src(aad) });
-      upsertCheckedDoc(me.id, undefined, 'pan', 'PAN', { number: pan.data.panMasked, status: App.verify.docStatus(pan), note: App.verify.note(pan), check: src(pan) });
-      if (sf) App.api.uploadDocument({ ownerId: me.id, type: 'selfie', label: 'Live selfie', fileName: sf.name });
-      owner.kyc = { status: 'pending', data: { aadhaarLast4: aad.data.aadhaarLast4, panMasked: pan.data.panMasked, name: aad.data.name } };
-      App.recomputeVerification(me.id);
-      App.save(); App.toast('Identity details saved', 'good'); next();
-    };
-  },
-
-  kycManual(c, { me, owner, next }) {
-    const docs = App.get.docsFor({ ownerId: me.id }).filter(d => !d.vanId && ['aadhaar', 'pan', 'selfie'].includes(d.type));
-    const st = owner.kyc?.status;
-    if (st === 'verified' || st === 'pending') {
-      c.innerHTML = String(h`${docStatusList(docs)}<p class="muted small">${st === 'pending' ? 'Our team is reviewing your documents. You can continue with the next steps meanwhile.' : 'Your identity is verified.'}</p><div class="form-actions"><button class="btn btn-primary" id="nx">Continue</button></div>`);
-      c.querySelector('#nx').onclick = next;
-      return;
-    }
-    c.innerHTML = String(h`<p>${App.C.kyc.intro}</p>
-      <form id="f" novalidate>
-        <div class="grid-2">
-          <label class="field"><span>Aadhaar number</span><input name="aadhaar" inputmode="numeric" pattern="[0-9]{12}" maxlength="12" required autocomplete="off"><small class="muted">We verify via DigiLocker and keep only the last 4 digits.</small></label>
-          <label class="field"><span>PAN</span><input name="pan" pattern="${App.C.kyc.documents[1].pattern.slice(1, -1)}" maxlength="10" required style="text-transform:uppercase" autocomplete="off"></label>
-        </div>
-        ${fileField('aadhaarFile', 'Aadhaar (masked copy or DigiLocker PDF)')}
-        ${fileField('panFile', 'PAN card')}
-        <label class="field"><span>Live selfie</span><input type="file" name="selfie" accept="image/*" capture="user" required><small class="muted">Matched against your ID photo.</small></label>
-        <label class="check"><input type="checkbox" name="consent" required> I consent to VanYatra verifying my identity with UIDAI/DigiLocker and NSDL for KYC purposes only.</label>
-        <div class="form-actions"><button class="btn btn-primary">Submit for verification</button></div>
-      </form>`);
-    const f = c.querySelector('#f');
-    f.onsubmit = (e) => {
-      e.preventDefault();
-      f.pan.value = f.pan.value.toUpperCase();
-      if (!f.checkValidity()) return f.reportValidity();
-      try {
-        const aFile = checkFile(f.aadhaarFile), pFile = checkFile(f.panFile), sFile = f.selfie.files[0]?.name;
-        const last4 = f.aadhaar.value.slice(-4);
-        App.api.uploadDocument({ ownerId: me.id, type: 'aadhaar', label: 'Aadhaar (masked)', number: 'XXXX-XXXX-' + last4, fileName: aFile });
-        App.api.uploadDocument({ ownerId: me.id, type: 'pan', label: 'PAN card', number: 'XXXXX' + f.pan.value.slice(5), fileName: pFile });
-        App.api.uploadDocument({ ownerId: me.id, type: 'selfie', label: 'Live selfie', fileName: sFile });
-        owner.kyc = { status: 'pending', data: { aadhaarLast4: last4, panMasked: 'XXXXX' + f.pan.value.slice(5) } };
-        App.save(); App.toast('KYC submitted for review', 'good'); next();
-      } catch (err) { App.toast(err.message, 'bad'); }
+      if (!sf && !selfie) return App.toast('Please add a selfie.', 'bad');
+      busy(e.currentTarget, async () => {
+        if (sf) await App.market('POST', '/api/owner/selfie', { fileName: sf.name });
+        App.toast('Identity details saved', 'good'); next();
+      });
     };
   },
 
   business(c, { me, owner, next }) {
     const d = owner.business?.data || {};
+    let gst = owner.gst || null;
     c.innerHTML = String(h`<form id="f" novalidate>
       <fieldset class="field"><legend>You are listing as</legend>
         <label class="check"><input type="radio" name="kind" value="individual" ${d.kind !== 'company' ? 'checked' : ''}> An individual</label>
         <label class="check"><input type="radio" name="kind" value="company" ${d.kind === 'company' ? 'checked' : ''}> A registered business</label></fieldset>
       <div class="grid-2">
         <label class="field"><span>Display / business name</span><input name="business" value="${d.business || me.business || me.name}" required></label>
-        <label class="field"><span>${App.C.business.taxIdLabel}</span><span class="input-action"><input name="gstin" value="${d.gstin || ''}" pattern="${App.C.business.taxIdPattern.slice(1, -1)}" style="text-transform:uppercase" autocomplete="off">${App.serverOnline ? h`<button type="button" class="btn btn-sm" id="gst-btn">Verify</button>` : ''}</span></label>
+        <label class="field"><span>${App.C.business.taxIdLabel}</span><span class="input-action"><input name="gstin" value="${d.gstin || ''}" pattern="${App.C.business.taxIdPattern.slice(1, -1)}" style="text-transform:uppercase" autocomplete="off"><button type="button" class="btn btn-sm" id="gst-btn">Verify</button></span></label>
         <label class="field"><span>Support phone for travellers</span><input type="tel" name="phone" value="${d.phone || me.phone}" required></label>
         <label class="field"><span>Emergency contact (name & phone)</span><input name="emergency" value="${d.emergency || ''}" required></label>
       </div>
       <label class="field"><span>Registered address</span><textarea name="address" rows="2" required>${d.address || ''}</textarea></label>
       <div class="grid-3"><label class="field"><span>City</span><input name="city" value="${d.city || me.city || ''}" required></label><label class="field"><span>State</span><input name="state" value="${d.state || ''}" required></label><label class="field"><span>PIN code</span><input name="pin" value="${d.pin || ''}" pattern="[0-9]{6}" inputmode="numeric" required></label></div>
-      <div id="gst-result">${owner.business?.gst ? App.checkResultBox(owner.business.gst) : ''}</div>
-      ${App.serverOnline ? h`${testHint('Any GSTIN with a correct check digit works; use “Fill test GSTIN” to make one from a PAN. A 13th character of 9 simulates a cancelled registration.')}
-        ${App.verifyConfig?.testMode ? h`<button type="button" class="link small" id="gst-test">Fill test GSTIN</button>` : ''}
-        ${consentBox('gst-consent', 'I consent to VanYatra checking this GSTIN with the GST Network.')}` : ''}
-      <div class="form-actions"><button class="btn btn-primary">Save & continue</button></div></form>`);
+      <div id="gst-result"></div>
+      ${testHint('Any GSTIN with a correct check digit works; use “Fill test GSTIN” to make one. A 13th character of 9 simulates a cancelled registration.')}
+      ${App.verifyConfig?.testMode ? h`<button type="button" class="link small" id="gst-test">Fill test GSTIN</button>` : ''}
+      ${consentBox('gst-consent', 'I consent to VanYatra checking this GSTIN with the GST Network.')}
+      <div class="form-actions"><button class="btn btn-primary" id="save-btn">Save & continue</button></div></form>`);
     const f = c.querySelector('#f');
-    let gst = owner.business?.gst || null;
     const gb = c.querySelector('#gst-btn');
-    if (gb) gb.onclick = () => {
+    gb.onclick = () => {
       f.gstin.value = f.gstin.value.toUpperCase().trim();
       if (!f.gstin.value) return App.toast('Enter your GSTIN first.', 'bad');
       if (!needConsent(c, 'gst-consent')) return;
       busy(gb, async () => {
-        gst = await App.verify.run('gstin', { gstin: f.gstin.value, businessName: f.business.value, kind: f.kind.value });
-        c.querySelector('#gst-result').innerHTML = String(App.checkResultBox(gst));
-        if (gst.data.address && !f.address.value) f.address.value = gst.data.address;
+        const r = await App.verify.run('gstin', { gstin: f.gstin.value, businessName: f.business.value, kind: f.kind.value });
+        gst = { gstin: r.ref, status: r.status };
+        c.querySelector('#gst-result').innerHTML = String(App.checkResultBox(r));
+        if (r.data.address && !f.address.value) f.address.value = r.data.address;
       });
     };
     const gt = c.querySelector('#gst-test');
@@ -315,129 +256,99 @@ const STEPS = {
       f.gstin.value = f.gstin.value.toUpperCase().trim();
       if (!f.checkValidity()) return f.reportValidity();
       const data = App.formData(f);
-      let status = 'verified';
-      if (data.gstin && App.serverOnline) {
-        if (!gst || gst.data.gstin !== data.gstin) return App.toast('Click “Verify” to check your GSTIN before saving.', 'bad');
-        if (gst.status === 'failed') return App.toast('This GSTIN failed verification. Fix it or leave it blank if you’re below the GST threshold.', 'bad');
-        status = gst.status === 'verified' ? 'verified' : 'pending';
-      }
-      owner.business = { status, data, gst: data.gstin ? gst : null, note: status === 'pending' ? App.verify.note(gst) : '' };
-      me.business = data.business; me.city = data.city;
-      App.save(); App.toast('Business details saved', 'good'); next();
+      if (data.gstin && (!gst || gst.gstin !== data.gstin)) return App.toast('Click “Verify” to check your GSTIN before saving.', 'bad');
+      busy(c.querySelector('#save-btn'), async () => {
+        await App.market('POST', '/api/owner/profile', { business: data });
+        me.business = data.business; me.city = data.city; App.save();
+        App.toast('Business details saved', 'good'); next();
+      });
     };
   },
 
   ownership(c, ctx) {
-    const { me } = ctx;
+    const { me, link } = ctx;
     const van = ctx.van;
-    const docs = van ? App.get.docsFor({ vanId: van.id }).filter(d => d.type.startsWith('ownership')) : [];
+    const locked = van?.status === 'in_review';
+    const docs = van ? docsOf(van.id).filter(d => d.type.startsWith('ownership')) : [];
+    const reg = van?.registry;
     c.innerHTML = String(h`${docStatusList(docs)}<form id="f" novalidate>
-      <div class="grid-2">
-        <label class="field"><span>Registration number</span><span class="input-action"><input name="reg" value="${van?.regNo || ''}" placeholder="e.g. HP 01 AB 1234" required pattern="[A-Za-z]{2}[ \\-]?[0-9]{1,2}[ \\-]?[A-Za-z]{0,3}[ \\-]?[0-9]{1,4}" autocomplete="off">${App.serverOnline ? h`<button type="button" class="btn btn-sm" id="vahan-btn">Check VAHAN</button>` : ''}</span></label>
-        <label class="field"><span>Name on RC</span><input name="rcName" value="${van?.rcName || me.name}" required></label>
-        <label class="field"><span>Make</span><input name="make" value="${van?.make || ''}" placeholder="Force, Tata, Mahindra…" required></label>
-        <label class="field"><span>Model</span><input name="model" value="${van?.model || ''}" required></label>
-        <label class="field"><span>Year</span><input type="number" name="year" min="2005" max="${new Date().getFullYear() + 1}" value="${van?.year || ''}" required></label>
-        <label class="field"><span>Chassis number (last 5)</span><input name="chassis" maxlength="5" value="${van?.chassis || ''}" required></label>
-      </div>
       <fieldset class="field"><legend>Your relationship to the vehicle</legend>
-        ${App.C.ownership.options.map((o, i) => h`<label class="check"><input type="radio" name="relation" value="${o.value}" ${(van?.relation || 'owner') === o.value ? 'checked' : ''}> ${o.label}</label>`)}</fieldset>
-      ${App.serverOnline ? h`${testHint('Registration numbers ending 0000 = not found, 1111 = insurance expired, 2222 = different owner, 3333 = blacklisted, 4444 = private vehicle, 5555 = PUC expired, 9999 = registry down.')}
-        ${consentBox('rc-consent', 'I consent to VanYatra fetching this vehicle’s records (RC, insurance, PUC, permit) from the VAHAN registry.')}` : ''}
-      <div id="vahan-result"></div>
-      <div id="auth-docs"></div>
-      ${fileField('rcFile', App.serverOnline ? 'RC copy (optional — VAHAN is the source of truth)' : 'Registration Certificate (RC) front & back', !App.serverOnline)}
-      <div class="form-actions"><button class="btn btn-primary">Save & continue</button></div></form>`);
+        ${App.C.ownership.options.map(o => h`<label class="check"><input type="radio" name="relation" value="${o.value}" ${(van?.relation || 'owner') === o.value ? 'checked' : ''}> ${o.label}</label>`)}</fieldset>
+      <label class="field"><span>Registration number</span><span class="input-action"><input name="reg" value="${van?.regNo || ''}" placeholder="e.g. HP 01 AB 1234" required pattern="[A-Za-z]{2}[ \\-]?[0-9]{1,2}[ \\-]?[A-Za-z]{0,3}[ \\-]?[0-9]{1,4}" autocomplete="off"><button type="button" class="btn btn-sm" id="vahan-btn" ${locked ? 'disabled' : ''}>Check VAHAN</button></span></label>
+      ${testHint('Registration numbers ending 0000 = not found, 1111 = insurance expired, 2222 = different owner, 3333 = blacklisted, 4444 = private vehicle, 5555 = PUC expired, 9999 = registry down.')}
+      ${consentBox('rc-consent', 'I consent to VanYatra fetching this vehicle’s records (RC, insurance, PUC, permit) from the VAHAN registry.')}
+      <div id="vahan-result">${reg ? h`${App.checkResultBox({ status: reg.status, reasons: reg.reasons, source: reg.source, checkedAt: reg.checkedAt })}${registryTable(reg)}` : ''}</div>
+      ${reg?.owner ? h`
+        <div class="grid-2">
+          <label class="field"><span>Make</span><input name="make" value="${van.make || titleCase(reg.maker).replace(/\s+Motors?$/, '')}" required></label>
+          <label class="field"><span>Model</span><input name="model" value="${van.model || titleCase(reg.model)}" required></label>
+          <label class="field"><span>Year</span><input type="number" name="year" min="1990" max="${new Date().getFullYear() + 1}" value="${van.year && van.make ? van.year : (reg.regDate || '').slice(0, 4)}" required></label>
+          <label class="field"><span>Chassis number (last 5)</span><input name="chassis" maxlength="5" value="${van.chassis || ''}" required></label>
+        </div>
+        <div id="auth-docs"></div>
+        ${fileField('rcFile', 'RC copy (optional — VAHAN is the source of truth)', false)}
+        <div class="form-actions"><button class="btn btn-primary" id="own-save" ${locked ? 'disabled' : ''}>Save & continue</button></div>` : ''}
+      </form>`);
     const f = c.querySelector('#f');
-    let rc = van?.registry?.regNo ? { status: van.registry.status, data: van.registry, reasons: van.registry.reasons || [], source: van.registry.source, checkedAt: van.registry.checkedAt } : null;
-    const drawRc = () => {
-      const box = c.querySelector('#vahan-result');
-      if (!rc) { box.innerHTML = ''; return; }
-      const d = rc.data, docs = d.docs || {};
-      box.innerHTML = String(h`${App.checkResultBox(rc)}
-        ${d.owner ? h`<table class="spec-table small registry"><tbody>
-          <tr><th scope="row">Registered owner</th><td>${d.owner}</td></tr>
-          <tr><th scope="row">Vehicle</th><td>${d.makeModel || '—'} · ${d.vehicleClass || ''} · ${d.fuel || ''}</td></tr>
-          <tr><th scope="row">Registered</th><td>${App.fmtDate(d.regDate)} · ${d.regAuthority || ''} · ${d.isCommercial ? 'Commercial' : 'Private'}</td></tr>
-          <tr><th scope="row">RC valid until</th><td>${App.fmtDate(docs.rc?.validUpto) || '—'}</td></tr>
-          <tr><th scope="row">Insurance</th><td>${docs.insurance?.company || '—'} · ${docs.insurance?.validUpto ? 'until ' + App.fmtDate(docs.insurance.validUpto) : 'none on record'}</td></tr>
-          <tr><th scope="row">PUC</th><td>${docs.puc?.validUpto ? 'until ' + App.fmtDate(docs.puc.validUpto) : 'none on record'}</td></tr>
-          <tr><th scope="row">Permit</th><td>${docs.permit?.type || '—'}${docs.permit?.validUpto ? ' · until ' + App.fmtDate(docs.permit.validUpto) : ''}</td></tr>
-        </tbody></table>` : ''}`);
-    };
-    drawRc();
-    const vb = c.querySelector('#vahan-btn');
-    if (vb) vb.onclick = () => {
-      if (!f.reg.reportValidity() || !needConsent(c, 'rc-consent')) return;
-      busy(vb, async () => {
-        rc = await App.verify.run('vehicle', { regNo: f.reg.value, relation: f.relation.value, vanId: van?.id });
-        drawRc();
-        const d = rc.data;
-        if (d.owner) {
-          f.rcName.value = d.owner;
-          const title = (s) => String(s || '').toLowerCase().replace(/\b(ltd|limited|pvt|private|india)\b\.?/g, '').trim().replace(/\b\w/g, c => c.toUpperCase());
-          if (!f.make.value && d.maker) f.make.value = title(d.maker).replace(/\s+Motors?$/, '');
-          if (!f.model.value && d.model) f.model.value = title(d.model);
-          if (!f.year.value && d.regDate) f.year.value = d.regDate.slice(0, 4);
-        }
-      });
-    };
     const drawAuth = () => {
+      const box = c.querySelector('#auth-docs');
+      if (!box) return;
       const rel = f.relation.value;
-      c.querySelector('#auth-docs').innerHTML = String(rel === 'authorised' ? h`${fileField('nocFile', 'NOC / authorisation letter from the registered owner')}${fileField('agreementFile', 'Lease / management agreement')}` : rel === 'company' ? fileField('boardFile', 'Company letter authorising you to list this vehicle') : '');
+      box.innerHTML = String(rel === 'authorised' ? h`${fileField('nocFile', 'NOC / authorisation letter from the registered owner')}${fileField('agreementFile', 'Lease / management agreement')}` : rel === 'company' ? fileField('boardFile', 'Company letter authorising you to list this vehicle') : '');
     };
     f.querySelectorAll('[name=relation]').forEach(r => r.onchange = drawAuth);
     drawAuth();
-    f.onsubmit = (e) => {
+    const vb = c.querySelector('#vahan-btn');
+    vb.onclick = () => {
+      if (!f.reg.reportValidity() || !needConsent(c, 'rc-consent')) return;
+      busy(vb, async () => {
+        const v = van || (await App.market('POST', '/api/owner/vans')).van;
+        const r = await App.verify.run('vehicle', { regNo: f.reg.value, relation: f.relation.value, vanId: v.id });
+        await App.syncMarket();
+        if (!r.data.owner) App.toast('Vehicle not found in VAHAN — check the registration number.', 'bad');
+        App._keepScroll = true;
+        App.go(link(3, v));
+        App.render();
+      });
+    };
+    const save = c.querySelector('#own-save');
+    if (save) f.onsubmit = (e) => {
       e.preventDefault();
       if (!f.checkValidity()) return f.reportValidity();
+      const d = App.formData(f);
+      if (reg.regNo !== d.reg.toUpperCase().replace(/[\s-]/g, '')) return App.toast('Click “Check VAHAN” for this registration number first.', 'bad');
+      if (reg.relation && reg.relation !== d.relation) return App.toast('You changed your relationship to the vehicle — click “Check VAHAN” again.', 'bad');
+      if (reg.blacklisted || reg.rcStatus !== 'ACTIVE') return App.toast('This vehicle can’t be listed. See the VAHAN result.', 'bad');
+      if (reg.ownerMatch === 'mismatch') return App.toast('The RC is in someone else’s name. Choose “authorised by the registered owner”, check VAHAN again and upload their NOC.', 'bad');
+      let files;
       try {
-        const d = App.formData(f);
-        const regNo = d.reg.toUpperCase().replace(/[\s-]/g, '');
-        if (App.serverOnline) {
-          if (!rc || rc.data.regNo !== regNo) return App.toast('Click “Check VAHAN” to fetch this vehicle’s records first.', 'bad');
-          if (!rc.data.owner) return App.toast('This vehicle wasn’t found in VAHAN. Check the registration number.', 'bad');
-          if (rc.data.blacklisted || rc.data.rcStatus !== 'ACTIVE') return App.toast('This vehicle can’t be listed: ' + App.verify.note(rc), 'bad');
-          if (rc.data.ownerMatch === 'mismatch' && d.relation === 'owner') return App.toast('The RC is in someone else’s name. Choose “authorised by the registered owner” and upload their NOC.', 'bad');
-          if (rc.data.relation !== d.relation) return App.toast('You changed your relationship to the vehicle — click “Check VAHAN” again.', 'bad');
-        }
-        const v = van || App.newVan(me.id);
-        Object.assign(v, { regNo, rcName: d.rcName, make: d.make, model: d.model, year: +d.year, chassis: d.chassis, relation: d.relation });
-        if (!v.name) v.name = `${d.make} ${d.model}`;
-        App.api.saveVan(v);
-        const rcFile = checkFile(f.rcFile);
-        if (App.serverOnline) {
-          App.applyVehicleCheck(v, rc);
-          const own = rc.data.ownerMatch === 'match' ? 'verified' : 'pending';
-          upsertCheckedDoc(me.id, v.id, 'ownership_rc', 'Ownership (VAHAN: ' + rc.data.owner + ')', { number: regNo, fileName: rcFile || '', status: own, note: own === 'pending' ? 'Registered owner differs — NOC under review.' : '', check: { source: rc.source, checkedAt: rc.checkedAt, outcome: rc.status } });
-        } else {
-          App.api.uploadDocument({ ownerId: me.id, vanId: v.id, type: 'ownership_rc', label: 'Ownership proof (RC in name of ' + d.rcName + ')', number: regNo, fileName: rcFile });
-        }
-        if (d.relation === 'authorised') App.api.uploadDocument({ ownerId: me.id, vanId: v.id, type: 'ownership_noc', label: 'Owner NOC & agreement', fileName: checkFile(f.nocFile) + ', ' + checkFile(f.agreementFile) });
-        if (d.relation === 'company') App.api.uploadDocument({ ownerId: me.id, vanId: v.id, type: 'ownership_company', label: 'Company authorisation', fileName: checkFile(f.boardFile) });
-        App.recomputeVerification(me.id, v.id);
-        if (v.verification.ownership === 'not_started') v.verification.ownership = 'pending';
-        App.save(); App.toast(v.verification.ownership === 'verified' ? 'Ownership verified with VAHAN' : 'Ownership details submitted', 'good');
-        App.go(`#/owner/onboarding?van=${v.id}&step=5`);
-      } catch (err) { App.toast(err.message, 'bad'); }
+        files = { rc: checkFile(f.rcFile), noc: d.relation === 'authorised' ? [checkFile(f.nocFile), checkFile(f.agreementFile)].join(', ') : null, board: d.relation === 'company' ? checkFile(f.boardFile) : null };
+      } catch (err) { return App.toast(err.message, 'bad'); }
+      busy(save, async () => {
+        await patchVan(van, { make: d.make, model: d.model, year: +d.year, chassis: d.chassis, rcName: reg.owner, ...(van.name ? {} : { name: `${d.make} ${d.model}`.slice(0, 40) }) });
+        if (files.rc) await addDoc(van, { type: 'ownership_rc', fileName: files.rc });
+        if (files.noc) await addDoc(van, { type: 'ownership_noc', fileName: files.noc });
+        if (files.board) await addDoc(van, { type: 'ownership_company', fileName: files.board });
+        App.toast(App.get.van(van.id).verification.ownership === 'verified' ? 'Ownership verified with VAHAN' : 'Ownership details submitted for review', 'good');
+        ctx.next();
+      });
     };
   },
 
-  registration(c, ctx) { docStep(c, ctx, App.C.registrationDocs, 'registration'); },
-  insurance(c, ctx) { docStep(c, ctx, App.C.insuranceDocs, 'insurance', true); },
+  registration(c, ctx) { docStep(c, ctx, App.C.registrationDocs); },
+  insurance(c, ctx) { docStep(c, ctx, App.C.insuranceDocs, true); },
 
   inspection(c, ctx) {
     if (needVan(c, ctx)) return;
     const { van, me, next } = ctx;
-    const docs = App.get.docsFor({ vanId: van.id, type: 'inspection' });
-    c.innerHTML = String(h`${docStatusList(docs)}
+    c.innerHTML = String(h`${docStatusList(docsOf(van.id, ['inspection']))}
       <p>Every van needs a safety & habitation inspection before going live, then every 12 months.</p>
       <div class="seg" role="tablist"><button class="on" data-mode="book" role="tab" aria-selected="true">Book a VanYatra inspector</button><button data-mode="upload" role="tab" aria-selected="false">Upload a garage report</button></div>
       <form id="f" novalidate>
         <div id="mode-book"><div class="grid-2"><label class="field"><span>Preferred date</span><input type="date" name="date" min="${App.addDays(App.today(), 2)}"></label><label class="field"><span>Location</span><input name="loc" value="${van.pickup.city || me.city || ''}"></label></div><p class="small muted">Inspection fee ${money(1500)}, deducted from your first payout.</p></div>
-        <div id="mode-upload" hidden>${fileField('report', 'Signed inspection report from an authorised workshop', false)}<label class="field"><span>Report expiry</span><input type="date" name="expiry" min="${App.today()}"></label></div>
+        <div id="mode-upload" hidden>${fileField('report', 'Signed inspection report from an authorised workshop', false)}<label class="field"><span>Report expiry</span><input type="date" name="expiry" min="${App.addDays(App.today(), 1)}"></label></div>
         <fieldset class="field"><legend>Self-declaration checklist</legend>${App.C.inspectionChecklist.map((item, i) => h`<label class="check"><input type="checkbox" name="chk" value="${i}" required> ${item}</label>`)}</fieldset>
-        <div class="form-actions"><button class="btn btn-primary">Submit inspection</button></div>
+        <div class="form-actions"><button class="btn btn-primary" id="insp-btn">Submit inspection</button></div>
       </form>`);
     let mode = 'book';
     c.querySelectorAll('[data-mode]').forEach(b => b.onclick = (e) => { e.preventDefault(); mode = b.dataset.mode; c.querySelectorAll('[data-mode]').forEach(x => { x.classList.toggle('on', x === b); x.setAttribute('aria-selected', x === b); }); c.querySelector('#mode-book').hidden = mode !== 'book'; c.querySelector('#mode-upload').hidden = mode !== 'upload'; });
@@ -445,26 +356,28 @@ const STEPS = {
     f.onsubmit = (e) => {
       e.preventDefault();
       if (!f.checkValidity()) return f.reportValidity();
+      let body;
       try {
         if (mode === 'book') {
           if (!f.date.value) return App.toast('Pick an inspection date.', 'bad');
-          App.api.uploadDocument({ ownerId: me.id, vanId: van.id, type: 'inspection', label: 'Safety & roadworthiness inspection report', fileName: `Inspection booked ${App.fmtDate(f.date.value)} at ${f.loc.value}`, expiry: App.addDays(f.date.value, 365) });
+          body = { type: 'inspection', fileName: `Inspection booked ${App.fmtDate(f.date.value)} at ${f.loc.value}`.slice(0, 200), expiry: App.addDays(f.date.value, 365) };
         } else {
           const file = checkFile(f.report);
           if (!file || !f.expiry.value) return App.toast('Upload the report and its expiry date.', 'bad');
-          App.api.uploadDocument({ ownerId: me.id, vanId: van.id, type: 'inspection', label: 'Safety & roadworthiness inspection report', fileName: file, expiry: f.expiry.value });
+          body = { type: 'inspection', fileName: file, expiry: f.expiry.value };
         }
-        van.verification.inspection = 'pending'; App.save(); App.toast('Inspection submitted', 'good'); next();
-      } catch (err) { App.toast(err.message, 'bad'); }
+      } catch (err) { return App.toast(err.message, 'bad'); }
+      busy(c.querySelector('#insp-btn'), async () => { await addDoc(van, body); App.toast('Inspection submitted', 'good'); next(); });
     };
   },
 
   photos(c, ctx) {
     if (needVan(c, ctx)) return;
     const { van, next } = ctx;
+    const photos = [...van.photos];
     const draw = () => {
       c.innerHTML = String(h`<p>Add at least 4 bright, horizontal photos: outside, bed, kitchen and a view from the driver’s seat. First photo is the cover.</p>
-        <div class="photo-manager">${van.photos.map((p, i) => h`<figure><img src="${photo(p, 300)}" alt="Van photo ${i + 1}">${i === 0 ? h`<span class="tag tag-instant">Cover</span>` : ''}<div class="pm-actions">${i ? h`<button type="button" class="icon-btn" data-cover="${i}" aria-label="Make cover">★</button>` : ''}<button type="button" class="icon-btn" data-del="${i}" aria-label="Remove photo">✕</button></div></figure>`)}
+        <div class="photo-manager">${photos.map((p, i) => h`<figure><img src="${photo(p, 300)}" alt="Van photo ${i + 1}">${i === 0 ? h`<span class="tag tag-instant">Cover</span>` : ''}<div class="pm-actions">${i ? h`<button type="button" class="icon-btn" data-cover="${i}" aria-label="Make cover">★</button>` : ''}<button type="button" class="icon-btn" data-del="${i}" aria-label="Remove photo">✕</button></div></figure>`)}
           <label class="pm-add"><input type="file" accept="image/jpeg,image/png,image/webp" multiple id="ph-in" class="sr-only"><span>＋ Add photos</span></label></div>
         <button type="button" class="link small" id="sample">Use sample photos (demo)</button>
         <form id="f" novalidate><h3>Specifications</h3>
@@ -479,24 +392,27 @@ const STEPS = {
             <label class="field"><span>Licence required</span><input name="licence" value="${van.licence}"></label>
           </div>
           <label class="field"><span>Sleeping arrangement</span><input name="beds" value="${van.beds}" placeholder="1 double + 2 bunks" required></label>
-          <div class="form-actions"><button class="btn btn-primary">Save & continue</button></div></form>`);
+          <div class="form-actions"><button class="btn btn-primary" id="ph-save">Save & continue</button></div></form>`);
       c.querySelector('#ph-in').onchange = async (e) => {
         for (const file of e.target.files) {
-          try { van.photos.push(await App.readPhoto(file)); } catch (err) { App.toast(err.message, 'bad'); }
+          if (photos.length >= 12) { App.toast('Up to 12 photos.', 'bad'); break; }
+          try { photos.push(await App.readPhoto(file)); } catch (err) { App.toast(err.message, 'bad'); }
         }
-        App.save(); draw();
+        draw();
       };
-      c.querySelector('#sample').onclick = () => { van.photos = ['photo-1584198775168-cd76729ac207', 'photo-1773123441753-e87f821ec76d', 'photo-1645099815537-cea03d831528', 'photo-1558724065-2f80d1ae6002']; App.save(); draw(); };
-      c.querySelectorAll('[data-del]').forEach(b => b.onclick = () => { van.photos.splice(+b.dataset.del, 1); App.save(); draw(); });
-      c.querySelectorAll('[data-cover]').forEach(b => b.onclick = () => { const [p] = van.photos.splice(+b.dataset.cover, 1); van.photos.unshift(p); App.save(); draw(); });
+      c.querySelector('#sample').onclick = () => { photos.splice(0, photos.length, 'photo-1584198775168-cd76729ac207', 'photo-1773123441753-e87f821ec76d', 'photo-1645099815537-cea03d831528', 'photo-1558724065-2f80d1ae6002'); draw(); };
+      c.querySelectorAll('[data-del]').forEach(b => b.onclick = () => { photos.splice(+b.dataset.del, 1); draw(); });
+      c.querySelectorAll('[data-cover]').forEach(b => b.onclick = () => { const [p] = photos.splice(+b.dataset.cover, 1); photos.unshift(p); draw(); });
       const f = c.querySelector('#f');
       f.onsubmit = (e) => {
         e.preventDefault();
         if (!f.checkValidity()) return f.reportValidity();
-        if (van.photos.length < 4) return App.toast('Please add at least 4 photos.', 'bad');
+        if (photos.length < 4) return App.toast('Please add at least 4 photos.', 'bad');
         const d = App.formData(f);
-        Object.assign(van, { type: d.type, sleeps: +d.sleeps, seats: +d.seats, transmission: d.transmission, fuel: d.fuel, mileage: d.mileage, length: d.length, licence: d.licence, beds: d.beds });
-        van.verification.photos = 'verified'; App.save(); App.toast('Photos & specs saved', 'good'); next();
+        busy(c.querySelector('#ph-save'), async () => {
+          await patchVan(van, { photos, type: d.type, sleeps: +d.sleeps, seats: +d.seats, transmission: d.transmission, fuel: d.fuel, mileage: d.mileage, length: d.length, licence: d.licence, beds: d.beds });
+          App.toast('Photos & specs saved', 'good'); next();
+        });
       };
     };
     draw();
@@ -536,80 +452,73 @@ const STEPS = {
       <fieldset class="field"><legend>Cancellation policy</legend>${Object.entries(App.CANCELLATION_POLICIES).map(([k, p]) => h`<label class="check"><input type="radio" name="cancellation" value="${k}" ${van.cancellation === k ? 'checked' : ''}> <strong>${p.label}</strong> — ${p.summary}</label>`)}</fieldset>
       <label class="field"><span>House rules (one per line)</span><textarea name="rules" rows="4">${van.rules.join('\n')}</textarea></label>
       <p class="small muted">You can block dates and adjust prices anytime from the calendar in your dashboard.</p>
-      <div class="form-actions"><button class="btn btn-primary">Save & continue</button></div></form>`);
+      <div class="form-actions"><button class="btn btn-primary" id="ls-save">Save & continue</button></div></form>`);
     const f = c.querySelector('#f');
     f.onsubmit = (e) => {
       e.preventDefault();
       if (!f.checkValidity()) return f.reportValidity();
       const d = App.formData(f);
       const dest = App.get.dest(d.destinationId);
-      const amenities = [].concat(d.amenities || []);
-      Object.assign(van, {
-        name: d.name.trim(), destinationId: d.destinationId, description: d.description.trim(), amenities, familyFriendly: !!d.familyFriendly, petFriendly: amenities.includes('pets'),
-        pricePerNight: +d.pricePerNight, weekendPrice: +d.weekendPrice || +d.pricePerNight, cleaningFee: +d.cleaningFee, deposit: +d.deposit,
-        discounts: { weekly: +d.weekly, monthly: +d.monthly }, minNights: +d.minNights, kmPerDay: +d.kmPerDay, extraKmFee: +d.extraKmFee,
-        instantBook: !!d.instantBook, cancellation: d.cancellation, rules: d.rules.split('\n').map(s => s.trim()).filter(Boolean), city: d.city
+      busy(c.querySelector('#ls-save'), async () => {
+        await patchVan(van, {
+          name: d.name.trim(), destinationId: d.destinationId, description: d.description.trim(), amenities: [].concat(d.amenities || []), familyFriendly: !!d.familyFriendly,
+          pricePerNight: +d.pricePerNight, weekendPrice: +d.weekendPrice || +d.pricePerNight, cleaningFee: +d.cleaningFee, deposit: +d.deposit,
+          discounts: { weekly: +d.weekly, monthly: +d.monthly }, minNights: +d.minNights, kmPerDay: +d.kmPerDay, extraKmFee: +d.extraKmFee,
+          instantBook: !!d.instantBook, cancellation: d.cancellation, rules: d.rules.split('\n').map(s => s.trim()).filter(Boolean), city: d.city.trim(),
+          // Approximate pin near the destination until a geocoder is connected
+          pickup: { city: d.city.trim(), address: d.address.trim(), time: d.time, returnTime: d.returnTime, lat: van.pickup.lat || dest.lat + 0.02, lng: van.pickup.lng || dest.lng + 0.02 }
+        });
+        App.toast('Listing details saved', 'good'); next();
       });
-      // Approximate pin near the destination until a geocoder is connected
-      van.pickup = { ...van.pickup, city: d.city.trim(), address: d.address.trim(), time: d.time, returnTime: d.returnTime, lat: van.pickup.lat || dest.lat + 0.02, lng: van.pickup.lng || dest.lng + 0.02 };
-      van.verification.listing = 'verified'; App.save(); App.toast('Listing details saved', 'good'); next();
     };
   },
 
-  payout(c, { me, owner, next }) {
+  payout(c, { owner, next }) {
     const p = owner.payout;
-    if (p?.status === 'verified' || p?.status === 'pending') {
-      c.innerHTML = String(h`<div class="callout">🏦 ${p.data.bank} · account ending ${p.data.last4} · ${p.data.ifsc}${p.data.upi ? ' · UPI ' + p.data.upi : ''}</div>
-        <p class="small muted">Payouts are sent 24 hours after each trip starts. ${p.status === 'pending' ? 'Bank verification in progress.' : ''}</p>
-        <div class="form-actions"><button class="btn btn-ghost" id="chg">Change account</button><button class="btn btn-primary" id="nx">Continue</button></div>`);
-      c.querySelector('#nx').onclick = next;
-      c.querySelector('#chg').onclick = () => { owner.payout = { status: 'not_started' }; App.save(); App.render(); };
-      return;
-    }
-    c.innerHTML = String(h`<form id="f" novalidate>
-      <div class="grid-2">
-        <label class="field"><span>Account holder name</span><input name="holder" value="${owner.business?.data?.business || me.name}" required></label>
-        <label class="field"><span>${App.C.payout.routingLabel}</span><input name="ifsc" pattern="${App.C.payout.routingPattern.slice(1, -1)}" maxlength="11" required style="text-transform:uppercase" autocomplete="off"></label>
-        <label class="field"><span>${App.C.payout.accountLabel}</span><input name="acct" inputmode="numeric" pattern="[0-9]{9,18}" required autocomplete="off"></label>
-        <label class="field"><span>Confirm account number</span><input name="acct2" inputmode="numeric" required autocomplete="off"></label>
-        <label class="field"><span>${App.C.payout.altLabel}</span><input name="upi" pattern="[\\w.\\-]+@\\w+" placeholder="name@bank"></label>
-      </div>
-      <p class="small muted">We’ll deposit ₹1 to confirm the account exists and the name matches your verified identity (penny-drop). Only the last 4 digits are kept.</p>
-      ${App.serverOnline ? h`${testHint('Accounts ending 0000 are invalid; ending 2222 give a name mismatch.')}${consentBox('bank-consent', 'I consent to a ₹1 verification deposit to this account.')}` : ''}
-      <div id="bank-result"></div>
-      <div class="form-actions"><button class="btn btn-primary" id="bank-btn">Verify & save</button></div></form>`);
-    const f = c.querySelector('#f');
-    f.onsubmit = (e) => {
-      e.preventDefault();
-      f.ifsc.value = f.ifsc.value.toUpperCase();
-      if (!f.checkValidity()) return f.reportValidity();
-      if (f.acct.value !== f.acct2.value) return App.toast('Account numbers don’t match.', 'bad');
-      const save = (status, bank, note = '') => {
-        owner.payout = { status, note, data: { holder: f.holder.value, bank, last4: f.acct.value.slice(-4), ifsc: f.ifsc.value, upi: f.upi.value } };
-        App.audit('payout.verify', me.email); App.save();
-      };
-      if (!App.serverOnline) {
-        const banks = { HDFC: 'HDFC Bank', ICIC: 'ICICI Bank', SBIN: 'State Bank of India', UTIB: 'Axis Bank', KKBK: 'Kotak Mahindra Bank' };
-        save('pending', banks[f.ifsc.value.slice(0, 4)] || 'Bank ' + f.ifsc.value.slice(0, 4), 'Bank details will be checked by our team.');
-        App.toast('Bank details saved for review', 'good'); return next();
+    const show = (changing) => {
+      if (!changing && (p?.status === 'verified' || p?.status === 'pending') && p.data) {
+        c.innerHTML = String(h`<div class="callout">🏦 ${p.data.bank} · account ending ${p.data.last4} · ${p.data.ifsc}${p.check ? h` <span class="source-tag">✓ ${p.check.source}</span>` : ''}</div>
+          <p class="small muted">Payouts are sent 24 hours after each trip starts. ${p.status === 'pending' ? 'Our team is confirming the account name.' : ''}</p>
+          <div class="form-actions"><button class="btn btn-ghost" id="chg">Change account</button><button class="btn btn-primary" id="nx">Continue</button></div>`);
+        c.querySelector('#nx').onclick = () => next();
+        c.querySelector('#chg').onclick = () => show(true);
+        return;
       }
-      if (!needConsent(c, 'bank-consent')) return;
-      busy(c.querySelector('#bank-btn'), async () => {
-        const r = await App.verify.run('bank', { account: f.acct.value, ifsc: f.ifsc.value, holder: f.holder.value });
-        c.querySelector('#bank-result').innerHTML = String(App.checkResultBox(r));
-        if (r.status === 'failed') return App.toast('Bank verification failed — see details below.', 'bad');
-        save(App.verify.docStatus(r), r.data.bankName || f.ifsc.value.slice(0, 4), App.verify.note(r));
-        // Account numbers never stay in the page after saving
-        f.acct.value = f.acct2.value = '';
-        App.toast(r.status === 'verified' ? '₹1 penny-drop successful — account verified' : 'Saved — our team will confirm the account name', 'good');
-        next();
-      });
+      c.innerHTML = String(h`<form id="f" novalidate>
+        <div class="grid-2">
+          <label class="field"><span>Account holder name</span><input name="holder" value="${owner.business?.data?.business || App.me().name}" required></label>
+          <label class="field"><span>${App.C.payout.routingLabel}</span><input name="ifsc" pattern="${App.C.payout.routingPattern.slice(1, -1)}" maxlength="11" required style="text-transform:uppercase" autocomplete="off"></label>
+          <label class="field"><span>${App.C.payout.accountLabel}</span><input name="acct" inputmode="numeric" pattern="[0-9]{9,18}" required autocomplete="off"></label>
+          <label class="field"><span>Confirm account number</span><input name="acct2" inputmode="numeric" required autocomplete="off"></label>
+        </div>
+        <p class="small muted">We’ll deposit ₹1 to confirm the account exists and the name matches your verified identity (penny-drop). Only the last 4 digits are kept.</p>
+        ${testHint('Accounts ending 0000 are invalid; ending 2222 give a name mismatch.')}${consentBox('bank-consent', 'I consent to a ₹1 verification deposit to this account.')}
+        <div id="bank-result"></div>
+        <div class="form-actions"><button class="btn btn-primary" id="bank-btn">Verify & save</button></div></form>`);
+      const f = c.querySelector('#f');
+      f.onsubmit = (e) => {
+        e.preventDefault();
+        f.ifsc.value = f.ifsc.value.toUpperCase();
+        if (!f.checkValidity()) return f.reportValidity();
+        if (f.acct.value !== f.acct2.value) return App.toast('Account numbers don’t match.', 'bad');
+        if (!needConsent(c, 'bank-consent')) return;
+        busy(c.querySelector('#bank-btn'), async () => {
+          const r = await App.verify.run('bank', { account: f.acct.value, ifsc: f.ifsc.value, holder: f.holder.value });
+          c.querySelector('#bank-result').innerHTML = String(App.checkResultBox(r));
+          f.acct.value = f.acct2.value = ''; // account numbers never stay in the page
+          if (r.status === 'failed') return App.toast('Bank verification failed — see details below.', 'bad');
+          await App.syncMarket();
+          App.toast(r.status === 'verified' ? '₹1 penny-drop successful — account verified' : 'Saved — our team will confirm the account name', 'good');
+          next();
+        });
+      };
     };
+    show(false);
   },
 
   review(c, ctx) {
     if (needVan(c, ctx)) return;
-    const { van, me, statuses, link } = ctx;
+    const { van, statuses, link } = ctx;
     const pre = App.ONBOARDING_STEPS.slice(0, 10);
     const blocking = pre.filter((s, i) => !['verified', 'pending'].includes(statuses[i]));
     const st = van.verification.review;
@@ -617,16 +526,14 @@ const STEPS = {
       ${st === 'pending' ? h`<div class="callout">⏳ Submitted for review. We’ll email you within 2 business days. Pending documents are checked as part of this review.</div>`
       : st === 'verified' ? h`<div class="callout good-bg">✓ Approved! Head to the final step to publish.</div><div class="form-actions"><a class="btn btn-primary" href="${link(11)}">Continue</a></div>`
       : blocking.length ? h`<p class="error">Finish these steps before submitting: ${blocking.map(s => s.title).join(', ')}.</p>`
-      : h`<p>Everything’s in. Our team will check your documents, photos and pricing, and may call you to confirm details.</p>
+      : h`${st === 'rejected' ? h`<div class="alert alert-warn">Our team asked for changes — check your notifications, update the listing, then submit again.</div>` : ''}
+          <p>Everything’s in. Our team will check your documents, photos and pricing, and may call you to confirm details.</p>
           <label class="check"><input type="checkbox" id="decl"> I confirm the information is accurate and I will keep all documents valid while listed.</label>
           <div class="form-actions"><button class="btn btn-primary" id="submit">Submit for review</button></div>`}`);
     const sb = c.querySelector('#submit');
     if (sb) sb.onclick = () => {
       if (!c.querySelector('#decl').checked) return App.toast('Please confirm the declaration.', 'bad');
-      van.verification.review = 'pending'; van.status = 'in_review'; van.submittedAt = new Date().toISOString();
-      App.db.users.filter(u => u.role === 'admin').forEach(a => App.notify(a.id, `${me.name} submitted “${van.name}” for listing approval.`, '#/admin/listings', false));
-      App.audit('listing.submit', `${van.id} ${van.name}`);
-      App.save(); App.toast('Submitted for review!', 'good'); App.render();
+      busy(sb, async () => { await App.market('POST', `/api/owner/vans/${van.id}/submit`, {}); App.toast('Submitted for review!', 'good'); App.render(); });
     };
   },
 
@@ -640,19 +547,20 @@ const STEPS = {
       : allVerified ? h`<p>All checks passed. Preview your listing, then publish it.</p><div class="form-actions"><a class="btn btn-ghost" href="#/vans/${van.id}">Preview</a><button class="btn btn-accent btn-lg" id="pub">🚀 Publish listing</button></div>`
       : h`<p>Your listing can be published once every step is <strong>Verified</strong>, including the platform review.</p><a class="btn btn-ghost" href="#/vans/${van.id}">Preview listing</a>`}`);
     const pb = c.querySelector('#pub');
-    if (pb) pb.onclick = () => { van.status = 'published'; van.publishedAt = new Date().toISOString(); App.audit('listing.publish', `${van.id} ${van.name}`); App.save(); App.toast('Your van is live!', 'good'); App.render(); };
+    if (pb) pb.onclick = () => busy(pb, async () => { await App.market('POST', `/api/owner/vans/${van.id}/status`, { status: 'published' }); App.toast('Your van is live!', 'good'); App.render(); });
   }
 };
 
+const titleCase = (s) => String(s || '').toLowerCase().replace(/\b(ltd|limited|pvt|private|india)\b\.?/g, '').trim().replace(/\b\w/g, c => c.toUpperCase());
+
 // Shared step for document lists (registration & insurance)
-const docStep = (c, ctx, defs, key, isInsurance = false) => {
+const docStep = (c, ctx, defs, isInsurance = false) => {
   if (needVan(c, ctx)) return;
-  const { van, me, next } = ctx;
-  const existing = App.get.docsFor({ vanId: van.id });
-  const byType = Object.fromEntries(existing.map(d => [d.type, d]));
-  const canRecheck = App.serverOnline && van.regNo;
+  const { van, next } = ctx;
+  const byType = Object.fromEntries(docsOf(van.id).map(d => [d.type, d]));
+  const inReview = van.status === 'in_review';
   c.innerHTML = String(h`
-    ${canRecheck ? h`<div class="callout row-between wrap"><span>${van.registry?.checkedAt ? h`VAHAN last checked ${App.fmtDateTime(van.registry.checkedAt)} for <strong>${van.regNo}</strong>.` : h`Fetch RC, PUC, permit and insurance details for <strong>${van.regNo}</strong> from VAHAN.`}</span><button type="button" class="btn btn-sm" id="recheck">↻ ${van.registry?.checkedAt ? 'Re-check' : 'Check'} with VAHAN</button></div>` : ''}
+    ${van.regNo ? h`<div class="callout row-between wrap"><span>${van.registry?.checkedAt ? h`VAHAN last checked ${App.fmtDateTime(van.registry.checkedAt)} for <strong>${van.regNo}</strong>.` : h`Fetch RC, PUC, permit and insurance details for <strong>${van.regNo}</strong> from VAHAN.`}</span><button type="button" class="btn btn-sm" id="recheck" ${inReview ? 'disabled' : ''}>↻ ${van.registry?.checkedAt ? 'Re-check' : 'Check'} with VAHAN</button></div>` : ''}
     <form id="f" novalidate>
     ${defs.map(d => {
       const ex = byType[d.type];
@@ -662,50 +570,50 @@ const docStep = (c, ctx, defs, key, isInsurance = false) => {
       <fieldset class="doc-field"><legend>${d.label}${d.required ? '' : ' (if applicable)'}</legend>
         ${ex ? h`<div class="row gap wrap">${App.statusBadge(ex.status)}${App.docExpiryState(ex) ? h`<span class="badge badge-${App.docExpiryState(ex).tone}">${App.docExpiryState(ex).label}</span>` : ''}${ex.check ? h`<span class="source-tag">✓ ${ex.check.source}</span>` : ''}<span class="small muted">${ex.fileName || ''}</span>${ex.note ? h`<span class="small">${ex.note}</span>` : ''}</div>` : ''}
         ${locked ? h`<label class="check small"><input type="checkbox" name="replace-${d.type}"> Upload a new version</label>` : ''}
-        <div class="grid-3 ${locked ? 'replace-only' : ''}" data-for="${d.type}" ${locked ? 'hidden' : ''}>
-          ${isInsurance ? h`<label class="field"><span>Insurer</span><input name="insurer-${d.type}" value="${ex?.insurer || ''}"></label>` : ''}
-          <label class="field"><span>Document / policy number</span><input name="num-${d.type}" value="${ex?.number || ''}"></label>
-          ${d.expires ? h`<label class="field"><span>Valid until</span><input type="date" name="exp-${d.type}" min="${App.addDays(App.today(), 1)}" value="${ex && ex.expiry > App.today() ? ex.expiry : ''}"></label>` : ''}
-          <label class="field"><span>File</span><input type="file" name="file-${d.type}" accept=".pdf,image/jpeg,image/png"></label>
+        <div class="grid-3" data-for="${d.type}" ${locked ? 'hidden' : ''}>
+          ${ex?.check ? '' : h`
+            ${isInsurance ? h`<label class="field"><span>Insurer</span><input name="insurer-${d.type}" value="${ex?.insurer || ''}"></label>` : ''}
+            <label class="field"><span>Document / policy number</span><input name="num-${d.type}" value="${ex?.number || ''}"></label>
+            ${d.expires ? h`<label class="field"><span>Valid until</span><input type="date" name="exp-${d.type}" min="${App.addDays(App.today(), 1)}" value="${ex && ex.expiry > App.today() ? ex.expiry : ''}"></label>` : ''}`}
+          <label class="field"><span>${isInsurance && ex?.check ? 'Policy schedule (shows self-drive rental cover)' : 'File'}</span><input type="file" name="file-${d.type}" accept=".pdf,image/jpeg,image/png"></label>
         </div>
       </fieldset>`; })}
     ${isInsurance ? h`<label class="check"><input type="checkbox" name="covers" required> The policy covers commercial self-drive rental and names the vehicle’s registration number.</label>` : ''}
-    <div class="form-actions"><button class="btn btn-primary">Submit documents</button></div></form>`);
+    <div class="form-actions"><button class="btn btn-primary" id="docs-save" ${inReview ? 'disabled' : ''}>Submit documents</button></div></form>`);
   const f = c.querySelector('#f');
   f.querySelectorAll('[name^=replace-]').forEach(cb => cb.onchange = () => { f.querySelector(`[data-for="${cb.name.slice(8)}"]`).hidden = !cb.checked; });
   const rb = c.querySelector('#recheck');
   if (rb) rb.onclick = () => busy(rb, async () => {
     const r = await App.verify.run('vehicle', { regNo: van.regNo, relation: van.relation || 'owner', vanId: van.id });
-    if (!r.data.docs) return App.toast(App.verify.note(r) || 'Vehicle not found in VAHAN.', 'bad');
-    App.applyVehicleCheck(van, r); App.save();
-    App.toast('Updated from VAHAN', 'good'); App._keepScroll = true; App.render();
+    await App.syncMarket();
+    App.toast(r.data.docs ? 'Updated from VAHAN' : (App.verify.note(r) || 'Vehicle not found in VAHAN.'), r.data.docs ? 'good' : 'bad');
+    App._keepScroll = true; App.render();
   });
   f.onsubmit = (e) => {
     e.preventDefault();
     if (!f.checkValidity()) return f.reportValidity();
+    const uploads = [];
     try {
-      let submitted = 0;
       for (const d of defs) {
         const box = f.querySelector(`[data-for="${d.type}"]`);
         if (box.hidden) continue;
         const file = checkFile(f['file-' + d.type]);
         const exp = f['exp-' + d.type]?.value;
-        const has = byType[d.type];
-        if (!file) { if (d.required && !has) throw new Error(`Please upload: ${d.label}`); continue; }
-        if (d.expires && !exp) throw new Error(`Add the expiry date for: ${d.label}`);
-        const doc = App.api.uploadDocument({ ownerId: me.id, vanId: van.id, type: d.type, label: d.label, number: f['num-' + d.type].value.trim(), expiry: exp || null, fileName: file });
-        if (isInsurance) doc.insurer = f['insurer-' + d.type].value.trim();
-        submitted++;
+        if (!file) { if (d.required && !byType[d.type]) throw new Error(`Please upload: ${d.label}`); continue; }
+        if (d.expires && f['exp-' + d.type] && !exp) throw new Error(`Add the expiry date for: ${d.label}`);
+        uploads.push({ type: d.type, fileName: file, number: f['num-' + d.type]?.value.trim(), expiry: exp || null, insurer: f['insurer-' + d.type]?.value.trim() });
       }
-      if (!submitted) {
-        const missing = defs.filter(d => d.required && !byType[d.type]);
-        if (missing.length) return App.toast('Please upload: ' + missing.map(d => d.label).join(', '), 'bad');
-        return next();
-      }
-      App.recomputeVerification(me.id, van.id);
-      if (van.verification[key] === 'not_started') van.verification[key] = 'pending';
-      App.save(); App.toast('Documents submitted for review', 'good'); next();
-    } catch (err) { App.toast(err.message, 'bad'); }
+    } catch (err) { return App.toast(err.message, 'bad'); }
+    if (!uploads.length) {
+      const missing = defs.filter(d => d.required && !byType[d.type]);
+      if (missing.length) return App.toast('Please upload: ' + missing.map(d => d.label).join(', '), 'bad');
+      if (isInsurance && byType.insurance?.status === 'pending' && !byType.insurance.fileName) return App.toast('Upload the policy schedule so we can confirm rental cover.', 'bad');
+      return next();
+    }
+    busy(c.querySelector('#docs-save'), async () => {
+      for (const u of uploads) await addDoc(van, u);
+      App.toast('Documents submitted for review', 'good'); next();
+    });
   };
 };
 })();
