@@ -10,3 +10,6 @@ desktop.ini
 # Logs and environment files
 *.log
 .env
+
+# Claude Code local settings
+.claude/settings.local.json
