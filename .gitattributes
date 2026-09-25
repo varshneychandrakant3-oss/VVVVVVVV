@@ -1,0 +1,6 @@
+# Store text files with LF line endings in the repository
+* text=auto eol=lf
+
+# Keep Windows scripts with CRLF line endings
+*.bat text eol=crlf
+*.cmd text eol=crlf
