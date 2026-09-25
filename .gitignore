@@ -11,8 +11,9 @@ desktop.ini
 *.log
 .env
 
-# Server data (accounts, sessions, verification records) and dependencies
-data/
+# Server data (accounts, sessions, verification records) and dependencies.
+# Leading slash: only the top-level folder, not assets/data/ (public map data)
+/data/
 node_modules/
 
 # Claude Code local settings
