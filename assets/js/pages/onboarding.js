@@ -68,7 +68,7 @@ const patchVan = (van, body) => App.market('PATCH', `/api/owner/vans/${van.id}`,
 App.pages.onboarding = (el, _p, q) => {
   const me = App.me();
   if (!App.serverOnline) {
-    el.innerHTML = String(App.emptyState('🔌', 'Onboarding needs the VanYatra server', 'Government document checks and approvals run on the server. Start it with npm start and reload this page.'));
+    el.innerHTML = String(App.emptyState('🔌', 'Owner onboarding isn’t available in this preview', 'Listing a van includes live government document checks (Aadhaar, PAN, vehicle registry), which need the full VanYatra server. Everything else — browsing, booking and the dashboards — works here.', App.h`<a class="btn btn-primary" href="#/owner">Back to dashboard</a>`));
     return;
   }
   const owner = App.db.owners[me.id] || {};
