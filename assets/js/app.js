@@ -69,7 +69,11 @@ App.render = () => {
   catch (e) { console.error(e); main.innerHTML = String(App.emptyState('⚠️', 'Something went wrong', e.message, App.h`<a class="btn" href="#/">Go home</a>`)); }
   if (!App._keepScroll) window.scrollTo({ top: 0, behavior: 'instant' });
   App._keepScroll = false;
-  document.getElementById('site-nav').classList.remove('open');
+  App.closeMenu && App.closeMenu();
+  App.renderTabbar(route);
+  // Keep the current dashboard section visible in the swipeable pill row
+  const dnav = main.querySelector('.dash-nav nav'), act = dnav && dnav.querySelector('a.active');
+  if (act) dnav.scrollLeft = act.offsetLeft - dnav.clientWidth / 2 + act.clientWidth / 2;
   const h1 = main.querySelector('h1');
   document.title = (h1 ? h1.innerText.replace(/\s+/g, ' ').trim() + ' · ' : '') +'VanYatra — Camper van rentals in India';
 };
@@ -91,9 +95,9 @@ App.renderHeader = () => {
         <svg viewBox="0 0 40 28" width="38" height="27" aria-hidden="true"><rect x="1" y="4" width="30" height="17" rx="5" fill="#1f6f54"/><path d="M31 9h3.5a3 3 0 0 1 2.6 1.5l2 3.5V21h-8z" fill="#2c8a69"/><rect x="5" y="8" width="7" height="5" rx="1.5" fill="#fff4dc"/><rect x="14" y="8" width="7" height="5" rx="1.5" fill="#fff4dc"/><rect x="1" y="14" width="30" height="2.5" fill="#f28c38"/><circle cx="9" cy="22" r="3.6" fill="#1b1b1b"/><circle cx="29" cy="22" r="3.6" fill="#1b1b1b"/><circle cx="9" cy="22" r="1.4" fill="#ddd"/><circle cx="29" cy="22" r="1.4" fill="#ddd"/></svg>
         <span>Van<b>Yatra</b></span>
       </a>
-      <button class="icon-btn nav-toggle" aria-label="Menu" aria-controls="site-nav" id="nav-toggle">☰</button>
       <nav id="site-nav" aria-label="Main">
         ${nav.map(([href, label]) => App.h`<a href="${href}" class="${route.startsWith(href.slice(1)) ? 'active' : ''}">${label}</a>`)}
+      </nav>
         <div class="nav-auth">
         ${me ? App.h`
           ${me.role === 'owner' ? App.h`<a class="btn btn-sm btn-ghost" href="#/owner">Owner dashboard</a>` : ''}
@@ -115,12 +119,21 @@ App.renderHeader = () => {
               <button id="logout">Sign out</button>
             </div>
           </div>`
-        : App.h`<a class="btn btn-sm btn-ghost" href="#/login">Sign in</a><a class="btn btn-sm btn-primary" href="#/signup">Sign up</a>`}
+        : App.h`<a class="btn btn-sm btn-ghost" href="#/login">Sign in</a><a class="btn btn-sm btn-primary hide-xs" href="#/signup">Sign up</a>`}
         </div>
-      </nav>
+      <button class="icon-btn nav-toggle" aria-label="Menu" aria-controls="site-nav" aria-expanded="false" id="nav-toggle">☰</button>
     </div>`);
   const $ = (id) => document.getElementById(id);
-  $('nav-toggle').onclick = () => $('site-nav').classList.toggle('open');
+  const setMenu = (open) => {
+    $('site-nav').classList.toggle('open', open);
+    $('menu-scrim').classList.toggle('show', open);
+    $('nav-toggle').textContent = open ? '✕' : '☰';
+    $('nav-toggle').setAttribute('aria-expanded', open);
+    $('nav-toggle').setAttribute('aria-label', open ? 'Close menu' : 'Menu');
+  };
+  App.closeMenu = () => setMenu(false);
+  $('nav-toggle').onclick = (e) => { e.stopPropagation(); setMenu(!$('site-nav').classList.contains('open')); };
+  $('menu-scrim').onclick = () => setMenu(false);
   if (!me) return;
   const toggle = (btn, menu, fill) => {
     btn.onclick = (e) => {
@@ -146,6 +159,49 @@ App.renderHeader = () => {
   $('logout').onclick = async () => { await App.api.logout(); App.toast('Signed out'); App.go('#/'); };
 };
 document.addEventListener('click', () => document.querySelectorAll('.dropdown-menu').forEach(m => m.hidden = true));
+document.addEventListener('keydown', (e) => { if (e.key === 'Escape') App.closeMenu && App.closeMenu(); });
+
+/* Bottom tab bar (phones only; hidden by CSS on larger screens) */
+const ICONS = {
+  home: '<path d="M3 11l9-7 9 7v9a1 1 0 0 1-1 1h-5v-6H9v6H4a1 1 0 0 1-1-1z"/>',
+  explore: '<circle cx="12" cy="12" r="9"/><path d="M15.5 8.5l-2 5-5 2 2-5z"/>',
+  search: '<circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/>',
+  map: '<path d="M9 4L3 6v14l6-2 6 2 6-2V4l-6 2-6-2z"/><path d="M9 4v14M15 6v14"/>',
+  trips: '<rect x="3" y="7" width="18" height="13" rx="2"/><path d="M8 7V5a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/>',
+  user: '<circle cx="12" cy="8" r="4"/><path d="M4 21c1.5-4 4.5-6 8-6s6.5 2 8 6"/>',
+  dash: '<rect x="3" y="3" width="7" height="9" rx="1.5"/><rect x="14" y="3" width="7" height="5" rx="1.5"/><rect x="14" y="12" width="7" height="9" rx="1.5"/><rect x="3" y="16" width="7" height="5" rx="1.5"/>',
+  chat: '<path d="M4 5h16v11H9l-5 4z"/>',
+  shield: '<path d="M12 3l8 3v6c0 5-3.5 8-8 9-4.5-1-8-4-8-9V6z"/><path d="M9 12l2 2 4-4"/>'
+};
+App.renderTabbar = (route) => {
+  const bar = document.getElementById('tabbar');
+  if (!bar) return;
+  const me = App.me();
+  const upcoming = me ? App.db.bookings.filter(b => b.customerId === me.id && ['confirmed', 'requested'].includes(b.status)).length : 0;
+  const unreadOwner = me ? App.db.threads.filter(t => t.ownerId === me.id && t.messages.length && t.messages.at(-1).from !== me.id).length : 0;
+  const queue = me?.role === 'admin' ? App.db.documents.filter(d => d.status === 'pending').length : 0;
+  const tabs = !me ? [['#/', 'Home', 'home'], ['#/destinations', 'Explore', 'explore'], ['#/search', 'Search', 'search'], ['#/map', 'Map', 'map'], ['#/login', 'Sign in', 'user']]
+    : me.role === 'owner' ? [['#/', 'Home', 'home'], ['#/search', 'Search', 'search'], ['#/owner', 'Dashboard', 'dash'], ['#/owner/messages', 'Messages', 'chat', unreadOwner], ['#/account/profile', 'Account', 'user']]
+    : me.role === 'admin' ? [['#/', 'Home', 'home'], ['#/search', 'Search', 'search'], ['#/admin', 'Admin', 'dash'], ['#/admin/verifications', 'Queue', 'shield', queue], ['#/account/profile', 'Account', 'user']]
+    : [['#/', 'Home', 'home'], ['#/destinations', 'Explore', 'explore'], ['#/search', 'Search', 'search'], ['#/account/bookings', 'Trips', 'trips', upcoming], ['#/account/profile', 'Account', 'user']];
+  // The most specific tab that matches the current page is highlighted
+  const path = '#' + (route.path.split('?')[0] || '/');
+  const active = tabs.map(t => t[0]).filter(h => h === '#/' ? path === '#/' : path.startsWith(h)).sort((a, b) => b.length - a.length)[0]
+    || (route.page === 'account' ? tabs.find(t => t[0].startsWith('#/account'))?.[0] : null);
+  bar.innerHTML = tabs.map(([href, label, icon, count]) => `<a href="${href}" class="${href === active ? 'active' : ''}" ${href === active ? 'aria-current="page"' : ''}>
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${ICONS[icon]}</svg>${App.esc(label)}${count ? `<span class="tb-dot">${count}</span>` : ''}</a>`).join('');
+  // Pages with their own bottom action bar or chat box hide the tab bar
+  const own = ['van', 'book'].includes(route.page) || (['account', 'owner'].includes(route.page) && route.params.tab === 'messages' && route.params.id);
+  document.body.classList.toggle('no-tabbar', !!own);
+};
+
+/* On phones tables become cards; each cell is labelled with its column heading */
+const labelTables = (root) => root.querySelectorAll('table.table').forEach(t => {
+  const heads = [...t.querySelectorAll('thead th')].map(th => th.textContent.trim());
+  if (!heads.length) return;
+  t.querySelectorAll('tbody tr').forEach(tr => [...tr.children].forEach((cell, i) => { if (!cell.hasAttribute('data-label')) cell.setAttribute('data-label', heads[i] || ''); }));
+});
+new MutationObserver(() => labelTables(document.getElementById('main'))).observe(document.documentElement, { childList: true, subtree: true });
 
 App.renderFooter = () => {
   document.getElementById('site-footer').innerHTML = String(App.h`

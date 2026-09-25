@@ -282,7 +282,9 @@ App.mountMap = async (el, markers, { zoom = 5, center, circle } = {}) => {
     const L = await App.loadLeaflet();
     if (!el.isConnected) return null;
     el.innerHTML = '';
-    const map = L.map(el, { scrollWheelZoom: false }).setView(center || [22.5, 79], zoom);
+    // On touch screens one finger scrolls the page; two fingers pan/zoom the map
+    const touch = L.Browser.mobile || matchMedia('(pointer: coarse)').matches;
+    const map = L.map(el, { scrollWheelZoom: false, dragging: !touch, tap: false }).setView(center || [22.5, 79], zoom);
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 18, attribution: '&copy; OpenStreetMap contributors' }).addTo(map);
     const layer = [];
     markers.forEach(m => {

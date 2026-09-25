@@ -218,8 +218,8 @@ App.pages.search = (el, _p, q) => {
     <p class="muted" id="result-count"></p>
   </div>
   <div class="container search-layout">
-    <button class="btn btn-ghost filters-toggle" id="filters-toggle" aria-expanded="false" aria-controls="filters">⚙ Filters</button>
     <aside class="filters" id="filters" aria-label="Filters">
+      <div class="sheet-head only-mobile"><strong>Filters</strong><button type="button" class="icon-btn" id="filters-close" aria-label="Close filters">✕</button></div>
       <form id="filter-form">
         <label class="field"><span>Destination</span><select name="dest"><option value="">Anywhere</option>${App.db.destinations.map(d => h`<option value="${d.id}" ${state.dest === d.id ? 'selected' : ''}>${d.name}</option>`)}</select></label>
         <div class="grid-2">
@@ -241,9 +241,11 @@ App.pages.search = (el, _p, q) => {
         <fieldset class="field"><legend>Amenities</legend><div class="amen-grid">${App.AMENITIES.filter(a => a.id !== 'pets').map(a => h`<label class="check"><input type="checkbox" name="amen" value="${a.id}" ${state.amen.includes(a.id) ? 'checked' : ''}> ${a.label}</label>`)}</div></fieldset>
         <button type="button" class="btn btn-ghost btn-block" id="clear-filters">Clear all filters</button>
       </form>
+      <div class="sheet-foot only-mobile"><button type="button" class="btn btn-ghost" id="clear-filters-2">Clear</button><button type="button" class="btn btn-primary" id="filters-apply">Show vans</button></div>
     </aside>
     <section class="results">
       <div class="results-bar">
+        <button class="btn btn-sm filters-toggle" id="filters-toggle" aria-expanded="false" aria-controls="filters">⚙ Filters<span class="count" id="filter-count" hidden></span></button>
         <div class="seg" role="group" aria-label="View">
           <button class="${state.view === 'list' ? 'on' : ''}" data-view="list" aria-pressed="${state.view === 'list'}">☰ List</button>
           <button class="${state.view === 'map' ? 'on' : ''}" data-view="map" aria-pressed="${state.view === 'map'}">🗺 Map</button>
@@ -283,6 +285,9 @@ App.pages.search = (el, _p, q) => {
     avail.sort(sorters[state.sort]);
     const unavailable = list.filter(v => !avail.includes(v));
     el.querySelector('#result-count').textContent = `${App.plural(avail.length, 'van')} available${validDates ? ` · ${fmtDate(state.start)} – ${fmtDate(state.end)}` : ''}`;
+    el.querySelector('#filters-apply').textContent = `Show ${App.plural(avail.length, 'van')}`;
+    const active = [state.dest, validDates, state.guests > 1, state.min > 0, state.max < maxP, state.types.length, state.amen.length, state.family, state.pets, state.instant, state.auto].filter(Boolean).length;
+    const fc = el.querySelector('#filter-count'); fc.hidden = !active; fc.textContent = active;
     const opts = validDates ? { start: state.start, end: state.end } : {};
     el.querySelector('#results').innerHTML = String(avail.length
       ? h`<div class="van-grid">${avail.map(v => App.vanCard(v, opts))}</div>
@@ -316,7 +321,18 @@ App.pages.search = (el, _p, q) => {
     draw();
   });
   const ft = el.querySelector('#filters-toggle');
-  ft.onclick = () => { const open = el.querySelector('#filters').classList.toggle('open'); ft.setAttribute('aria-expanded', open); };
+  const panel = el.querySelector('#filters');
+  const setFilters = (open) => {
+    panel.classList.toggle('open', open); ft.setAttribute('aria-expanded', open);
+    // On phones the panel is a full-screen sheet, so the page behind shouldn't scroll
+    document.body.classList.toggle('no-scroll', open && window.innerWidth < 768);
+    if (!open) ft.focus();
+  };
+  ft.onclick = () => setFilters(!panel.classList.contains('open'));
+  el.querySelector('#filters-close').onclick = () => setFilters(false);
+  el.querySelector('#filters-apply').onclick = () => { setFilters(false); window.scrollTo({ top: 0, behavior: 'instant' }); };
+  el.querySelector('#clear-filters-2').onclick = clear;
+  window.addEventListener('hashchange', () => document.body.classList.remove('no-scroll'), { once: true });
   draw();
 };
 
@@ -378,8 +394,11 @@ App.pages.van = (el, { id }, q) => {
         <button class="btn btn-ghost ${me && me.savedVans.includes(van.id) ? 'is-saved' : ''}" data-save="${van.id}" aria-pressed="${!!(me && me.savedVans.includes(van.id))}">♡ Save</button>
       </div>
     </div>
-    <div class="gallery" id="gallery">
-      ${van.photos.slice(0, 5).map((p, i) => h`<button class="g-item g-${i}" data-photo="${i}" aria-label="Open photo ${i + 1} of ${van.photos.length}"><img src="${photo(p, i === 0 ? 1200 : 600)}" alt="${van.name} photo ${i + 1}" ${i ? h`loading="lazy"` : ''}></button>`)}
+    <div class="gallery-wrap">
+      <div class="gallery" id="gallery">
+        ${van.photos.map((p, i) => h`<button class="g-item g-${i} ${i > 4 ? 'g-extra' : ''}" data-photo="${i}" aria-label="Open photo ${i + 1} of ${van.photos.length}"><img src="${photo(p, i === 0 ? 1200 : 700)}" alt="${van.name} photo ${i + 1}" ${i ? h`loading="lazy"` : ''}></button>`)}
+      </div>
+      <span class="g-count only-mobile" id="g-count" aria-hidden="true">1 / ${van.photos.length}</span>
       <button class="btn btn-sm g-all" data-photo="0">▦ Show all ${van.photos.length} photos</button>
     </div>
 
@@ -475,6 +494,12 @@ App.pages.van = (el, { id }, q) => {
   drawCard();
 
   el.querySelectorAll('[data-photo]').forEach(b => b.onclick = () => openLightbox(van, +b.dataset.photo));
+  // Photo counter for the swipeable carousel on phones
+  const gal = el.querySelector('#gallery'), gc = el.querySelector('#g-count');
+  gal.addEventListener('scroll', () => {
+    const item = gal.querySelector('.g-item');
+    if (item) gc.textContent = `${Math.min(van.photos.length, Math.round(gal.scrollLeft / (item.clientWidth + 8)) + 1)} / ${van.photos.length}`;
+  }, { passive: true });
   el.querySelector('#share').onclick = async () => {
     const url = location.href;
     try { if (navigator.share) await navigator.share({ title: van.name, url }); else { await navigator.clipboard.writeText(url); App.toast('Link copied', 'good'); } } catch (e) { /* user cancelled */ }
