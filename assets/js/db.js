@@ -13,7 +13,7 @@
  */
 window.App = window.App || {};
 
-const STORAGE_KEY = 'vanyatra.db.v3';
+const STORAGE_KEY = 'vanyatra.db.v4';
 const DAY = 86400000;
 
 App.iso = (date) => {

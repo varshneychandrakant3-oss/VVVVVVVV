@@ -15,6 +15,10 @@ const DEMO = [
   ['u_owner2', 'Meera Nair', 'meera@vanyatra.in', 'owner'],
   ['u_owner3', 'Tenzin Dorje', 'tenzin@vanyatra.in', 'owner'],
   ['u_owner4', 'Karan Singh', 'karan@vanyatra.in', 'owner'],
+  ['u_owner5', 'Farhan Shaikh', 'farhan@vanyatra.in', 'owner'],
+  ['u_owner6', 'Banri Syiem', 'banri@vanyatra.in', 'owner'],
+  ['u_owner7', 'Divya Hegde', 'divya@vanyatra.in', 'owner'],
+  ['u_owner8', 'Vikram Rathore', 'vikram@vanyatra.in', 'owner'],
   ['u_cust1', 'Priya Sharma', 'traveller@vanyatra.in', 'customer'],
   ['u_cust2', 'Arjun Rao', 'arjun@example.com', 'customer'],
   ['u_cust3', 'Neha & Vikram Joshi', 'joshis@example.com', 'customer'],
@@ -36,9 +40,11 @@ const DUMMY_HASH = hashPassword('timing-equaliser');
 
 export function accounts() {
   let list = read('accounts', null);
-  if (!list) {
+  const missing = DEMO.filter(([id, , email]) => !list || !list.some(a => a.id === id || a.email === email));
+  if (missing.length) {
+    // First run, or new demo hosts added since this server was set up
     const pw = hashPassword('demo1234');
-    list = DEMO.map(([id, name, email, role]) => ({ id, name, email, role, password: pw, status: 'active', createdAt: new Date().toISOString(), demo: true }));
+    list = [...(list || []), ...missing.map(([id, name, email, role]) => ({ id, name, email, role, password: pw, status: 'active', createdAt: new Date().toISOString(), demo: true }))];
     write('accounts', list);
   }
   return list;

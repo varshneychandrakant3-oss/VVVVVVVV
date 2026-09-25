@@ -186,6 +186,10 @@ App.buildSeed = function () {
     { id: 'u_owner2', name: 'Meera Nair', email: 'meera@vanyatra.in', phone: '+91 98200 10002', role: 'owner', city: 'Kochi', business: 'Coastline Campers' },
     { id: 'u_owner3', name: 'Tenzin Dorje', email: 'tenzin@vanyatra.in', phone: '+91 98200 10003', role: 'owner', city: 'Leh', business: 'Himalayan Overland' },
     { id: 'u_owner4', name: 'Karan Singh', email: 'karan@vanyatra.in', phone: '+91 98200 10004', role: 'owner', city: 'Jaipur', business: 'Desert Rover Co.' },
+    { id: 'u_owner5', name: 'Farhan Shaikh', email: 'farhan@vanyatra.in', phone: '+91 98200 10005', role: 'owner', city: 'Margao', business: 'Konkan Camper Co.' },
+    { id: 'u_owner6', name: 'Banri Syiem', email: 'banri@vanyatra.in', phone: '+91 98200 10006', role: 'owner', city: 'Shillong', business: 'Khasi Hills Vans' },
+    { id: 'u_owner7', name: 'Divya Hegde', email: 'divya@vanyatra.in', phone: '+91 98200 10007', role: 'owner', city: 'Madikeri', business: 'Coorg Roamers' },
+    { id: 'u_owner8', name: 'Vikram Rathore', email: 'vikram@vanyatra.in', phone: '+91 98200 10008', role: 'owner', city: 'Jodhpur', business: 'Marwar Motorhomes' },
     { id: 'u_cust1', name: 'Priya Sharma', email: 'traveller@vanyatra.in', phone: '+91 98200 20001', role: 'customer', city: 'Delhi' },
     { id: 'u_cust2', name: 'Arjun Rao', email: 'arjun@example.com', phone: '+91 98200 20002', role: 'customer', city: 'Bengaluru' },
     { id: 'u_cust3', name: 'Neha & Vikram Joshi', email: 'joshis@example.com', phone: '+91 98200 20003', role: 'customer', city: 'Pune' },
@@ -205,12 +209,67 @@ App.buildSeed = function () {
   });
   const owners = {
     u_owner1: ownerDone(), u_owner2: ownerDone(), u_owner3: ownerDone(),
+    u_owner5: ownerDone(), u_owner6: ownerDone(), u_owner7: ownerDone(), u_owner8: ownerDone(),
     u_owner4: { account: { status: 'verified' }, kyc: { status: 'pending', data: { aadhaarLast4: '9034', pan: 'BQRPS5521L' } }, business: { status: 'verified' }, payout: { status: 'pending', data: { bank: 'State Bank of India', last4: '0452', ifsc: 'SBIN0004567' } } }
   };
 
-  const ext = ['photo-1626680114529-3f6ffa002b80', 'photo-1576793048000-494aaa93d160', 'photo-1584198775168-cd76729ac207', 'photo-1629222247198-00b164054719', 'photo-1649851706700-56d3751fa9b1', 'photo-1613142078060-88d5609458c4', 'photo-1591091221408-63351f26777a', 'photo-1515172128886-07c606bb4eb3', 'photo-1534540378968-85a7b8fde19f', 'photo-1721931248510-9d3e07c6b522', 'photo-1645099815537-cea03d831528', 'photo-1521014710171-f44dfe788ece', 'photo-1511533910568-be3ffdc229bb', 'photo-1571235663358-c402973503af'];
-  const interior = ['photo-1773123441753-e87f821ec76d', 'photo-1785184949143-112301fcd809', 'photo-1557854135-779395816fbe', 'photo-1789043551317-048afedffa8e'];
-  const camp = ['photo-1477512076069-d31eb021716f', 'photo-1530541930197-ff16ac917b0e', 'photo-1618772446265-3f9f8e6f8487', 'photo-1558724065-2f80d1ae6002'];
+  // Photo pools (Unsplash). Exteriors are matched to the van type; every van gets a
+  // unique cover plus a second exterior, two interiors, a kitchen and a campsite shot.
+  const PHOTOS = {
+    van: [
+      'photo-1576793048000-494aaa93d160', 'photo-1584198775168-cd76729ac207', 'photo-1649851706700-56d3751fa9b1', 'photo-1534540378968-85a7b8fde19f',
+      'photo-1645099815537-cea03d831528', 'photo-1521014710171-f44dfe788ece', 'photo-1571235663358-c402973503af', 'photo-1515876305430-f06edab8282a',
+      'photo-1594495894542-a46cc73e081a', 'photo-1625492995811-646c41068abe', 'photo-1469854523086-cc02fe5d8800', 'photo-1532115298834-4c70d11ec8f3',
+      'photo-1634109725557-d2b8ac9f6c5c', 'photo-1626439613007-dffa9b69f7e0', 'photo-1626439613014-b367890c70cb', 'photo-1596470693312-9a3686a0af0f',
+      'photo-1655827268198-aee7f7ace729', 'photo-1626327547387-b2663804dd50', 'photo-1628132261841-cf77e5f0e246', 'photo-1627386172764-1d1b7ea90b66',
+      'photo-1652093932112-3fbc369da1f3', 'photo-1549194898-60fd030ecc0f', 'photo-1595251823086-930f6265cccc', 'photo-1670326457662-d981e6788945',
+      'photo-1764067218398-e568ff9dccaa', 'photo-1781630079309-56fe5a17d369', 'photo-1766083639110-ec7c4ad90490', 'photo-1764565689057-e94475ef873c',
+      'photo-1548378043-2b0571e7d0ce', 'photo-1624355761500-f00bb5cfb5a1', 'photo-1593914370442-49d414beca24', 'photo-1536294295328-fddf6da9d47e',
+      'photo-1528759335187-3b683174c86a', 'photo-1513350949-6bd4ab6ff7f8', 'photo-1619317190381-643a6b28d6e6', 'photo-1770752575355-a9d90d5644bb',
+      'photo-1770752575348-a064d4477761', 'photo-1721931248510-9d3e07c6b522', 'photo-1721220300289-b12765c054b6', 'photo-1564657536900-e6118c5e25f0',
+      'photo-1773762159818-d929964ab226', 'photo-1628132260719-00bd4b2902ec'
+    ],
+    rv: [
+      'photo-1626680114529-3f6ffa002b80', 'photo-1629222247198-00b164054719', 'photo-1613142078060-88d5609458c4', 'photo-1591091221408-63351f26777a',
+      'photo-1515172128886-07c606bb4eb3', 'photo-1511533910568-be3ffdc229bb', 'photo-1574260031597-bcd9eb192b4f', 'photo-1658257654756-cc6ba6490ea9',
+      'photo-1629222247196-d38d47441a1b', 'photo-1597327190279-43b91807c7a5', 'photo-1513311068348-19c8fbdc0bb6', 'photo-1596470689657-bcfc0e24f4e0',
+      'photo-1563783850023-077d97825802', 'photo-1523987355523-c7b5b0dd90a7', 'photo-1592351763700-b9b35a6465ea', 'photo-1566847838496-c670dd0ec05e',
+      'photo-1599889917438-211ac4924647', 'photo-1527542902003-a675625fb1eb', 'photo-1591447722629-2d3ecd3b2d62', 'photo-1635787501769-10b8e23b3ded'
+    ],
+    overland: [
+      'photo-1663679931361-19938f30c979', 'photo-1782192176298-5fb589feb539', 'photo-1519443933981-c665c4a62ad4', 'photo-1757286916917-ea71f0fc9a4d',
+      'photo-1779226347538-ca1a725ae550', 'photo-1636138105085-3e9381a8e438', 'photo-1643716353701-130855d55e35'
+    ],
+    interior: [
+      'photo-1773123441753-e87f821ec76d', 'photo-1785184949143-112301fcd809', 'photo-1557854135-779395816fbe', 'photo-1789043551317-048afedffa8e',
+      'photo-1692279952778-00ce5c3ce02c', 'photo-1789043549866-ea7ff893df9f', 'photo-1557855226-e63c7f07d9fb', 'photo-1649284538754-8d69dfa984cc',
+      'photo-1683582160988-5809b4886adc', 'photo-1633362501620-447ba5b52a82', 'photo-1783731127141-b159143d5828', 'photo-1557854588-d0a7bb40a50d',
+      'photo-1587061118028-b80b3547f924', 'photo-1533176403861-b654cad1ecf1', 'photo-1546556407-5a1b85d0a2cb', 'photo-1694530482596-48425885be98',
+      'photo-1496864317203-ec844065153b', 'photo-1587061117940-d7724587dc5a', 'photo-1624903041761-f31cf79f810c'
+    ],
+    kitchen: [
+      'photo-1773762159604-0ec52bcdf918', 'photo-1767052879108-65dee83a5887', 'photo-1773762159808-510a225fcaa1', 'photo-1773762159864-59966f6f82c7',
+      'photo-1681400803605-8dc103e102e7', 'photo-1783522277767-b3fbe3296a70'
+    ],
+    camp: [
+      'photo-1477512076069-d31eb021716f', 'photo-1530541930197-ff16ac917b0e', 'photo-1558724065-2f80d1ae6002', 'photo-1596470692500-66cbc5daea08',
+      'photo-1748251741266-1c5dfae05b92', 'photo-1590812505525-f3e96521e7ce', 'photo-1782150042524-53c5dd17c204', 'photo-1596470692137-ead1053a1e5c',
+      'photo-1618772446265-3f9f8e6f8487'
+    ]
+  };
+  const coverCount = { van: 0, rv: 0, overland: 0 };
+  const photosFor = (type, i) => {
+    const pool = type === 'Motorhome' || type === 'Caravan' ? 'rv' : type === '4x4 Overlander' ? 'overland' : 'van';
+    const list = PHOTOS[pool], n = coverCount[pool]++;
+    const at = (arr, k) => arr[k % arr.length];
+    const set = [
+      at(list, n), at(list, n + Math.ceil(list.length / 2)),
+      at(PHOTOS.interior, i * 2), at(PHOTOS.interior, i * 2 + 1),
+      at(PHOTOS.kitchen, i), at(PHOTOS.camp, i)
+    ];
+    return i % 3 === 2 ? set.slice(0, 5) : set; // a mix of 5- and 6-photo listings
+  };
+  const STATE_CODE = { himachal: 'HP', spiti: 'HP', ladakh: 'LA', goa: 'GA', kerala: 'KL', rajasthan: 'RJ', rishikesh: 'UK', coorg: 'KA', meghalaya: 'ML' };
 
   const vanDefs = [
     ['v1', 'u_owner1', 'Himalayan Explorer', 'Campervan', 'himachal', 'Manali', 32.2396, 77.1887, 6500, 4, 4, 'Force', 'Traveller 3350', 2023, 'Diesel', 'Manual', ['kitchen', 'fridge', 'heater', 'solar', 'inverter', 'awning', 'gps', 'campingchairs', 'watertank'], true, false, 'moderate', true],
@@ -224,7 +283,40 @@ App.buildSeed = function () {
     ['v9', 'u_owner3', 'Leh Family Motorhome', 'Motorhome', 'ladakh', 'Leh', 34.1526, 77.5771, 13900, 6, 6, 'Force', 'Traveller Motorhome', 2023, 'Diesel', 'Manual', ['kitchen', 'fridge', 'shower', 'toilet', 'heater', 'solar', 'inverter', 'childseat', 'gps', 'watertank', 'campingchairs'], true, false, 'moderate', true],
     ['v10', 'u_owner1', 'Coffee Country Camper', 'Campervan', 'coorg', 'Madikeri', 12.4244, 75.7382, 5400, 4, 4, 'Force', 'Traveller Camper', 2022, 'Diesel', 'Manual', ['kitchen', 'fridge', 'inverter', 'awning', 'childseat', 'gps', 'campingchairs', 'watertank'], true, true, 'moderate', true],
     ['v11', 'u_owner2', 'Cloud Kingdom Van', 'Campervan', 'meghalaya', 'Shillong', 25.5788, 91.8933, 6100, 4, 4, 'Mahindra', 'Scorpio Camper', 2023, 'Diesel', 'Manual', ['kitchen', 'fridge', 'heater', 'inverter', 'gps', 'campingchairs'], true, false, 'moderate', true],
-    ['v12', 'u_owner4', 'Desert Rover Caravan', 'Caravan', 'rajasthan', 'Jaipur', 26.9124, 75.7873, 7200, 5, 5, 'Tata', 'Winger Caravan', 2023, 'Diesel', 'Manual', ['kitchen', 'fridge', 'toilet', 'ac', 'inverter', 'awning', 'childseat', 'gps', 'campingchairs', 'watertank'], true, false, 'moderate', true]
+    ['v12', 'u_owner4', 'Desert Rover Caravan', 'Caravan', 'rajasthan', 'Jaipur', 26.9124, 75.7873, 7200, 5, 5, 'Tata', 'Winger Caravan', 2023, 'Diesel', 'Manual', ['kitchen', 'fridge', 'toilet', 'ac', 'inverter', 'awning', 'childseat', 'gps', 'campingchairs', 'watertank'], true, false, 'moderate', true],
+    // Manali & Kullu
+    ['v13', 'u_owner1', 'Parvati Valley Pop-top', 'Pop-top', 'himachal', 'Kasol', 32.0100, 77.3150, 4600, 3, 4, 'Mahindra', 'Bolero Pop-top', 2023, 'Diesel', 'Manual', ['kitchen', 'fridge', 'heater', 'gps', 'campingchairs', 'watertank'], false, true, 'flexible', true],
+    ['v14', 'u_owner1', 'Solang Family Motorhome', 'Motorhome', 'himachal', 'Manali', 32.2600, 77.1800, 11800, 6, 6, 'Force', 'Traveller Motorhome', 2024, 'Diesel', 'Manual', ['kitchen', 'fridge', 'shower', 'toilet', 'heater', 'solar', 'inverter', 'childseat', 'gps', 'watertank', 'campingchairs'], true, false, 'moderate', true],
+    // Spiti Valley
+    ['v15', 'u_owner3', 'Kaza Cold Desert Cruiser', '4x4 Overlander', 'spiti', 'Kaza', 32.2250, 78.0700, 9800, 2, 4, 'Toyota', 'Hilux Overland', 2023, 'Diesel', 'Manual', ['kitchen', 'fridge', 'heater', 'solar', 'inverter', 'awning', 'gps', 'watertank'], false, false, 'strict', true],
+    ['v16', 'u_owner1', 'Chandratal Camper', 'Campervan', 'spiti', 'Kaza', 32.2300, 78.0650, 7400, 4, 4, 'Force', 'Traveller 3350', 2023, 'Diesel', 'Manual', ['kitchen', 'fridge', 'heater', 'solar', 'inverter', 'gps', 'campingchairs', 'watertank'], true, true, 'moderate', true],
+    ['v17', 'u_owner3', 'Key Monastery Motorhome', 'Motorhome', 'spiti', 'Tabo', 32.0930, 78.3830, 12600, 5, 5, 'Tata', 'Winger Motorhome', 2023, 'Diesel', 'Manual', ['kitchen', 'fridge', 'toilet', 'heater', 'solar', 'inverter', 'childseat', 'gps', 'watertank'], true, false, 'moderate', true],
+    // Rishikesh & Garhwal
+    ['v18', 'u_owner1', 'Ganga Riverside Van', 'Campervan', 'rishikesh', 'Rishikesh', 30.1200, 78.3100, 4900, 2, 2, 'Maruti', 'Eeco Camper', 2022, 'Petrol', 'Manual', ['kitchen', 'fridge', 'inverter', 'gps', 'campingchairs'], false, true, 'flexible', true],
+    ['v19', 'u_owner1', 'Chopta Trail Pop-top', 'Pop-top', 'rishikesh', 'Rishikesh', 30.0900, 78.2700, 5600, 3, 4, 'Mahindra', 'Scorpio Pop-top', 2023, 'Diesel', 'Manual', ['kitchen', 'fridge', 'heater', 'awning', 'bikerack', 'gps', 'campingchairs'], true, true, 'moderate', true],
+    ['v20', 'u_owner1', 'Doon Valley Motorhome', 'Motorhome', 'rishikesh', 'Dehradun', 30.3165, 78.0322, 10400, 6, 6, 'Force', 'Urbania Motorhome', 2024, 'Diesel', 'Automatic', ['kitchen', 'fridge', 'shower', 'toilet', 'ac', 'inverter', 'wifi', 'childseat', 'gps', 'watertank'], true, false, 'moderate', true],
+    // Kerala
+    ['v21', 'u_owner2', 'Varkala Cliff Camper', 'Campervan', 'kerala', 'Varkala', 8.7379, 76.7163, 5800, 4, 4, 'Force', 'Traveller Camper', 2023, 'Diesel', 'Manual', ['kitchen', 'fridge', 'ac', 'inverter', 'awning', 'gps', 'campingchairs', 'pets'], true, true, 'flexible', true],
+    ['v22', 'u_owner2', 'Periyar Spice Trail', 'Pop-top', 'kerala', 'Kumily', 9.6069, 77.1614, 4700, 3, 4, 'Mahindra', 'Bolero Pop-top', 2022, 'Diesel', 'Manual', ['kitchen', 'fridge', 'gps', 'campingchairs', 'watertank'], true, true, 'moderate', true],
+    // Goa
+    ['v23', 'u_owner5', 'Palolem Surf Van', 'Campervan', 'goa', 'Canacona', 15.0100, 74.0232, 5200, 2, 2, 'Force', 'Traveller Camper', 2022, 'Diesel', 'Manual', ['kitchen', 'fridge', 'ac', 'bikerack', 'awning', 'gps', 'campingchairs'], false, true, 'flexible', true],
+    ['v24', 'u_owner5', 'Konkan Family Caravan', 'Caravan', 'goa', 'Margao', 15.2832, 73.9862, 8400, 5, 5, 'Tata', 'Winger Caravan', 2023, 'Diesel', 'Manual', ['kitchen', 'fridge', 'toilet', 'ac', 'inverter', 'awning', 'childseat', 'gps', 'campingchairs', 'watertank'], true, false, 'moderate', true],
+    ['v25', 'u_owner5', 'Anjuna Sunset Pop-top', 'Pop-top', 'goa', 'Mapusa', 15.5937, 73.8142, 4400, 3, 4, 'Mahindra', 'Bolero Pop-top', 2023, 'Diesel', 'Manual', ['kitchen', 'fridge', 'ac', 'gps', 'campingchairs', 'pets'], true, true, 'flexible', true],
+    // Ladakh
+    ['v26', 'u_owner3', 'Nubra Dunes Overlander', '4x4 Overlander', 'ladakh', 'Leh', 34.1700, 77.5900, 12200, 2, 4, 'Isuzu', 'D-Max V-Cross Overland', 2024, 'Diesel', 'Automatic', ['kitchen', 'fridge', 'heater', 'solar', 'inverter', 'awning', 'gps', 'watertank'], false, false, 'strict', true],
+    ['v27', 'u_owner3', 'Khardung La Camper', 'Campervan', 'ladakh', 'Leh', 34.1600, 77.5700, 9200, 4, 4, 'Force', 'Traveller 3350', 2023, 'Diesel', 'Manual', ['kitchen', 'fridge', 'heater', 'solar', 'inverter', 'gps', 'campingchairs', 'watertank', 'childseat'], true, true, 'moderate', true],
+    // Coorg & Chikmagalur
+    ['v28', 'u_owner7', 'Abbey Falls Camper', 'Campervan', 'coorg', 'Madikeri', 12.4200, 75.7400, 5100, 4, 4, 'Force', 'Traveller Camper', 2022, 'Diesel', 'Manual', ['kitchen', 'fridge', 'inverter', 'awning', 'childseat', 'gps', 'campingchairs'], true, true, 'moderate', true],
+    ['v29', 'u_owner7', 'Chikmagalur Coffee Van', 'Pop-top', 'coorg', 'Chikmagalur', 13.3161, 75.7720, 4500, 3, 4, 'Mahindra', 'Bolero Pop-top', 2023, 'Diesel', 'Manual', ['kitchen', 'fridge', 'gps', 'campingchairs', 'pets'], true, true, 'flexible', true],
+    ['v30', 'u_owner7', 'Kabini Wild Motorhome', 'Motorhome', 'coorg', 'Mysuru', 12.2958, 76.6394, 9900, 6, 6, 'Tata', 'Winger Motorhome', 2024, 'Diesel', 'Manual', ['kitchen', 'fridge', 'shower', 'toilet', 'ac', 'inverter', 'childseat', 'gps', 'watertank'], true, false, 'moderate', true],
+    // Meghalaya
+    ['v31', 'u_owner6', 'Sohra Rain Camper', 'Campervan', 'meghalaya', 'Shillong', 25.5700, 91.8800, 5900, 4, 4, 'Force', 'Traveller Camper', 2023, 'Diesel', 'Manual', ['kitchen', 'fridge', 'heater', 'inverter', 'awning', 'gps', 'campingchairs'], true, true, 'moderate', true],
+    ['v32', 'u_owner6', 'Dawki River Pop-top', 'Pop-top', 'meghalaya', 'Shillong', 25.5800, 91.9000, 4800, 3, 4, 'Mahindra', 'Scorpio Pop-top', 2022, 'Diesel', 'Manual', ['kitchen', 'fridge', 'gps', 'campingchairs', 'watertank'], false, true, 'flexible', true],
+    ['v33', 'u_owner6', 'Living Root Bridge 4x4', '4x4 Overlander', 'meghalaya', 'Shillong', 25.5650, 91.8700, 8600, 2, 4, 'Toyota', 'Hilux Overland', 2023, 'Diesel', 'Manual', ['kitchen', 'fridge', 'heater', 'solar', 'inverter', 'awning', 'gps', 'watertank'], false, false, 'strict', true],
+    // Rajasthan
+    ['v34', 'u_owner8', 'Thar Desert Motorhome', 'Motorhome', 'rajasthan', 'Jaisalmer', 26.9157, 70.9083, 11200, 6, 6, 'Force', 'Traveller Motorhome', 2024, 'Diesel', 'Manual', ['kitchen', 'fridge', 'shower', 'toilet', 'ac', 'inverter', 'childseat', 'gps', 'watertank', 'campingchairs'], true, false, 'moderate', true],
+    ['v35', 'u_owner8', 'Blue City Campervan', 'Campervan', 'rajasthan', 'Jodhpur', 26.2389, 73.0243, 5700, 4, 4, 'Force', 'Traveller Camper', 2023, 'Diesel', 'Manual', ['kitchen', 'fridge', 'ac', 'inverter', 'awning', 'gps', 'campingchairs'], true, true, 'moderate', true],
+    ['v36', 'u_owner8', 'Lake City Pop-top', 'Pop-top', 'rajasthan', 'Udaipur', 24.5854, 73.7125, 4600, 3, 4, 'Mahindra', 'Bolero Pop-top', 2022, 'Diesel', 'Manual', ['kitchen', 'fridge', 'ac', 'gps', 'campingchairs', 'pets'], true, true, 'flexible', true]
   ];
 
   const descs = {
@@ -238,7 +330,7 @@ App.buildSeed = function () {
 
   const vans = vanDefs.map((v, i) => {
     const [id, ownerId, name, type, destinationId, city, lat, lng, price, sleeps, seats, make, model, year, fuel, transmission, amenities, familyFriendly, instantBook, cancellation, published] = v;
-    const photos = [ext[i % ext.length], interior[i % interior.length], ext[(i + 5) % ext.length], camp[i % camp.length]];
+    const photos = photosFor(type, i);
     return {
       id, ownerId, name, type, destinationId, city, sleeps, seats, make, model, year, fuel, transmission, amenities,
       familyFriendly, petFriendly: amenities.includes('pets'), instantBook, cancellation,
@@ -272,14 +364,14 @@ App.buildSeed = function () {
   for (const v of vans) {
     const pub = v.status === 'published';
     const st = pub ? 'verified' : 'pending';
-    addDoc({ ownerId: v.ownerId, vanId: v.id, type: 'rc', label: 'Registration Certificate (RC)', number: 'HP-01-AB-' + (1000 + vans.indexOf(v)), expiry: d(2400), status: st });
+    addDoc({ ownerId: v.ownerId, vanId: v.id, type: 'rc', label: 'Registration Certificate (RC)', number: `${STATE_CODE[v.destinationId] || 'HP'}-01-AB-${1000 + vans.indexOf(v)}`, expiry: d(2400), status: st });
     addDoc({ ownerId: v.ownerId, vanId: v.id, type: 'rent_cab_licence', label: 'Rent-a-Motor-Cab / self-drive rental licence', expiry: d(500), status: st });
     addDoc({ ownerId: v.ownerId, vanId: v.id, type: 'puc', label: 'Pollution Under Control (PUC) certificate', expiry: v.id === 'v2' ? d(12) : d(150), status: st });
     addDoc({ ownerId: v.ownerId, vanId: v.id, type: 'fitness', label: 'Fitness certificate (commercial vehicle)', expiry: d(380), status: st });
     addDoc({ ownerId: v.ownerId, vanId: v.id, type: 'insurance', label: 'Commercial comprehensive insurance (self-drive rental cover)', number: 'POL-' + (882100 + vans.indexOf(v)), insurer: pick(['ICICI Lombard', 'HDFC ERGO', 'Bajaj Allianz', 'New India Assurance']), expiry: v.id === 'v4' ? d(21) : v.id === 'v7' ? d(-3) : d(240), status: v.id === 'v7' ? 'action_required' : st, note: v.id === 'v7' ? 'Policy expired — upload the renewed policy to keep the listing live.' : '' });
     if (v.status === 'published' || v.id === 'v8') addDoc({ ownerId: v.ownerId, vanId: v.id, type: 'inspection', label: 'Safety & roadworthiness inspection report', expiry: d(pub ? 200 : 330), status: st });
   }
-  for (const oid of ['u_owner1', 'u_owner2', 'u_owner3']) {
+  for (const oid of ['u_owner1', 'u_owner2', 'u_owner3', 'u_owner5', 'u_owner6', 'u_owner7', 'u_owner8']) {
     addDoc({ ownerId: oid, type: 'aadhaar', label: 'Aadhaar (masked)', number: 'XXXX-XXXX-' + (4000 + documents.length), status: 'verified' });
     addDoc({ ownerId: oid, type: 'pan', label: 'PAN card', number: 'XXXXX' + (1000 + documents.length) + 'K', status: 'verified' });
   }
@@ -317,7 +409,7 @@ App.buildSeed = function () {
   mkBooking('v10', 'u_cust2', -9, 4, 'completed');
   mkBooking('v2', 'u_cust4', -6, 3, 'completed');
   const overlaps = (vanId, s, e) => bookings.some(b => b.vanId === vanId && b.status !== 'cancelled' && b.start < e && s < b.end);
-  for (let i = 0, made = 0; made < 70 && i < 400; i++) {
+  for (let i = 0, made = 0; made < 150 && i < 800; i++) {
     const v = pick(vans.filter(v => v.status !== 'in_review'));
     const off = -180 + Math.floor(rnd() * 170);
     const nights = v.minNights + Math.floor(rnd() * 5);
