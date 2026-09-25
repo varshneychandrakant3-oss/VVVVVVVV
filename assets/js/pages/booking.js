@@ -67,13 +67,16 @@ App.pages.book = (el, { id }, q) => {
       <div class="form-actions"><button class="btn btn-primary btn-lg" type="submit">Continue</button></div>`;
     if (s.step === 2) return h`
       <h2>Main driver</h2>
-      <p class="muted small">The main driver must be at least ${App.C.minDriverAge}, hold a valid licence for 2+ years and present it at pickup. Only the last 4 characters of the licence are stored.</p>
+      <p class="muted small">The main driver must be at least ${App.C.minDriverAge}, hold a valid licence and present it at pickup. ${App.serverOnline ? 'We check the licence with the government SARATHI registry. ' : ''}Only the last 4 characters of the licence are stored.</p>
       <div class="grid-2">
         <label class="field"><span>Full name (as on licence)</span><input name="name" autocomplete="name" value="${s.driver.name}" required></label>
-        <label class="field"><span>Age</span><input type="number" name="age" min="18" max="90" value="${s.driver.age}" required></label>
+        <label class="field"><span>Date of birth</span><input type="date" name="dob" max="${App.addDays(App.today(), -365 * 18)}" value="${s.driver.dob || ''}" required></label>
         <label class="field"><span>Driving licence number</span><input name="licence" autocomplete="off" value="${s.driver.licence}" placeholder="e.g. DL-0420110012345" required pattern="[A-Za-z0-9 \\-]{8,20}"></label>
         <label class="field"><span>Mobile number</span><input type="tel" name="phone" autocomplete="tel" value="${s.driver.phone}" required></label>
       </div>
+      ${App.serverOnline && App.verifyConfig?.testMode ? h`<p class="test-hint">🧪 <strong>Test mode</strong> — licences ending 0000 are “not found”, ending 1111 are expired.</p>` : ''}
+      ${App.serverOnline ? h`<label class="check consent"><input type="checkbox" name="dlConsent" required> I consent to VanYatra verifying this driving licence with the SARATHI registry.</label>` : ''}
+      <div id="dl-result">${s.dlCheck ? App.checkResultBox(s.dlCheck) : ''}</div>
       <label class="field"><span>Message to the owner (optional)</span><textarea name="specialRequests" rows="3" placeholder="Who's coming, your route, any questions…">${s.specialRequests}</textarea></label>
       <div class="form-actions"><button type="button" class="btn btn-ghost" data-back>Back</button><button class="btn btn-primary btn-lg" type="submit">Continue to payment</button></div>`;
     return h`
@@ -111,9 +114,22 @@ App.pages.book = (el, { id }, q) => {
       if (s.step === 2) {
         if (!f.checkValidity()) { f.reportValidity(); return; }
         const d = App.formData(f);
-        s.driver = { name: d.name.trim(), age: +d.age, licence: d.licence.trim(), phone: d.phone.trim() };
+        const age = Math.floor((new Date(s.start) - new Date(d.dob)) / (365.25 * 86400000));
+        s.driver = { name: d.name.trim(), dob: d.dob, age, licence: d.licence.trim(), phone: d.phone.trim() };
         s.specialRequests = d.specialRequests.trim();
-        if (s.driver.age < App.C.minDriverAge) return App.toast(`The main driver must be at least ${App.C.minDriverAge}.`, 'bad');
+        if (age < App.C.minDriverAge) return App.toast(`The main driver must be at least ${App.C.minDriverAge} on the pickup date.`, 'bad');
+        if (App.serverOnline) {
+          const btn = f.querySelector('[type=submit]');
+          btn.disabled = true; btn.textContent = 'Checking licence…';
+          try {
+            s.dlCheck = await App.verify.run('dl', { dlNumber: s.driver.licence, dob: d.dob, name: s.driver.name, tripEnd: s.end });
+          } catch (err) {
+            btn.disabled = false; btn.textContent = 'Continue to payment';
+            return App.toast(err.message, 'bad');
+          }
+          if (s.dlCheck.status === 'failed') { draw(); return App.toast('We couldn’t verify this driving licence — see details.', 'bad'); }
+          s.driver.check = { status: s.dlCheck.status, validUpto: s.dlCheck.data.validUpto, source: s.dlCheck.source, checkedAt: s.dlCheck.checkedAt, note: App.verify.note(s.dlCheck) };
+        }
         s.step = 3; return draw();
       }
       const d = App.formData(f);

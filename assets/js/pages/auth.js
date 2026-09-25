@@ -31,11 +31,11 @@ App.pages.login = (el, _p, q) => {
   </div>`);
   const f = el.querySelector('#login-form');
   const err = el.querySelector('#login-err');
-  f.addEventListener('submit', (e) => {
+  f.addEventListener('submit', async (e) => {
     e.preventDefault();
     if (!f.checkValidity()) { f.reportValidity(); return; }
     try {
-      const u = App.api.login(f.email.value, f.password.value);
+      const u = await App.api.login(f.email.value, f.password.value);
       App.toast(`Welcome back, ${u.name.split(' ')[0]}!`, 'good');
       App.go(safeNext(q.next) || (u.role === 'owner' ? '#/owner' : u.role === 'admin' ? '#/admin' : '#/'));
     } catch (ex) { err.textContent = ex.message; err.hidden = false; }
@@ -69,12 +69,12 @@ App.pages.signup = (el, _p, q) => {
   </div>`);
   const f = el.querySelector('#signup-form');
   f.querySelectorAll('[name=role]').forEach(r => r.onchange = () => f.querySelectorAll('.role-pick .pay-opt').forEach(l => l.classList.toggle('on', l.contains(f.querySelector('[name=role]:checked')))));
-  f.addEventListener('submit', (e) => {
+  f.addEventListener('submit', async (e) => {
     e.preventDefault();
     if (!f.checkValidity()) { f.reportValidity(); return; }
     try {
       const d = App.formData(f);
-      const u = App.api.signup({ name: d.name.trim(), email: d.email.trim(), phone: d.phone.trim(), password: d.password, role: d.role });
+      const u = await App.api.signup({ name: d.name.trim(), email: d.email.trim(), phone: d.phone.trim(), password: d.password, role: d.role });
       App.toast('Account created!', 'good');
       App.go(u.role === 'owner' ? '#/owner/onboarding' : '#/verify?next=' + encodeURIComponent(q.next || '/'));
     } catch (ex) { const err = el.querySelector('#su-err'); err.textContent = ex.message; err.hidden = false; }

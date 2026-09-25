@@ -627,6 +627,25 @@ input[type=range] { width: 100%; accent-color: var(--primary); }
 .ms { flex: 1; height: 6px; border-radius: 3px; background: var(--line); }
 .ms-verified { background: var(--good); } .ms-pending { background: #e8a317; } .ms-action_required, .ms-rejected { background: var(--bad); }
 
+/* Government verification */
+.check-result { border: 1.5px solid var(--line); border-left-width: 5px; border-radius: var(--radius-sm); padding: 12px 14px; margin: 12px 0; background: var(--surface); }
+.check-result ul { list-style: none; padding: 0; margin: 8px 0 0; display: grid; gap: 4px; font-size: .92rem; }
+.check-good { border-left-color: var(--good); } .check-good > div > strong { color: var(--good); }
+.check-warn { border-left-color: #e8a317; } .check-warn > div > strong { color: var(--warn); }
+.check-bad { border-left-color: var(--bad); } .check-bad > div > strong { color: var(--bad); }
+.lvl-ok { color: var(--good); } .lvl-review { color: var(--warn); } .lvl-fail { color: var(--bad); }
+.test-hint { background: var(--warn-bg); color: var(--warn); border-radius: var(--radius-sm); padding: 10px 12px; font-size: .88rem; }
+.source-tag { display: inline-flex; align-items: center; gap: 4px; margin: 2px 0 0 6px; padding: 1px 8px; border-radius: 999px; background: var(--primary-soft); color: var(--primary); font-size: .74rem; font-weight: 700; white-space: nowrap; }
+.input-action { display: flex; gap: 8px; align-items: stretch; }
+.input-action input { flex: 1; min-width: 0; }
+.input-action .btn { min-height: 44px; }
+.consent { background: var(--surface-2); border-radius: var(--radius-sm); padding: 10px 12px; margin: 12px 0; font-size: .9rem; }
+.kyc-block { border-top: 1px solid var(--line); padding: 16px 0; }
+.kyc-block h3 { margin-bottom: 8px; }
+.registry th { width: 38%; }
+.spinner { display: inline-block; width: 14px; height: 14px; border: 2px solid currentColor; border-right-color: transparent; border-radius: 50%; animation: spin .7s linear infinite; vertical-align: -2px; }
+@keyframes spin { to { transform: rotate(360deg); } }
+
 /* Charts */
 .chart { position: relative; margin: 0; }
 .chart svg { width: 100%; height: auto; overflow: visible; }

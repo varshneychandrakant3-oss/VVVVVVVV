@@ -247,12 +247,18 @@ const profileTab = (m, me) => {
     <div class="card"><h2>Your data</h2><p class="small muted">Download a copy of everything we hold about you, or ask us to delete your account.</p>
       <div class="row gap wrap"><button class="btn" id="export">⬇ Download my data</button><button class="btn btn-danger" id="delete">Request account deletion</button></div></div>`);
   m.querySelector('#profile-form').onsubmit = (e) => { e.preventDefault(); const d = App.formData(e.target); me.name = d.name.trim() || me.name; me.city = d.city.trim(); App.save(); App.renderHeader(); App.toast('Profile updated', 'good'); };
-  m.querySelector('#pw-form').onsubmit = (e) => {
+  m.querySelector('#pw-form').onsubmit = async (e) => {
     e.preventDefault();
     const d = App.formData(e.target);
-    if (App.hashPassword(d.old) !== me.password) return App.toast('Current password is incorrect.', 'bad');
     if (d.new.length < 8 || !/\d/.test(d.new) || !/[a-z]/i.test(d.new)) return App.toast('New password needs 8+ characters with a letter and a number.', 'bad');
-    me.password = App.hashPassword(d.new); App.audit('user.password_change', me.email); App.save(); e.target.reset(); App.toast('Password updated', 'good');
+    if (App.serverOnline) {
+      try { await App.server('POST', '/api/auth/password', { oldPassword: d.old, newPassword: d.new }); }
+      catch (err) { return App.toast(err.message, 'bad'); }
+    } else {
+      if (App.hashPassword(d.old) !== me.password) return App.toast('Current password is incorrect.', 'bad');
+      me.password = App.hashPassword(d.new);
+    }
+    App.audit('user.password_change', me.email); App.save(); e.target.reset(); App.toast('Password updated. Other devices were signed out.', 'good');
   };
   m.querySelectorAll('[data-pref]').forEach(c => c.onchange = () => { me.prefs = { ...(me.prefs || {}), [c.dataset.pref]: c.checked }; App.save(); App.toast('Preferences saved', 'good'); });
   App.otpWidget(m.querySelector('#otp'), me);
@@ -268,7 +274,7 @@ const profileTab = (m, me) => {
     const active = App.db.bookings.some(b => (b.customerId === me.id || b.ownerId === me.id) && ['confirmed', 'requested'].includes(b.status));
     if (active) return App.modal({ title: 'You have active bookings', body: h`<p>Please complete or cancel your upcoming bookings before deleting your account.</p>` });
     if (!(await App.confirm('Delete your account?', 'Your profile will be deleted within 30 days. Booking and tax records are kept as required by law. You will be signed out now.', 'Request deletion', true))) return;
-    me.status = 'deletion_requested'; App.audit('user.deletion_request', me.email); App.api.logout(); App.toast('Deletion requested. We’ve emailed you a confirmation.'); App.go('#/');
+    me.status = 'deletion_requested'; App.audit('user.deletion_request', me.email); await App.api.logout(); App.toast('Deletion requested. We’ve emailed you a confirmation.'); App.go('#/');
   };
 };
 

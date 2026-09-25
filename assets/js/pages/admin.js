@@ -139,23 +139,35 @@ const listings = (m) => {
 };
 
 /* ---------- Verifications ---------- */
+const VAHAN_TYPES = ['rc', 'puc', 'insurance', 'tourist_permit'];
+const recheckVan = async (van) => {
+  const r = await App.verify.run('vehicle', { regNo: van.regNo, relation: van.relation || 'owner', vanId: van.id, subjectId: van.ownerId });
+  if (r.data.docs) App.applyVehicleCheck(van, r);
+  App.audit('document.registry_recheck', `${van.id} ${van.regNo} → ${r.status}`);
+  App.save();
+  return r;
+};
+// Seeded demo vans store the registration number only on their RC document
+const regNoOf = (van) => van.regNo || (App.db.documents.find(d => d.vanId === van.id && d.type === 'rc')?.number || '').replace(/[\s-]/g, '');
+
 const verifications = (m) => {
   const q = App.parseHash().query;
   let filter = q.filter || 'pending';
-  const draw = () => {
+  const draw = async () => {
+    if (filter === 'checks') return drawChecks();
     let list = App.db.documents;
     if (q.owner) list = list.filter(d => d.ownerId === q.owner);
     if (filter === 'pending') list = list.filter(d => d.status === 'pending');
     else if (filter === 'attention') list = list.filter(d => ['action_required', 'rejected'].includes(d.status));
     else if (filter === 'expiring') list = list.filter(d => { const e = App.docExpiryState(d); return e && e.tone !== 'muted'; });
     list = [...list].sort((a, b) => (b.submittedAt || '').localeCompare(a.submittedAt || ''));
-    m.innerHTML = String(h`<h1>KYC & document verification</h1>
-      ${q.owner ? h`<p>Showing documents for <strong>${userName(q.owner)}</strong> · <a href="#/admin/verifications">show all</a></p>` : ''}
-      <div class="tabs" role="tablist">${[['pending', 'Pending review'], ['attention', 'Action required / rejected'], ['expiring', 'Expiring & expired'], ['all', 'All documents']].map(([k, l]) => h`<button role="tab" aria-selected="${k === filter}" class="${k === filter ? 'on' : ''}" data-f="${k}">${l}</button>`)}</div>
+    const expiringVans = [...new Set(list.filter(d => d.vanId && VAHAN_TYPES.includes(d.type)).map(d => d.vanId))];
+    m.innerHTML = String(h`${header()}
+      ${filter === 'expiring' && expiringVans.length && App.serverOnline ? h`<div class="callout row-between wrap"><span>Renewed documents often show up in VAHAN before owners upload them.</span><button class="btn btn-sm" id="bulk">↻ Re-check ${App.plural(expiringVans.length, 'vehicle')} with VAHAN</button></div>` : ''}
       ${list.length ? h`<div class="table-wrap"><table class="table"><thead><tr><th>Document</th><th>Owner / vehicle</th><th>Details</th><th>Expiry</th><th>Status</th><th>Decision</th></tr></thead><tbody>
-        ${list.map(d => { const ex = App.docExpiryState(d); return h`<tr>
-          <td><strong>${d.label}</strong><br><span class="small muted">📎 ${d.fileName || 'no file'}${d.submittedAt ? ' · ' + App.timeAgo(d.submittedAt) : ''}</span></td>
-          <td>${userName(d.ownerId)}<br><span class="small muted">${d.vanId ? App.get.van(d.vanId)?.name : 'Owner KYC'}</span></td>
+        ${list.map(d => { const ex = App.docExpiryState(d); const van = d.vanId && App.get.van(d.vanId); return h`<tr>
+          <td><strong>${d.label}</strong><br><span class="small muted">📎 ${d.fileName || 'no file'}${d.submittedAt ? ' · ' + App.timeAgo(d.submittedAt) : ''}</span>${d.check ? h`<br><span class="source-tag">✓ ${d.check.source} · ${App.timeAgo(d.check.checkedAt)}</span>` : ''}</td>
+          <td>${userName(d.ownerId)}<br><span class="small muted">${van ? van.name : 'Owner KYC'}</span></td>
           <td>${d.number || '—'}${d.insurer ? h`<br><span class="small muted">${d.insurer}</span>` : ''}</td>
           <td>${ex ? h`<span class="badge badge-${ex.tone}">${ex.label}</span>` : '—'}</td>
           <td>${App.statusBadge(d.status)}${d.note ? h`<div class="small muted">${d.note}</div>` : ''}</td>
@@ -163,11 +175,12 @@ const verifications = (m) => {
             ${d.status !== 'verified' ? h`<button class="btn btn-sm btn-primary" data-dec="verified" data-doc="${d.id}">Verify</button>` : ''}
             <button class="btn btn-sm btn-ghost" data-dec="action_required" data-doc="${d.id}">Needs action</button>
             ${d.status !== 'rejected' ? h`<button class="btn btn-sm btn-ghost danger-text" data-dec="rejected" data-doc="${d.id}">Reject</button>` : ''}
+            ${van && VAHAN_TYPES.includes(d.type) && App.serverOnline && regNoOf(van) ? h`<button class="btn btn-sm btn-ghost" data-recheck="${van.id}">↻ Re-check VAHAN</button>` : ''}
             ${ex && ex.tone !== 'muted' ? h`<button class="btn btn-sm btn-ghost" data-remind="${d.id}">Send reminder</button>` : ''}
           </td></tr>`; })}
       </tbody></table></div>` : App.emptyState('🪪', 'Nothing in this queue', 'All caught up.')}
-      <p class="small muted">Verifier checklist: name matches account/RC, document is legible and unaltered, numbers pass format checks, expiry is in the future, insurance covers commercial self-drive rental.</p>`);
-    m.querySelectorAll('[data-f]').forEach(t => t.onclick = () => { filter = t.dataset.f; draw(); });
+      <p class="small muted">Documents marked with a source were checked automatically against government records. Still review by hand: selfie vs Aadhaar photo, rent-a-cab licence, fitness certificate, NOCs, and that insurance covers commercial self-drive rental.</p>`);
+    bindTabs();
     m.querySelectorAll('[data-dec]').forEach(b => b.onclick = async () => {
       const status = b.dataset.dec;
       let note = '';
@@ -175,7 +188,51 @@ const verifications = (m) => {
       App.api.reviewDocument(b.dataset.doc, status, note);
       App.toast('Decision recorded', 'good'); draw();
     });
+    m.querySelectorAll('[data-recheck]').forEach(b => b.onclick = async () => {
+      const van = App.get.van(b.dataset.recheck);
+      van.regNo = regNoOf(van);
+      b.disabled = true; b.textContent = 'Checking…';
+      try { const r = await recheckVan(van); App.toast(`${van.name}: VAHAN check ${r.status}`, r.status === 'failed' ? 'bad' : 'good'); }
+      catch (e) { App.toast(e.message, 'bad'); }
+      draw();
+    });
+    const bulk = m.querySelector('#bulk');
+    if (bulk) bulk.onclick = async () => {
+      bulk.disabled = true;
+      let n = 0;
+      for (const id of expiringVans) {
+        const van = App.get.van(id); van.regNo = regNoOf(van);
+        bulk.textContent = `Checking ${++n} of ${expiringVans.length}…`;
+        try { await recheckVan(van); } catch (e) { App.toast(`${van.name}: ${e.message}`, 'bad'); }
+      }
+      App.toast('VAHAN re-check complete', 'good'); draw();
+    };
     m.querySelectorAll('[data-remind]').forEach(b => b.onclick = () => { const d = App.db.documents.find(x => x.id === b.dataset.remind); App.notify(d.ownerId, `Reminder: please renew ${d.label}${d.vanId ? ' for ' + App.get.van(d.vanId).name : ''} (${App.docExpiryState(d).label}).`, '#/owner/documents'); App.audit('document.reminder', d.label + ' ' + d.id); App.save(); App.toast('Reminder sent', 'good'); });
+  };
+
+  const header = () => h`<h1>KYC & document verification</h1>
+    ${q.owner ? h`<p>Showing documents for <strong>${userName(q.owner)}</strong> · <a href="#/admin/verifications">show all</a></p>` : ''}
+    <div class="tabs" role="tablist">${[['pending', 'Pending review'], ['attention', 'Action required / rejected'], ['expiring', 'Expiring & expired'], ['all', 'All documents'], ['checks', 'Government checks log']].map(([k, l]) => h`<button role="tab" aria-selected="${k === filter}" class="${k === filter ? 'on' : ''}" data-f="${k}">${l}</button>`)}</div>`;
+  const bindTabs = () => m.querySelectorAll('[data-f]').forEach(t => t.onclick = () => { filter = t.dataset.f; draw(); });
+
+  // Server-side record of every government check (the source of truth)
+  const drawChecks = async () => {
+    m.innerHTML = String(h`${header()}<p class="muted">Loading…</p>`);
+    bindTabs();
+    if (!App.serverOnline) { m.querySelector('p.muted').textContent = 'The verification server is offline. Start it with npm start.'; return; }
+    let records;
+    try { ({ records } = await App.server('GET', '/api/admin/verifications' + (q.owner ? '?subjectId=' + encodeURIComponent(q.owner) : ''))); }
+    catch (e) { m.querySelector('p.muted').textContent = e.message; return; }
+    const labels = { aadhaar: 'Aadhaar', pan: 'PAN', gstin: 'GSTIN', vehicle: 'Vehicle (VAHAN)', dl: 'Driving licence', bank: 'Bank account' };
+    m.innerHTML = String(h`${header()}
+      <p class="small muted">Every automated check made against government sources, as recorded by the server (${App.verifyConfig.provider}). Identifiers are masked.</p>
+      ${records.length ? h`<div class="table-wrap"><table class="table"><thead><tr><th>When</th><th>Person</th><th>Check</th><th>Reference</th><th>Outcome</th><th>Details</th></tr></thead><tbody>
+        ${records.map(r => h`<tr><td>${App.fmtDateTime(r.checkedAt)}</td><td>${r.subjectName || r.subjectId}${r.actorId !== r.subjectId ? h`<br><span class="small muted">by ${userName(r.actorId)}</span>` : ''}</td>
+          <td>${labels[r.type] || r.type}<br><span class="small muted">${r.source}</span></td><td><code>${r.ref || '—'}</code></td>
+          <td><span class="badge badge-${r.status === 'verified' ? 'good' : r.status === 'review' ? 'warn' : 'bad'}">${r.status}</span></td>
+          <td class="small">${r.reasons.map(x => h`<div>${x.level === 'ok' ? '✓' : x.level === 'review' ? '!' : '✕'} ${x.text}</div>`)}</td></tr>`)}
+      </tbody></table></div>` : App.emptyState('🔎', 'No checks yet', 'Checks appear here as owners and travellers verify documents.')}`);
+    bindTabs();
   };
   draw();
 };
@@ -196,7 +253,7 @@ const bookings = (m) => {
     m.querySelector('#b-count').textContent = `${list.length} bookings`;
     m.querySelectorAll('[data-view]').forEach(b => b.onclick = () => {
       const bk = App.get.booking(b.dataset.view);
-      App.modal({ title: 'Booking ' + bk.id, body: h`<dl class="trip-lines"><div><dt>Traveller</dt><dd>${userName(bk.customerId)}</dd></div><div><dt>Driver</dt><dd>${bk.driver?.name}, age ${bk.driver?.age}, licence ${bk.driver?.licenceMasked}</dd></div><div><dt>Van</dt><dd>${App.get.van(bk.vanId).name}</dd></div><div><dt>Dates</dt><dd>${fmtDate(bk.start)} → ${fmtDate(bk.end)}</dd></div><div><dt>Deposit</dt><dd>${money(bk.pricing.deposit)} · ${bk.depositStatus}</dd></div><div><dt>Risk</dt><dd>${bk.risk?.score || 0}/100 ${bk.risk?.flags?.length ? h`<ul>${bk.risk.flags.map(f => h`<li>${f}</li>`)}</ul>` : ''}</dd></div></dl>${App.priceLines(bk.pricing)}<p class="small muted">Platform take: ${money(bk.pricing.service + bk.pricing.commission)} · owner payout ${money(bk.pricing.ownerPayout)}</p>` });
+      App.modal({ title: 'Booking ' + bk.id, body: h`<dl class="trip-lines"><div><dt>Traveller</dt><dd>${userName(bk.customerId)}</dd></div><div><dt>Driver</dt><dd>${bk.driver?.name}, age ${bk.driver?.age}, licence ${bk.driver?.licenceMasked}${bk.driver?.check ? h`<br><span class="source-tag">${bk.driver.check.status === 'verified' ? '✓' : '!'} ${bk.driver.check.source}${bk.driver.check.validUpto ? ' · valid until ' + fmtDate(bk.driver.check.validUpto) : ''}</span>` : h`<br><span class="small muted">Licence not checked with SARATHI</span>`}</dd></div><div><dt>Van</dt><dd>${App.get.van(bk.vanId).name}</dd></div><div><dt>Dates</dt><dd>${fmtDate(bk.start)} → ${fmtDate(bk.end)}</dd></div><div><dt>Deposit</dt><dd>${money(bk.pricing.deposit)} · ${bk.depositStatus}</dd></div><div><dt>Risk</dt><dd>${bk.risk?.score || 0}/100 ${bk.risk?.flags?.length ? h`<ul>${bk.risk.flags.map(f => h`<li>${f}</li>`)}</ul>` : ''}</dd></div></dl>${App.priceLines(bk.pricing)}<p class="small muted">Platform take: ${money(bk.pricing.service + bk.pricing.commission)} · owner payout ${money(bk.pricing.ownerPayout)}</p>` });
     });
     m.querySelectorAll('[data-acancel]').forEach(b => b.onclick = async () => {
       const reason = await App.prompt('Cancel with full refund', 'Reason (shared with both parties)');

@@ -151,6 +151,8 @@ App.riskCheck = (user, van, quote, driver) => {
   const recent = App.db.bookings.filter(b => b.customerId === user.id && (Date.now() - new Date(b.createdAt)) < DAY).length;
   if (recent >= 3) { flags.push('3+ bookings in the last 24 hours'); score += 30; }
   if (driver && driver.age < App.C.minDriverAge) { flags.push('Driver below minimum age'); score += 50; }
+  if (driver && driver.check?.status === 'review') { flags.push('Driving licence needs manual review: ' + driver.check.note); score += 30; }
+  if (driver && App.serverOnline && !driver.check) { flags.push('Driving licence not verified with SARATHI'); score += 30; }
   if (quote.nights > 21) { flags.push('Long rental (21+ nights)'); score += 10; }
   return { score: Math.min(100, score), flags };
 };
@@ -224,9 +226,65 @@ App.docExpiryState = (doc) => {
   return { tone: 'muted', label: 'Valid until ' + App.fmtDate(doc.expiry), days };
 };
 
+/* ---------------- Server (auth + government-document verification) ---------------- */
+App.server = async (method, path, body) => {
+  const res = await fetch(path, {
+    method, credentials: 'same-origin',
+    headers: body !== undefined ? { 'Content-Type': 'application/json' } : {},
+    body: body !== undefined ? JSON.stringify(body) : undefined
+  });
+  const json = await res.json().catch(() => ({}));
+  if (!res.ok) { const e = new Error(json.error || 'Request failed (' + res.status + ')'); e.status = res.status; e.code = json.code; throw e; }
+  return json;
+};
+
+// Make sure a server account has a matching record in the local demo data
+const bindLocalUser = (su) => {
+  let u = App.get.user(su.id) || App.db.users.find(x => x.email.toLowerCase() === su.email.toLowerCase());
+  if (!u) {
+    u = { id: su.id, name: su.name, email: su.email, phone: '', role: su.role, emailVerified: true, phoneVerified: false, status: 'active', savedVans: [], createdAt: new Date().toISOString(), avatarHue: Math.floor(Math.random() * 360) };
+    App.db.users.push(u);
+    if (u.role === 'owner' && !App.db.owners[u.id]) App.db.owners[u.id] = { account: { status: 'action_required', note: 'Verify your email and mobile number.' } };
+  }
+  App.db.session = { userId: u.id, expires: Date.now() + 8 * 3600 * 1000 };
+  App.save();
+  return u;
+};
+
+// The server is the source of truth for who is signed in. Without it (e.g. the
+// page opened from disk) the app falls back to local demo sign-in and
+// verification features are disabled.
+App.syncSession = async () => {
+  try {
+    const [{ user }, cfg] = await Promise.all([App.server('GET', '/api/auth/me'), App.server('GET', '/api/config')]);
+    App.serverOnline = true;
+    App.verifyConfig = cfg;
+    if (user) bindLocalUser(user); else { App.db.session = null; App.save(); }
+  } catch (e) {
+    App.serverOnline = false;
+    App.verifyConfig = null;
+  }
+};
+
+// Verification calls. Results: { status: 'verified' | 'review' | 'failed', reasons: [{level, text}], data, source, checkedAt }
+App.verify = {
+  run: (type, body) => App.server('POST', '/api/verify/' + type, { ...body, consent: true }).then(r => r.result),
+  mine: () => App.server('GET', '/api/verify/mine'),
+  startDigiLocker: (returnTo) => App.server('GET', '/api/digilocker/start?returnTo=' + encodeURIComponent(returnTo)).then(r => r.url),
+  // Map a verification outcome onto a document status
+  docStatus: (r) => r.status === 'verified' ? 'verified' : r.status === 'review' ? 'pending' : 'action_required',
+  note: (r) => r.reasons.filter(x => x.level !== 'ok').map(x => x.text).join(' ')
+};
+
 /* ---------------- API ---------------- */
 App.api = {
-  login(email, password) {
+  async login(email, password) {
+    if (App.serverOnline) {
+      const { user } = await App.server('POST', '/api/auth/login', { email, password });
+      const u = bindLocalUser(user);
+      App.audit('user.login', u.email); App.save();
+      return u;
+    }
     const u = App.db.users.find(x => x.email.toLowerCase() === String(email).trim().toLowerCase());
     if (!u || u.password !== App.hashPassword(password)) throw new Error('Email or password is incorrect.');
     if (u.status === 'suspended') throw new Error('This account is suspended. Contact support.');
@@ -235,12 +293,16 @@ App.api = {
     App.save();
     return u;
   },
-  logout() { App.db.session = null; App.save(); },
-  signup({ name, email, phone, password, role }) {
+  async logout() {
+    if (App.serverOnline) await App.server('POST', '/api/auth/logout', {}).catch(() => {});
+    App.db.session = null; App.save();
+  },
+  async signup({ name, email, phone, password, role }) {
     if (App.db.users.some(u => u.email.toLowerCase() === email.toLowerCase())) throw new Error('An account with this email already exists.');
     if (password.length < 8 || !/\d/.test(password) || !/[a-z]/i.test(password)) throw new Error('Password needs at least 8 characters including a letter and a number.');
+    const server = App.serverOnline ? (await App.server('POST', '/api/auth/signup', { name, email, password, role })).user : null;
     const u = {
-      id: App.uid('u_'), name, email, phone, password: App.hashPassword(password), role: role === 'owner' ? 'owner' : 'customer',
+      id: server ? server.id : App.uid('u_'), name, email, phone, password: server ? 'server' : App.hashPassword(password), role: role === 'owner' ? 'owner' : 'customer',
       emailVerified: false, phoneVerified: false, status: 'active', savedVans: [], createdAt: new Date().toISOString(), avatarHue: Math.floor(Math.random() * 360)
     };
     App.db.users.push(u);
@@ -278,7 +340,7 @@ App.api = {
       id, vanId, ownerId: van.ownerId, customerId: me.id,
       start, end, nights, adults, children, travelers: adults + children, addOns: addOns.map(a => a.id), pricing, status,
       paymentStatus: status === 'confirmed' ? 'paid' : 'authorised', depositStatus: status === 'confirmed' ? 'held' : 'none',
-      driver: { name: driver.name, age: driver.age, licenceMasked: 'XXXXXXXX' + driver.licence.slice(-4) },
+      driver: { name: driver.name, age: driver.age, licenceMasked: 'XXXXXXXX' + driver.licence.slice(-4), check: driver.check || null },
       payment: { method: payment.method, label: payment.label }, specialRequests,
       createdAt: new Date().toISOString(), risk, itinerary: []
     };
@@ -413,10 +475,18 @@ App.recomputeVerification = (ownerId, vanId) => {
   const docs = App.get.docsFor({ vanId });
   const own = docs.filter(d => d.type.startsWith('ownership'));
   if (own.length) van.verification.ownership = App.rollup(own.map(d => d.status));
-  const reg =docs.filter(d => App.C.registrationDocs.some(r => r.type === d.type && r.required));
-  if (reg.length) van.verification.registration = App.rollup(reg.map(d => d.status));
-  const ins = docs.filter(d => d.type === 'insurance');
-  if (ins.length) van.verification.insurance = App.rollup(ins.map(d => d.status));
+  // A step is only complete when every required document exists
+  const stepStatus = (defs) => {
+    const req = defs.filter(r => r.required);
+    const have = docs.filter(d => req.some(r => r.type === d.type));
+    if (!have.length) return null;
+    const s = App.rollup(have.map(d => d.status));
+    return have.length < req.length && ['verified', 'pending'].includes(s) ? 'not_started' : s;
+  };
+  const reg = stepStatus(App.C.registrationDocs);
+  if (reg) van.verification.registration = reg;
+  const ins = stepStatus(App.C.insuranceDocs);
+  if (ins) van.verification.insurance = ins;
   const insp = docs.filter(d => d.type === 'inspection');
   if (insp.length) van.verification.inspection = App.rollup(insp.map(d => d.status));
   // Un-suspend a listing once every blocking document is valid again

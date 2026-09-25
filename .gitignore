@@ -11,5 +11,9 @@ desktop.ini
 *.log
 .env
 
+# Server data (accounts, sessions, verification records) and dependencies
+data/
+node_modules/
+
 # Claude Code local settings
 .claude/settings.local.json

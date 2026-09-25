@@ -138,7 +138,7 @@ App.renderHeader = () => {
     $('mark-read').onclick = (e) => { e.stopPropagation(); App.db.notifications.forEach(n => { if (n.userId === me.id) n.read = true; }); App.save(); App.renderHeader(); };
     $('notif-menu').querySelectorAll('[data-n]').forEach(a => a.onclick = () => { const n = App.db.notifications.find(x => x.id === a.dataset.n); n.read = true; App.save(); });
   });
-  $('logout').onclick = () => { App.api.logout(); App.toast('Signed out'); App.go('#/'); };
+  $('logout').onclick = async () => { await App.api.logout(); App.toast('Signed out'); App.go('#/'); };
 };
 document.addEventListener('click', () => document.querySelectorAll('.dropdown-menu').forEach(m => m.hidden = true));
 
@@ -154,10 +154,11 @@ App.renderFooter = () => {
       <div><h4>Owners</h4><a href="#/list-your-van">List your van</a><a href="#/owner">Owner dashboard</a><a href="#/help/owners">Owner requirements</a></div>
       <div><h4>Support</h4><a href="#/help/safety">Trust & safety</a><a href="#/help/faq">FAQs</a><a href="#/help/support">Contact support</a><a href="#/help/cancellation">Cancellation & refunds</a><a href="#/help/terms">Terms</a><a href="#/help/privacy">Privacy</a></div>
     </div>
-    <div class="container footer-bottom"><span>© ${new Date().getFullYear()} VanYatra (demo prototype). Prices in ${App.C.currency}, incl. ${App.C.taxLabel} where shown.</span><button class="link" id="reset-demo">Reset demo data</button></div>`);
+    <div class="container footer-bottom"><span>© ${new Date().getFullYear()} VanYatra (demo prototype). Prices in ${App.C.currency}, incl. ${App.C.taxLabel} where shown.
+      ${App.serverOnline ? App.h` · Document checks: ${App.verifyConfig.provider}` : App.h` · Verification server offline (run <code>npm start</code>)`}</span><button class="link" id="reset-demo">Reset demo data</button></div>`);
   document.getElementById('reset-demo').onclick = async () => {
     if (await App.confirm('Reset demo data?', 'This restores all vans, bookings and accounts to their original state and signs you out.', 'Reset')) {
-      App.resetDemo(); App.runExpiryChecks(); App.toast('Demo data reset', 'good'); App.go('#/');
+      await App.api.logout(); App.resetDemo(); App.runExpiryChecks(); App.toast('Demo data reset', 'good'); App.go('#/');
     }
   };
 };
@@ -180,9 +181,10 @@ App.pages.notFound = (el) => {
 };
 
 window.addEventListener('hashchange', App.render);
-document.addEventListener('DOMContentLoaded', () => {
+document.addEventListener('DOMContentLoaded', async () => {
   if ('scrollRestoration' in history) history.scrollRestoration = 'manual';
   App.load();
+  await App.syncSession();
   App.runExpiryChecks();
   App.renderFooter();
   App.render();
