@@ -238,8 +238,28 @@ App.dashLayout = (el, { title, subtitle, nav, active, base }) => {
   return el.querySelector('#dash-main');
 };
 
+// Unknown links: offer a search and the most useful places to go next
 App.pages.notFound = (el) => {
-  el.innerHTML = String(App.emptyState('🧭', 'We couldn’t find that page', 'The link may be broken or the page may have moved.', App.h`<a class="btn btn-primary" href="#/">Back to home</a>`));
+  const popular = [...App.db.destinations].sort((a, b) => App.db.vans.filter(v => v.destinationId === b.id && v.status === 'published').length - App.db.vans.filter(v => v.destinationId === a.id && v.status === 'published').length).slice(0, 6);
+  const broken = location.hash.slice(0, 200);
+  el.innerHTML = String(App.h`<div class="container narrow section not-found">
+    <div class="empty"><div class="empty-icon" aria-hidden="true">🧭</div><h1>We couldn’t find that page</h1><p class="muted">The link may be broken, or the page may have moved. Try one of these instead.</p></div>
+    <form class="nf-search" role="search" action="#/search"><label class="field grow"><span class="sr-only">Where do you want to go?</span><input name="q" id="nf-q" placeholder="Search a destination, e.g. Goa"></label><button class="btn btn-primary">Search vans</button></form>
+    <h2 class="section-sub">Popular road trips</h2>
+    <div class="chips">${popular.map(d => App.h`<a class="chip" href="#/destinations/${d.id}">${d.name}</a>`)}</div>
+    <h2 class="section-sub">Or go to</h2>
+    <ul class="plain nf-links">
+      <li><a href="#/">Home</a></li><li><a href="#/search">All vans</a></li><li><a href="#/destinations">All destinations</a></li>
+      <li><a href="#/map">Map</a></li><li><a href="#/help">Help centre</a></li><li><a href="#/list-your-van">List your van</a></li>
+    </ul>
+    <p class="small muted">Followed a link from somewhere? <a href="#/help/support?topic=broken-link&amp;url=${encodeURIComponent(broken)}">Tell us it’s broken</a>.</p>
+  </div>`);
+  el.querySelector('.nf-search').onsubmit = (e) => {
+    e.preventDefault();
+    const q = el.querySelector('#nf-q').value.trim().toLowerCase();
+    const d = q && App.db.destinations.find(x => x.name.toLowerCase().includes(q) || x.id.includes(q) || (x.region || '').toLowerCase().includes(q));
+    App.go(d ? '#/search?dest=' + d.id : '#/search');
+  };
 };
 
 window.addEventListener('hashchange', App.render);
