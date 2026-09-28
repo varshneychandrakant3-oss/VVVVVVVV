@@ -110,7 +110,7 @@ App.travellerVerificationView = (m, me) => {
   const draw = () => {
     m.innerHTML = String(h`<h1>Traveller verification</h1>
       <div class="callout verify-hero verify-${level}">
-        <div><strong>${level === 'verified' ? '✓ You’re a verified traveller' : level === 'partial' ? 'Almost there — add your driving licence' : 'Get verified before your first trip'}</strong>
+        <div><strong>${level === 'verified' ? '✓ You’re a verified traveller' : [id.status, lic.status].includes('pending') && !['not_started', 'action_required', 'rejected'].includes(lic.status) ? 'Almost there — we’re reviewing your documents' : level === 'partial' ? 'Almost there — add your driving licence' : 'Get verified before your first trip'}</strong>
         <p class="small">${level === 'verified' ? 'Owners see your verified badge, instant book is open to you, and you won’t re-enter your licence when booking.' : 'Owners hand over a home on wheels, so every renter confirms who they are and that they can drive. It takes about 2 minutes and is done once.'}</p></div>
         ${next && ['verified', 'pending'].includes(id.status) ? h`<a class="btn btn-primary btn-sm" href="${next}">Continue booking →</a>` : ''}
       </div>
