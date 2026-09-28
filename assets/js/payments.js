@@ -34,7 +34,7 @@ window.App = window.App || {};
         body: h`<div class="gateway">
           <p class="small muted">In production this is the payment gateway’s hosted checkout (UPI collect, cards with 3-D Secure, net banking). No real payment details are taken here.</p>
           <div class="gw-amount"><span>${description || 'Amount'}</span><strong>${App.money(order.amount)}</strong></div>
-          <div class="gw-method">${method === 'upi' ? '📱 Approve the request in your UPI app' : method === 'card' ? '💳 Card entered on the gateway’s secure page, verified with 3-D Secure OTP' : '🏦 Redirect to your bank to approve'}</div>
+          <div class="gw-method">${App.icon(method === 'upi' ? 'smartphone' : method === 'card' ? 'credit-card' : 'landmark')} ${method === 'upi' ? 'Approve the request in your UPI app' : method === 'card' ? 'Card entered on the gateway’s secure page, verified with 3-D Secure OTP' : 'Redirect to your bank to approve'}</div>
           <p class="small muted">Order ${order.id}</p>
         </div>`,
         actions: [

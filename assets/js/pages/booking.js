@@ -41,7 +41,7 @@ App.pages.book = (el, { id }, q) => {
           </dl>
           ${App.priceLines(qte)}
           <button type="button" class="link small" data-price-van="${van.id}" data-start="${s.start}" data-end="${s.end}" data-addons="${s.addOns.join(',')}">See full price breakdown</button>
-          <p class="small muted">🔒 Payments are processed by a PCI-DSS compliant gateway. VanYatra never sees or stores your full card number.</p>
+          <p class="small muted">${App.icon('lock')} Payments are processed by a PCI-DSS compliant gateway. VanYatra never sees or stores your full card number.</p>
         </aside>
       </div>
     </div>`);
@@ -72,7 +72,7 @@ App.pages.book = (el, { id }, q) => {
       const selfDrive = s.selfDriver !== false && profileLic;
       return h`
       <div class="trav-ok">${App.travellerBadge(trav)} <span class="small">${trav.identity.method === 'aadhaar' ? 'ID verified with DigiLocker' : trav.identity.method === 'passport' ? (trav.identity.status === 'verified' ? 'Passport & visa verified' : 'Passport & visa under review') : 'ID verified'}</span></div>
-      ${elig.notes.map(n => h`<p class="small muted">ℹ️ ${n}</p>`)}
+      ${elig.notes.map(n => h`<p class="small muted">${App.icon('info')} ${n}</p>`)}
       <h2>Main driver</h2>
       <p class="muted small">The main driver must be at least ${App.C.minDriverAge}, hold a valid licence and present it at pickup. ${App.serverOnline ? 'We check the licence with the government SARATHI registry. ' : ''}Only the last 4 characters of the licence are stored.</p>
       ${profileLic ? h`<fieldset class="field"><legend>Who’s driving?</legend>
@@ -88,7 +88,7 @@ App.pages.book = (el, { id }, q) => {
         <label class="field"><span>Mobile number</span><input type="tel" name="phone" autocomplete="tel" value="${s.driver.phone}" required pattern="(\\+[1-9][0-9 \\-]{7,16})|((\\+?91[ \\-]?)?[6-9][0-9]{4}[ \\-]?[0-9]{5})" title="A 10-digit Indian mobile number, or your number with its country code (e.g. +44 7700 900123)"></label>
       </div>
       ${selfDrive ? '' : h`
-      ${App.serverOnline && App.verifyConfig?.testMode ? h`<p class="test-hint">🧪 <strong>Test mode</strong> — licences ending 0000 are “not found”, ending 1111 are expired.</p>` : ''}
+      ${App.serverOnline && App.verifyConfig?.testMode ? h`<p class="test-hint">${App.icon('flask-conical')} <strong>Test mode</strong> — licences ending 0000 are “not found”, ending 1111 are expired.</p>` : ''}
       ${App.serverOnline ? h`<label class="check consent"><input type="checkbox" name="dlConsent" required ${s.dlConsent ? "checked" : ""}> I consent to VanYatra verifying this driving licence with the SARATHI registry.</label>` : ''}
       <div id="dl-result">${s.dlCheck ? App.checkResultBox(s.dlCheck) : ''}</div>`}
       <label class="field"><span>Message to the owner (optional)</span><textarea name="specialRequests" rows="3" placeholder="Who's coming, your route, any questions…">${s.specialRequests}</textarea></label>
@@ -105,7 +105,7 @@ App.pages.book = (el, { id }, q) => {
           : h`We’ll <strong>authorise ${money(qte.total)}</strong> now but only charge it if ${App.get.user(van.ownerId).name.split(' ')[0]} accepts within 24 hours.`}
       </div>
       <label class="check"><input type="checkbox" name="agree" ${s.agree ? 'checked' : ''} required> I agree to the <a href="#/help/terms" target="_blank">rental terms</a>, <a href="#/help/cancellation" target="_blank">cancellation policy</a> and the owner’s house rules.</label>
-      <div class="form-actions"><button type="button" class="btn btn-ghost" data-back>Back</button><button class="btn btn-accent btn-lg" type="submit">🔒 ${instantNow() ? 'Pay ' + money(qte.total) : 'Send request'}</button></div>`;
+      <div class="form-actions"><button type="button" class="btn btn-ghost" data-back>Back</button><button class="btn btn-accent btn-lg" type="submit">${App.icon('lock')} ${instantNow() ? 'Pay ' + money(qte.total) : 'Send request'}</button></div>`;
   };
 
   const bind = (qte) => {
@@ -202,7 +202,7 @@ App.pages.bookingConfirmed = (el, { id }) => {
   el.innerHTML = String(h`
   <div class="container confirm-page">
     <div class="confirm-hero ${confirmed ? 'ok' : 'wait'}">
-      <div class="confirm-icon" aria-hidden="true">${confirmed ? '🎉' : '⏳'}</div>
+      <div class="confirm-icon" aria-hidden="true">${App.icon(confirmed ? 'party-popper' : 'hourglass')}</div>
       <h1>${confirmed ? 'You’re booked! Pack your bags.' : 'Request sent!'}</h1>
       <p>${confirmed ? h`Booking <strong>${b.id}</strong> is confirmed. A confirmation email has been sent to ${me.email}.` : h`${owner.name} will respond within 24 hours. Your payment is authorised but not charged yet. Reference <strong>${b.id}</strong>.`}</p>
     </div>
@@ -228,9 +228,9 @@ App.pages.bookingConfirmed = (el, { id }) => {
           <li><strong>Return & review</strong><span>Deposit released within ${App.C.depositReleaseDays} days. Leave a review to help other travellers.</span></li>
         </ol>
         <div class="stack">
-          <a class="btn btn-primary" href="#/account/trips/${b.id}">🗺 Plan itinerary</a>
-          ${thread ? h`<a class="btn btn-ghost" href="#/account/messages/${thread.id}">💬 Message ${owner.name.split(' ')[0]}</a>` : ''}
-          <button class="btn btn-ghost" id="ics">📅 Add to calendar</button>
+          <a class="btn btn-primary" href="#/account/trips/${b.id}">${App.icon('map')} Plan itinerary</a>
+          ${thread ? h`<a class="btn btn-ghost" href="#/account/messages/${thread.id}">${App.icon('message-circle')} Message ${owner.name.split(' ')[0]}</a>` : ''}
+          <button class="btn btn-ghost" id="ics">${App.icon('calendar-days')} Add to calendar</button>
           <a class="btn btn-ghost" href="#/account/bookings">View all trips</a>
         </div>
       </section>

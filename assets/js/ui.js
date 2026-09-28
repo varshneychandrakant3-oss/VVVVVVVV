@@ -10,6 +10,7 @@ App.pages = App.pages || {};
  * and arrays of them are inserted as-is. Use App.raw() only for trusted markup.
  */
 class SafeHTML { constructor(s) { this.__html = s; } toString() { return this.__html; } }
+App.SafeHTML = SafeHTML;
 App.esc = (s) => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 App.raw = (s) => new SafeHTML(s);
 const renderVal = (v) => {
@@ -46,7 +47,7 @@ App.avatar = (u, size = 36) => u
 
 App.statusBadge = (status) => {
   const s = App.VERIFICATION_STATUS[status] || { label: status, tone: 'muted', icon: '' };
-  return App.h`<span class="badge badge-${s.tone}"><span aria-hidden="true">${s.icon}</span> ${s.label}</span>`;
+  return App.h`<span class="badge badge-${s.tone}">${App.hasIcon(s.icon) ? App.icon(s.icon) : App.h`<span aria-hidden="true">${s.icon}</span>`} ${s.label}</span>`;
 };
 const BOOKING_TONES = { confirmed: 'good', completed: 'muted', requested: 'warn', declined: 'bad', cancelled: 'bad', published: 'good', in_review: 'warn', draft: 'muted', suspended: 'bad', open: 'warn', resolved: 'good', rejected: 'bad', flagged: 'serious', removed: 'bad', active: 'good' };
 App.pill = (status) => App.h`<span class="badge badge-${BOOKING_TONES[status] || 'muted'}">${String(status).replace(/_/g, ' ')}</span>`;
@@ -69,7 +70,7 @@ App.verifiedBadge = (ownerId) => App.get.ownerVerified(ownerId)
   ? App.h`<span class="verified" title="Identity, documents and insurance verified by VanYatra"><svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true"><path fill="currentColor" d="M12 2l2.4 2.1 3.2-.4.9 3.1 2.8 1.6-1 3 1 3-2.8 1.6-.9 3.1-3.2-.4L12 22l-2.4-2.1-3.2.4-.9-3.1L2.7 15.6l1-3-1-3 2.8-1.6.9-3.1 3.2.4z"/><path fill="#fff" d="M10.6 15.6l-3.2-3.2 1.4-1.4 1.8 1.8 4.6-4.6 1.4 1.4z"/></svg>Verified owner</span>`
   : '';
 
-App.amenityChips = (ids, limit = 99) => App.h`${ids.slice(0, limit).map(id => { const a = App.AMENITIES.find(x => x.id === id); return a ? App.h`<span class="chip"><span aria-hidden="true">${a.icon}</span> ${a.label}</span>` : ''; })}${ids.length > limit ? App.h`<span class="chip">+${ids.length - limit}</span>` : ''}`;
+App.amenityChips = (ids, limit = 99) => App.h`${ids.slice(0, limit).map(id => { const a = App.AMENITIES.find(x => x.id === id); return a ? App.h`<span class="chip">${App.icon(a.icon)} ${a.label}</span>` : ''; })}${ids.length > limit ? App.h`<span class="chip">+${ids.length - limit}</span>` : ''}`;
 
 App.vanCard = (van, opts = {}) => {
   const me = App.me();
@@ -82,7 +83,7 @@ App.vanCard = (van, opts = {}) => {
   <article class="van-card" data-van="${van.id}">
     <a href="${link}" class="van-card-media">
       <img src="${App.photo(van.photos[0], 640)}" alt="${van.name} — ${van.type}" loading="lazy" width="640" height="440">
-      ${van.instantBook ? App.h`<span class="tag tag-instant">⚡ Instant book</span>` : ''}
+      ${van.instantBook ? App.h`<span class="tag tag-instant">${App.icon('zap')} Instant book</span>` : ''}
       ${van.familyFriendly ? App.h`<span class="tag tag-family">Family friendly</span>` : ''}
     </a>
     <button class="save-btn ${saved ? 'is-saved' : ''}" data-save="${van.id}" aria-pressed="${saved ? 'true' : 'false'}" aria-label="${saved ? 'Remove from saved' : 'Save'} ${van.name}">
@@ -362,7 +363,7 @@ App.mapCard = {
       <div class="mc-body">
         <div class="mc-row"><span class="eyebrow">${v.type} · ${v.pickup.city}</span>${App.vanRating(v)}</div>
         <strong>${v.name}</strong>
-        <span class="small muted">Sleeps ${v.sleeps} · ${v.transmission}${v.instantBook ? ' · ⚡ Instant book' : ''}</span>
+        <span class="small muted">Sleeps ${v.sleeps} · ${v.transmission}${v.instantBook ? App.h` · ${App.icon('zap')} Instant book` : ''}</span>
         <div class="mc-row"><span>${q ? App.h`<strong>${App.money(q.total)}</strong> <span class="small muted">total · ${App.fmt.nights(q.nights)}</span>` : App.h`<strong>${App.money(v.pricePerNight)}</strong> <span class="small muted">/ night</span>`}</span><a class="btn btn-sm btn-primary" href="#/vans/${v.id}${q ? `?start=${opts.start}&end=${opts.end}` : ''}">View van</a></div>
       </div></div>`;
   },
@@ -374,12 +375,12 @@ App.mapCard = {
         <span class="eyebrow">${d.region}</span>
         <strong>${d.name}</strong>
         <span class="small muted">${d.tagline}</span>
-        <span class="small">🗓 ${d.bestTime} · 🚐 ${App.plural(count, 'van')}${d.familyScore >= 5 ? ' · 👨‍👩‍👧 Family pick' : ''}</span>
+        <span class="small">${App.icon('calendar-days')} ${d.bestTime} · ${App.icon('caravan')} ${App.plural(count, 'van')}${d.familyScore >= 5 ? App.h` · ${App.icon('users')} Family pick` : ''}</span>
         <div class="mc-row"><a class="btn btn-sm btn-ghost" href="#/search?dest=${d.id}">See vans</a><a class="btn btn-sm btn-primary" href="#/destinations/${d.id}">Explore</a></div>
       </div></div>`;
   },
   camp: (c, d) => App.h`<div class="map-card map-card-text"><div class="mc-body">
-    <span class="eyebrow">⛺ ${c.type}${d ? ' · near ' + d.name : ''}</span>
+    <span class="eyebrow">${App.icon('tent')} ${c.type}${d ? ' · near ' + d.name : ''}</span>
     <strong>${c.name}</strong>
     <span class="small muted">${c.facilities.join(' · ')}</span>
     ${d ? App.h`<a class="btn btn-sm btn-ghost" href="#/destinations/${d.id}">About ${d.name}</a>` : ''}
@@ -415,7 +416,7 @@ App.mountMap = async (el, markers, { zoom = 5, center, circle, cluster = true } 
       })
       : L.featureGroup();
     markers.forEach(m => {
-      const icon = L.divIcon({ className: 'map-pin-wrap', html: `<span class="map-pin map-pin-${m.kind || 'dest'}">${App.esc(m.label || '')}</span>`, iconSize: null });
+      const icon = L.divIcon({ className: 'map-pin-wrap', html: `<span class="map-pin map-pin-${m.kind || 'dest'}">${App.hasIcon(m.label) ? App.icon(m.label) : App.esc(m.label || '')}</span>`, iconSize: null });
       const mk = L.marker([m.lat, m.lng], { icon, title: m.title || m.label || '', alt: m.title || m.label || '', riseOnHover: true });
       if (m.html) mk.bindPopup(String(m.html), { maxWidth: 280, minWidth: 220, className: 'map-popup' });
       group.addLayer(mk);
@@ -426,7 +427,7 @@ App.mountMap = async (el, markers, { zoom = 5, center, circle, cluster = true } 
     else if (!center && markers.length === 1) map.setView([markers[0].lat, markers[0].lng], 9);
     return map;
   } catch (e) {
-    el.innerHTML = '<div class="map-fallback" role="status">🗺️ The map couldn’t load (check your connection). All locations are listed below.</div>';
+    el.innerHTML = `<div class="map-fallback" role="status">${App.icon('map')} The map couldn’t load (check your connection). All locations are listed below.</div>`;
     return null;
   }
 };
@@ -500,4 +501,4 @@ window.addEventListener('unhandledrejection', (e) => {
   App.toast(e.reason?.expose || e.reason?.status ? e.reason.message : 'Something went wrong. Please try again.', 'bad');
 });
 
-App.emptyState = (icon, title, text, cta) => App.h`<div class="empty"><div class="empty-icon" aria-hidden="true">${icon}</div><h3>${title}</h3><p class="muted">${text}</p>${cta || ''}</div>`;
+App.emptyState = (icon, title, text, cta) => App.h`<div class="empty"><div class="empty-icon" aria-hidden="true">${App.hasIcon(icon) ? App.icon(icon) : icon}</div><h3>${title}</h3><p class="muted">${text}</p>${cta || ''}</div>`;

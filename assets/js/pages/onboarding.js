@@ -41,7 +41,7 @@ const checkFile = (input) => {
   if (!/(pdf|jpe?g|png)$/i.test(f.name)) throw new Error('Upload a PDF, JPG or PNG.');
   return f.name;
 };
-const OUTCOME = { verified: ['good', '✓ Verified'], review: ['warn', '⏳ Needs review'], failed: ['bad', '✕ Failed'] };
+const OUTCOME = { verified: ['good', '✓ Verified'], review: ['warn', '! Needs review'], failed: ['bad', '✕ Failed'] };
 App.checkResultBox = (r) => {
   if (!r) return '';
   const [tone, label] = OUTCOME[r.status] || ['muted', r.status];
@@ -50,7 +50,7 @@ App.checkResultBox = (r) => {
     <ul>${(r.reasons || []).map(x => h`<li class="lvl-${x.level}">${x.level === 'ok' ? '✓' : x.level === 'review' ? '!' : '✕'} ${x.text}</li>`)}</ul>
   </div>`;
 };
-const testHint = (text) => App.verifyConfig?.testMode ? h`<p class="test-hint">🧪 <strong>Test mode</strong> — no real government check is made. ${text}</p>` : '';
+const testHint = (text) => App.verifyConfig?.testMode ? h`<p class="test-hint">${App.icon('flask-conical')} <strong>Test mode</strong> — no real government check is made. ${text}</p>` : '';
 // Run an async action with a busy button; server errors become toasts
 const busy = async (btn, fn) => {
   const label = btn.innerHTML;
@@ -103,7 +103,7 @@ App.pages.onboarding = (el, _p, q) => {
         <p class="eyebrow">Step ${stepIdx + 1} of 12 · ${step.scope === 'owner' ? 'Your profile' : 'This vehicle'}</p>
         <h2>${step.title}</h2>
         ${statuses[stepIdx] !== 'not_started' ? h`<div class="step-status">${App.statusBadge(statuses[stepIdx])} ${statusNote(step, owner, van)}</div>` : ''}
-        ${van?.status === 'in_review' && step.scope === 'van' && step.id !== 'review' ? h`<p class="callout">⏳ This listing is under review, so it can’t be edited until our team decides.</p>` : ''}
+        ${van?.status === 'in_review' && step.scope === 'van' && step.id !== 'review' ? h`<p class="callout">${App.icon('hourglass')} This listing is under review, so it can’t be edited until our team decides.</p>` : ''}
         <div id="step-content"></div>
       </section>
     </div>
@@ -173,7 +173,7 @@ const STEPS = {
       ${consentBox('kyc-consent', 'I consent to VanYatra verifying my identity with UIDAI (via DigiLocker) and the Income Tax Department, only for KYC.')}
       <div class="kyc-block"><h3>1. Aadhaar via DigiLocker</h3>
         ${aad ? h`${App.checkResultBox(aad)}<p class="small">Name: <strong>${aad.data.name}</strong> · DOB ${App.fmtDate(aad.data.dob)} · Aadhaar XXXX-XXXX-${aad.data.aadhaarLast4 || '????'}</p>` : h`<p class="small muted">You’ll sign in to DigiLocker and approve sharing your eAadhaar. We never see your Aadhaar password or OTP.</p>`}
-        <button type="button" class="btn ${aad ? 'btn-ghost' : 'btn-primary'}" id="dl-btn"><span aria-hidden="true">🔐</span> ${aad ? 'Verify again with DigiLocker' : 'Verify with DigiLocker'}</button>
+        <button type="button" class="btn ${aad ? 'btn-ghost' : 'btn-primary'}" id="dl-btn"><span aria-hidden="true">${App.icon('lock-keyhole')}</span> ${aad ? 'Verify again with DigiLocker' : 'Verify with DigiLocker'}</button>
       </div>
       <div class="kyc-block"><h3>2. PAN</h3>
         <form id="pan-form" class="grid-3" novalidate>
@@ -433,7 +433,7 @@ const STEPS = {
       </div>
       <label class="field"><span>Description</span><textarea name="description" rows="4" minlength="60" required placeholder="What makes your van special? Who is it perfect for?">${van.description}</textarea></label>
       <h3>Amenities</h3>
-      <div class="amen-grid">${App.AMENITIES.map(a => h`<label class="check"><input type="checkbox" name="amenities" value="${a.id}" ${van.amenities.includes(a.id) ? 'checked' : ''}> ${a.icon} ${a.label}</label>`)}</div>
+      <div class="amen-grid">${App.AMENITIES.map(a => h`<label class="check"><input type="checkbox" name="amenities" value="${a.id}" ${van.amenities.includes(a.id) ? 'checked' : ''}> ${App.icon(a.icon)} ${a.label}</label>`)}</div>
       <label class="check"><input type="checkbox" name="familyFriendly" ${van.familyFriendly ? 'checked' : ''}> Suitable for families with children</label>
       <h3>Pricing (${App.C.currency})</h3>
       <div class="grid-3">
@@ -504,7 +504,7 @@ const STEPS = {
     const p = owner.payout;
     const show = (changing) => {
       if (!changing && (p?.status === 'verified' || p?.status === 'pending') && p.data) {
-        c.innerHTML = String(h`<div class="callout">🏦 ${p.data.bank} · account ending ${p.data.last4} · ${p.data.ifsc}${p.check ? h` <span class="source-tag">✓ ${p.check.source}</span>` : ''}</div>
+        c.innerHTML = String(h`<div class="callout">${App.icon('landmark')} ${p.data.bank} · account ending ${p.data.last4} · ${p.data.ifsc}${p.check ? h` <span class="source-tag">✓ ${p.check.source}</span>` : ''}</div>
           <p class="small muted">Payouts are sent 24 hours after each trip starts. ${p.status === 'pending' ? 'Our team is confirming the account name.' : ''}</p>
           <div class="form-actions"><button class="btn btn-ghost" id="chg">Change account</button><button class="btn btn-primary" id="nx">Continue</button></div>`);
         c.querySelector('#nx').onclick = () => next();
@@ -550,7 +550,7 @@ const STEPS = {
     const blocking = pre.filter((s, i) => !['verified', 'pending'].includes(statuses[i]));
     const st = van.verification.review;
     c.innerHTML = String(h`<ul class="doc-status">${pre.map((s, i) => h`<li><a href="${link(i)}">${i + 1}. ${s.title}</a>${App.statusBadge(statuses[i])}</li>`)}</ul>
-      ${st === 'pending' ? h`<div class="callout">⏳ Submitted for review. We’ll email you within 2 business days. Pending documents are checked as part of this review.</div>`
+      ${st === 'pending' ? h`<div class="callout">${App.icon('hourglass')} Submitted for review. We’ll email you within 2 business days. Pending documents are checked as part of this review.</div>`
       : st === 'verified' ? h`<div class="callout good-bg">✓ Approved! Head to the final step to publish.</div><div class="form-actions"><a class="btn btn-primary" href="${link(11)}">Continue</a></div>`
       : blocking.length ? h`<p class="error">Finish these steps before submitting: ${blocking.map(s => s.title).join(', ')}.</p>`
       : h`${st === 'rejected' ? h`<div class="alert alert-warn">Our team asked for changes — check your notifications, update the listing, then submit again.</div>` : ''}
@@ -569,9 +569,9 @@ const STEPS = {
     const { van } = ctx;
     const allVerified = App.ONBOARDING_STEPS.slice(0, 11).every(s => App.stepStatus(s, van.ownerId, van) === 'verified');
     c.innerHTML = String(h`
-      ${van.status === 'published' ? h`<div class="callout good-bg">🎉 <strong>${van.name}</strong> is live! Travellers can find and book it now.</div><div class="form-actions"><a class="btn" href="#/vans/${van.id}">View listing</a><a class="btn btn-primary" href="#/owner">Go to dashboard</a></div>`
+      ${van.status === 'published' ? h`<div class="callout good-bg">${App.icon('party-popper')} <strong>${van.name}</strong> is live! Travellers can find and book it now.</div><div class="form-actions"><a class="btn" href="#/vans/${van.id}">View listing</a><a class="btn btn-primary" href="#/owner">Go to dashboard</a></div>`
       : van.status === 'suspended' ? h`<div class="alert alert-bad">This listing is paused because a document needs attention. Update it in <a href="#/owner/documents">Documents</a>.</div>`
-      : allVerified ? h`<p>All checks passed. Preview your listing, then publish it.</p><div class="form-actions"><a class="btn btn-ghost" href="#/vans/${van.id}">Preview</a><button class="btn btn-accent btn-lg" id="pub">🚀 Publish listing</button></div>`
+      : allVerified ? h`<p>All checks passed. Preview your listing, then publish it.</p><div class="form-actions"><a class="btn btn-ghost" href="#/vans/${van.id}">Preview</a><button class="btn btn-accent btn-lg" id="pub">${App.icon('rocket')} Publish listing</button></div>`
       : h`<p>Your listing can be published once every step is <strong>Verified</strong>, including the platform review.</p><a class="btn btn-ghost" href="#/vans/${van.id}">Preview listing</a>`}`);
     const pb = c.querySelector('#pub');
     if (pb) pb.onclick = () => busy(pb, async () => { await App.market('POST', `/api/owner/vans/${van.id}/status`, { status: 'published' }); App.toast('Your van is live!', 'good'); App.render(); });

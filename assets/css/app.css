@@ -913,3 +913,14 @@ button, a, label, select { touch-action: manipulation; }
 .drp-foot { display: flex; justify-content: space-between; align-items: center; gap: 12px; flex-wrap: wrap; border-top: 1px solid var(--line); margin-top: 12px; padding-top: 12px; }
 .drp-sum { font-size: .92rem; }
 .drp.sheet .drp-foot { position: sticky; bottom: calc(-16px - env(safe-area-inset-bottom)); background: var(--surface); margin: 12px -16px calc(-16px - env(safe-area-inset-bottom)); padding: 12px 16px calc(12px + env(safe-area-inset-bottom)); }
+
+/* SVG icons (assets/js/icons.js) */
+.ic { width: 1.15em; height: 1.15em; flex: none; vertical-align: -0.2em; }
+.empty-icon .ic { width: 48px; height: 48px; color: var(--primary); stroke-width: 1.6; }
+.confirm-icon .ic { width: 56px; height: 56px; color: var(--primary); stroke-width: 1.6; }
+.help-tile .ic { color: var(--primary); }
+.amen-list li .ic, .sleep-card .ic, .spec .ic, .chip .ic { color: var(--primary); }
+.amen-list li.missing .ic { color: var(--muted); }
+.dash-nav a .ic { color: currentColor; opacity: .85; }
+.map-pin .ic { width: 14px; height: 14px; vertical-align: -2px; }
+.tag .ic { width: 13px; height: 13px; vertical-align: -2px; }

@@ -104,7 +104,7 @@ App.renderHeader = () => {
           ${me.role === 'owner' ? App.h`<a class="btn btn-sm btn-ghost" href="#/owner">Owner dashboard</a>` : ''}
           ${me.role === 'admin' ? App.h`<a class="btn btn-sm btn-ghost" href="#/admin">Admin</a>` : ''}
           <div class="dropdown">
-            <button class="icon-btn bell" id="bell" aria-label="Notifications, ${unread} unread" aria-haspopup="true">🔔${unread ? App.h`<span class="dot">${unread}</span>` : ''}</button>
+            <button class="icon-btn bell" id="bell" aria-label="Notifications, ${unread} unread" aria-haspopup="true">${App.icon('bell')}${unread ? App.h`<span class="dot">${unread}</span>` : ''}</button>
             <div class="dropdown-menu notif-menu" id="notif-menu" hidden></div>
           </div>
           <div class="dropdown">
@@ -231,7 +231,7 @@ App.dashLayout = (el, { title, subtitle, nav, active, base }) => {
     <div class="container dash">
       <aside class="dash-nav" aria-label="${title} navigation">
         <div class="dash-title"><strong>${title}</strong>${subtitle ? App.h`<span class="muted small">${subtitle}</span>` : ''}</div>
-        <nav>${nav.map(n => App.h`<a href="${base}${n.id ? '/' + n.id : ''}" class="${n.id === active ? 'active' : ''}"><span aria-hidden="true">${n.icon}</span> ${n.label}${n.count ? App.h`<span class="count">${n.count}</span>` : ''}</a>`)}</nav>
+        <nav>${nav.map(n => App.h`<a href="${base}${n.id ? '/' + n.id : ''}" class="${n.id === active ? 'active' : ''}">${App.icon(n.icon)} ${n.label}${n.count ? App.h`<span class="count">${n.count}</span>` : ''}</a>`)}</nav>
       </aside>
       <section class="dash-main" id="dash-main"></section>
     </div>`);
@@ -243,7 +243,7 @@ App.pages.notFound = (el) => {
   const popular = [...App.db.destinations].sort((a, b) => App.db.vans.filter(v => v.destinationId === b.id && v.status === 'published').length - App.db.vans.filter(v => v.destinationId === a.id && v.status === 'published').length).slice(0, 6);
   const broken = location.hash.slice(0, 200);
   el.innerHTML = String(App.h`<div class="container narrow section not-found">
-    <div class="empty"><div class="empty-icon" aria-hidden="true">🧭</div><h1>We couldn’t find that page</h1><p class="muted">The link may be broken, or the page may have moved. Try one of these instead.</p></div>
+    <div class="empty"><div class="empty-icon" aria-hidden="true">${App.icon('compass')}</div><h1>We couldn’t find that page</h1><p class="muted">The link may be broken, or the page may have moved. Try one of these instead.</p></div>
     <form class="nf-search" role="search" action="#/search"><label class="field grow"><span class="sr-only">Where do you want to go?</span><input name="q" id="nf-q" placeholder="Search a destination, e.g. Goa"></label><button class="btn btn-primary">Search vans</button></form>
     <h2 class="section-sub">Popular road trips</h2>
     <div class="chips">${popular.map(d => App.h`<a class="chip" href="#/destinations/${d.id}">${d.name}</a>`)}</div>

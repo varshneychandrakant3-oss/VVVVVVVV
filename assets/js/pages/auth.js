@@ -52,8 +52,8 @@ App.pages.signup = (el, _p, q) => {
       <h1>Create your account</h1>
       <form id="signup-form" novalidate>
         <fieldset class="role-pick"><legend>I want to</legend>
-          <label class="pay-opt ${role === 'customer' ? 'on' : ''}"><input type="radio" name="role" value="customer" ${role === 'customer' ? 'checked' : ''}><span><strong>🧭 Rent a van</strong><span class="small muted">Book trips as a traveller</span></span></label>
-          <label class="pay-opt ${role === 'owner' ? 'on' : ''}"><input type="radio" name="role" value="owner" ${role === 'owner' ? 'checked' : ''}><span><strong>🚐 List my van</strong><span class="small muted">Earn as a van owner</span></span></label>
+          <label class="pay-opt ${role === 'customer' ? 'on' : ''}"><input type="radio" name="role" value="customer" ${role === 'customer' ? 'checked' : ''}><span><strong>${App.icon('compass')} Rent a van</strong><span class="small muted">Book trips as a traveller</span></span></label>
+          <label class="pay-opt ${role === 'owner' ? 'on' : ''}"><input type="radio" name="role" value="owner" ${role === 'owner' ? 'checked' : ''}><span><strong>${App.icon('caravan')} List my van</strong><span class="small muted">Earn as a van owner</span></span></label>
         </fieldset>
         <label class="field"><span>Full name</span><input name="name" autocomplete="name" required minlength="2"></label>
         <label class="field"><span>Email</span><input type="email" name="email" autocomplete="email" required></label>
@@ -193,9 +193,9 @@ App.pages.ownerLanding = (el) => {
   <section class="container section">
     <h2>What you’ll need (${App.C.name})</h2>
     <div class="grid-3">
-      <div class="card"><h3>🪪 Identity</h3><ul class="ticks small">${App.C.kyc.documents.map(d => h`<li>${d.label}</li>`)}</ul></div>
-      <div class="card"><h3>📄 Vehicle papers</h3><ul class="ticks small">${App.C.registrationDocs.map(d => h`<li>${d.label}${d.required ? '' : ' (if applicable)'}</li>`)}${App.C.insuranceDocs.map(d => h`<li>${d.label}</li>`)}</ul></div>
-      <div class="card"><h3>🔧 Safety</h3><ul class="ticks small">${App.C.inspectionChecklist.slice(0, 6).map(c => h`<li>${c}</li>`)}<li>…and more</li></ul></div>
+      <div class="card"><h3>${App.icon('id-card')} Identity</h3><ul class="ticks small">${App.C.kyc.documents.map(d => h`<li>${d.label}</li>`)}</ul></div>
+      <div class="card"><h3>${App.icon('file-text')} Vehicle papers</h3><ul class="ticks small">${App.C.registrationDocs.map(d => h`<li>${d.label}${d.required ? '' : ' (if applicable)'}</li>`)}${App.C.insuranceDocs.map(d => h`<li>${d.label}</li>`)}</ul></div>
+      <div class="card"><h3>${App.icon('wrench')} Safety</h3><ul class="ticks small">${App.C.inspectionChecklist.slice(0, 6).map(c => h`<li>${c}</li>`)}<li>…and more</li></ul></div>
     </div>
     <p class="small muted">Requirements are configured per country. <a href="#/help/owners">See full owner requirements</a>.</p>
   </section>`);
@@ -234,12 +234,12 @@ const POLICY = {
   safety: ['Trust & safety', h`
     <p>Your safety is our first priority. Here’s how we protect every trip:</p>
     <div class="grid-2">
-      <div class="card"><h3>🪪 Verified owners</h3><p>Government ID (KYC), vehicle ownership, registration, permits and bank accounts are checked by our team before a van goes live. Documents with expiry dates are tracked and listings are paused automatically if they lapse.</p></div>
-      <div class="card"><h3>🛡️ Insurance</h3><p>Every van must hold commercial insurance covering self-drive rental. Add Damage Cover at checkout to reduce your deposit liability by 80%.</p></div>
-      <div class="card"><h3>🔧 Safety inspection</h3><p>A 10-point roadworthiness and habitation check: tyres, brakes, lights, seat belts, LPG, fire extinguisher, first-aid kit, electrics and more.</p></div>
-      <div class="card"><h3>💬 On-platform messaging</h3><p>Phone numbers and emails are hidden in messages until a booking is confirmed to stop off-platform payment scams.</p></div>
-      <div class="card"><h3>🔍 Fraud checks</h3><p>Bookings are risk-scored automatically (new accounts, unusual value, rapid repeat bookings) and reviewed by our team when needed.</p></div>
-      <div class="card"><h3>📞 24×7 help</h3><p>Roadside assistance: ${App.C.supportPhone}. In an emergency call ${App.C.emergencyNumber} first.</p></div>
+      <div class="card"><h3>${App.icon('id-card')} Verified owners</h3><p>Government ID (KYC), vehicle ownership, registration, permits and bank accounts are checked by our team before a van goes live. Documents with expiry dates are tracked and listings are paused automatically if they lapse.</p></div>
+      <div class="card"><h3>${App.icon('shield-check')} Insurance</h3><p>Every van must hold commercial insurance covering self-drive rental. Add Damage Cover at checkout to reduce your deposit liability by 80%.</p></div>
+      <div class="card"><h3>${App.icon('wrench')} Safety inspection</h3><p>A 10-point roadworthiness and habitation check: tyres, brakes, lights, seat belts, LPG, fire extinguisher, first-aid kit, electrics and more.</p></div>
+      <div class="card"><h3>${App.icon('message-circle')} On-platform messaging</h3><p>Phone numbers and emails are hidden in messages until a booking is confirmed to stop off-platform payment scams.</p></div>
+      <div class="card"><h3>${App.icon('search')} Fraud checks</h3><p>Bookings are risk-scored automatically (new accounts, unusual value, rapid repeat bookings) and reviewed by our team when needed.</p></div>
+      <div class="card"><h3>${App.icon('phone')} 24×7 help</h3><p>Roadside assistance: ${App.C.supportPhone}. In an emergency call ${App.C.emergencyNumber} first.</p></div>
     </div>
     <h2>Safety tips for travellers</h2>
     <ul class="ticks"><li>Do a walk-around with the owner and photograph the van at pickup and return.</li><li>Check the LPG valve is closed while driving.</li><li>Plan mountain drives in daylight and allow acclimatisation days above 3,000 m.</li><li>Share your itinerary with someone at home.</li></ul>`],
@@ -285,7 +285,7 @@ App.pages.help = (el, { topic }, q) => {
   if (topic === 'faq' || !topic) {
     el.innerHTML = String(h`<div class="container narrow section">
       <p class="eyebrow">Help centre</p><h1>${topic ? 'Frequently asked questions' : 'How can we help?'}</h1>
-      ${!topic ? h`<div class="help-tiles">${[['safety', '🛡️', 'Trust & safety'], ['faq', '❓', 'FAQs'], ['support', '💬', 'Contact support'], ['cancellation', '↩️', 'Cancellations & refunds'], ['owners', '🚐', 'Owner requirements'], ['terms', '📄', 'Terms'], ['privacy', '🔒', 'Privacy']].map(([id, ic, l]) => h`<a class="card help-tile" href="#/help/${id}"><span aria-hidden="true">${ic}</span>${l}</a>`)}</div>` : ''}
+      ${!topic ? h`<div class="help-tiles">${[['safety', '🛡️', 'Trust & safety'], ['faq', '❓', 'FAQs'], ['support', '💬', 'Contact support'], ['cancellation', '↩️', 'Cancellations & refunds'], ['owners', '🚐', 'Owner requirements'], ['terms', '📄', 'Terms'], ['privacy', '🔒', 'Privacy']].map(([id, ic, l]) => h`<a class="card help-tile" href="#/help/${id}">${App.icon(ic, { size: 28 })}${l}</a>`)}</div>` : ''}
       <label class="field"><span class="sr-only">Search FAQs</span><input type="search" id="faq-q" placeholder="Search questions…"></label>
       <div id="faq-list">${FAQ.map(([sec, items]) => h`<h2>${sec}</h2>${items.map(([qq, a]) => h`<details class="faq"><summary>${qq}</summary><p>${a}</p></details>`)}`)}</div>
     </div>`);
@@ -300,9 +300,9 @@ App.pages.help = (el, { topic }, q) => {
     el.innerHTML = String(h`<div class="container narrow section">
       <p class="eyebrow">Help centre</p><h1>Contact support</h1>
       <div class="grid-3">
-        <div class="card"><h3>📞 24×7 roadside</h3><p><a href="tel:${App.C.supportPhone}">${App.C.supportPhone}</a></p></div>
-        <div class="card"><h3>🚨 Emergency</h3><p>Call ${App.C.emergencyNumber}, then let us know.</p></div>
-        <div class="card"><h3>✉️ Email</h3><p>support@vanyatra.in<br><span class="small muted">Replies within 4 hours</span></p></div>
+        <div class="card"><h3>${App.icon('phone')} 24×7 roadside</h3><p><a href="tel:${App.C.supportPhone}">${App.C.supportPhone}</a></p></div>
+        <div class="card"><h3>${App.icon('siren')} Emergency</h3><p>Call ${App.C.emergencyNumber}, then let us know.</p></div>
+        <div class="card"><h3>${App.icon('mail')} Email</h3><p>support@vanyatra.in<br><span class="small muted">Replies within 4 hours</span></p></div>
       </div>
       <form class="card" id="support-form">
         <h2>Send us a message</h2>

@@ -114,7 +114,7 @@ const listings = (m) => {
       const steps = App.ONBOARDING_STEPS.slice(0, 10).map(s => [s, App.stepStatus(s, v.ownerId, v)]);
       const ready = steps.every(([, st]) => st === 'verified');
       return h`<article class="card review-item">
-        <div class="ri-head"><img src="${photo(v.photos[0], 300)}" alt=""><div><h3>${v.name}</h3><p class="small muted">${v.type} · ${v.pickup.city} · ${money(v.pricePerNight)}/night · by ${owner.name}${v.submittedAt ? ' · submitted ' + App.timeAgo(v.submittedAt) : ''}</p><a class="link" href="#/vans/${v.id}" target="_blank">Preview listing ↗</a></div></div>
+        <div class="ri-head"><img src="${photo(v.photos[0], 300)}" alt=""><div><h3>${v.name}</h3><p class="small muted">${v.type} · ${v.pickup.city} · ${money(v.pricePerNight)}/night · by ${owner.name}${v.submittedAt ? ' · submitted ' + App.timeAgo(v.submittedAt) : ''}</p><a class="link" href="#/vans/${v.id}" target="_blank">Preview listing ${App.icon('share')}</a></div></div>
         <ul class="check-grid">${steps.map(([s, st]) => h`<li>${App.statusBadge(st)} ${s.title}</li>`)}</ul>
         <div class="row gap wrap">
           <button class="btn btn-primary" data-approve="${v.id}" ${ready ? '' : 'disabled'} title="${ready ? '' : 'All steps must be verified first'}">Approve listing</button>
@@ -123,7 +123,7 @@ const listings = (m) => {
         </div>
         ${!ready ? h`<p class="small muted">Verify the pending documents before approving.</p>` : ''}
       </article>`;
-    }) : h`<p class="muted">No listings waiting. 🎉</p>`}
+    }) : h`<p class="muted">No listings waiting. ${App.icon('party-popper')}</p>`}
     <h2 class="section-sub">All listings</h2>
     <div class="table-wrap"><table class="table"><thead><tr><th>Van</th><th>Owner</th><th>Destination</th><th class="num">Price</th><th>Status</th><th></th></tr></thead><tbody>
       ${App.db.vans.filter(v => v.status !== 'hidden').map(v => h`<tr><td><a href="#/vans/${v.id}">${v.name || 'Untitled'}</a></td><td>${userName(v.ownerId)}</td><td>${App.get.dest(v.destinationId)?.name || ''}</td><td class="num">${money(v.pricePerNight)}</td><td>${App.pill(v.status)}</td>
@@ -172,7 +172,7 @@ const verifications = (m) => {
       ${filter === 'expiring' && expiringVans.length && App.serverOnline ? h`<div class="callout row-between wrap"><span>Renewed documents often show up in VAHAN before owners upload them.</span><button class="btn btn-sm" id="bulk">↻ Re-check ${App.plural(expiringVans.length, 'vehicle')} with VAHAN</button></div>` : ''}
       ${list.length ? h`<div class="table-wrap"><table class="table"><thead><tr><th>Document</th><th>Owner / vehicle</th><th>Details</th><th>Expiry</th><th>Status</th><th>Decision</th></tr></thead><tbody>
         ${list.map(d => { const ex = App.docExpiryState(d); const van = d.vanId && App.get.van(d.vanId); return h`<tr>
-          <td><strong>${d.label}</strong><br><span class="small muted">📎 ${d.fileName || 'no file'}${d.submittedAt ? ' · ' + App.timeAgo(d.submittedAt) : ''}</span>${d.check ? h`<br><span class="source-tag">✓ ${d.check.source} · ${App.timeAgo(d.check.checkedAt)}</span>` : ''}</td>
+          <td><strong>${d.label}</strong><br><span class="small muted">${App.icon('paperclip')} ${d.fileName || 'no file'}${d.submittedAt ? ' · ' + App.timeAgo(d.submittedAt) : ''}</span>${d.check ? h`<br><span class="source-tag">✓ ${d.check.source} · ${App.timeAgo(d.check.checkedAt)}</span>` : ''}</td>
           <td>${userName(d.ownerId)}<br><span class="small muted">${van ? van.name : 'Owner KYC'}</span></td>
           <td>${d.number || '—'}${d.insurer ? h`<br><span class="small muted">${d.insurer}</span>` : ''}</td>
           <td>${ex ? h`<span class="badge badge-${ex.tone}">${ex.label}</span>` : '—'}</td>
@@ -238,7 +238,7 @@ const verifications = (m) => {
       ${rows.length ? h`<div class="table-wrap"><table class="table"><thead><tr><th>Traveller</th><th>Document</th><th>Details</th><th>Status</th><th>Decision</th></tr></thead><tbody>
         ${rows.map(r => h`<tr>
           <td><strong>${userName(r.id)}</strong><br><span class="small muted">${App.get.user(r.id)?.email || ''}</span></td>
-          <td>${r.part === 'identity' ? 'Identity' : 'Driving licence'}<br>${Object.values(r.x.files || {}).map(f => h`<span class="small muted">📎 ${f}</span><br>`)}${r.x.check ? h`<span class="source-tag">✓ ${r.x.check.source}</span>` : r.x.submittedAt ? h`<span class="small muted">submitted ${App.timeAgo(r.x.submittedAt)}</span>` : ''}</td>
+          <td>${r.part === 'identity' ? 'Identity' : 'Driving licence'}<br>${Object.values(r.x.files || {}).map(f => h`<span class="small muted">${App.icon('paperclip')} ${f}</span><br>`)}${r.x.check ? h`<span class="source-tag">✓ ${r.x.check.source}</span>` : r.x.submittedAt ? h`<span class="small muted">submitted ${App.timeAgo(r.x.submittedAt)}</span>` : ''}</td>
           <td>${describe(r)}</td>
           <td>${App.statusBadge(r.x.status)}${r.x.note ? h`<div class="small muted">${r.x.note}</div>` : ''}</td>
           <td class="actions">${r.x.check ? h`<span class="small muted">Automatic</span>` : h`
@@ -291,7 +291,7 @@ const bookings = (m) => {
       <td>${userName(b.customerId)}</td><td>${App.get.van(b.vanId).name}<br><span class="small muted">${userName(b.ownerId)}</span></td>
       <td>${App.fmt.dateRange(b.start, b.end)}</td>
       <td class="num">${money(b.pricing.total)}<br><span class="small muted">${b.paymentStatus}</span></td>
-      <td>${App.pill(b.status)}${b.risk?.score >= 50 ? h`<br><span class="badge badge-serious" title="${b.risk.flags.join('; ')}">⚠ Risk ${b.risk.score}</span>` : ''}</td>
+      <td>${App.pill(b.status)}${b.risk?.score >= 50 ? h`<br><span class="badge badge-serious" title="${b.risk.flags.join('; ')}">${App.icon('triangle-alert')} Risk ${b.risk.score}</span>` : ''}</td>
       <td class="actions"><button class="btn btn-sm btn-ghost" data-view="${b.id}">Details</button>${['confirmed', 'requested'].includes(b.status) ? h`<button class="btn btn-sm btn-ghost danger-text" data-acancel="${b.id}">Cancel & refund</button>` : ''}</td></tr>`)}`);
     m.querySelector('#b-count').textContent = `${list.length} bookings`;
     m.querySelectorAll('[data-view]').forEach(b => b.onclick = () => {

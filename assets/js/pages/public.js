@@ -19,7 +19,7 @@ const searchForm = (q = {}, compact = false) => h`
       <select name="guests">${[1, 2, 3, 4, 5, 6].map(n => h`<option value="${n}" ${+q.guests === n || (!q.guests && n === 2) ? 'selected' : ''}>${n}${n === 6 ? '+' : ''}</option>`)}</select></label>
     <label class="sf-field"><span>Van type</span>
       <select name="type"><option value="">Any type</option>${App.VAN_TYPES.map(t => h`<option ${q.type === t ? 'selected' : ''}>${t}</option>`)}</select></label>
-    <button class="btn btn-accent btn-lg" type="submit"><span aria-hidden="true">🔍</span> Search vans</button>
+    <button class="btn btn-accent btn-lg" type="submit"><span aria-hidden="true">${App.icon('search')}</span> Search vans</button>
   </form>`;
 
 const bindSearchForm = (el) => {
@@ -44,7 +44,7 @@ const destCard = (d, big = false) => {
       <span class="eyebrow">${d.region}</span>
       <h3>${d.name}</h3>
       <p>${d.tagline}</p>
-      <div class="dest-meta"><span>🗓 ${d.bestTime}</span><span>🚐 ${App.plural(count, 'van')}</span>${d.familyScore >= 5 ? h`<span>👨‍👩‍👧 Great for families</span>` : ''}</div>
+      <div class="dest-meta"><span>${App.icon('calendar-days')} ${d.bestTime}</span><span>${App.icon('caravan')} ${App.plural(count, 'van')}</span>${d.familyScore >= 5 ? h`<span>${App.icon('users')} Great for families</span>` : ''}</div>
     </div></a>`;
 };
 
@@ -104,10 +104,10 @@ App.pages.home = (el) => {
 
   <section class="section container">
     <div class="trust-grid">
-      <div><span class="trust-ic">🪪</span><h3>Verified owners</h3><p>Government ID, vehicle ownership and legal permits checked by our team.</p></div>
-      <div><span class="trust-ic">🛡️</span><h3>Insured & inspected</h3><p>Commercial insurance and a 10-point safety inspection before any van goes live.</p></div>
-      <div><span class="trust-ic">💳</span><h3>Secure payments</h3><p>Pay on VanYatra only. Owners are paid after pickup; deposits are held, not spent.</p></div>
-      <div><span class="trust-ic">📞</span><h3>24×7 support</h3><p>Roadside assistance and a real human on the phone, day or night.</p></div>
+      <div><span class="trust-ic">${App.icon('id-card')}</span><h3>Verified owners</h3><p>Government ID, vehicle ownership and legal permits checked by our team.</p></div>
+      <div><span class="trust-ic">${App.icon('shield-check')}</span><h3>Insured & inspected</h3><p>Commercial insurance and a 10-point safety inspection before any van goes live.</p></div>
+      <div><span class="trust-ic">${App.icon('credit-card')}</span><h3>Secure payments</h3><p>Pay on VanYatra only. Owners are paid after pickup; deposits are held, not spent.</p></div>
+      <div><span class="trust-ic">${App.icon('phone')}</span><h3>24×7 support</h3><p>Roadside assistance and a real human on the phone, day or night.</p></div>
     </div>
   </section>
 
@@ -175,9 +175,9 @@ App.pages.destination = (el, { id }) => {
       </section>
       <section class="block"><h2>Highlights</h2><ul class="ticks">${d.highlights.map(x => h`<li>${x}</li>`)}</ul></section>
       <section class="block"><h2>Suggested road trips</h2>
-        <div class="route-grid">${d.routes.map(r => h`<article class="route"><h3>${r.name}</h3><div class="route-meta"><span>🗓 ${r.days} days</span><span>🛣 ${r.km} km</span></div><p>${r.desc}</p><a class="link-arrow" href="#/search?dest=${d.id}">Find a van for this route →</a></article>`)}</div>
+        <div class="route-grid">${d.routes.map(r => h`<article class="route"><h3>${r.name}</h3><div class="route-meta"><span>${App.icon('calendar-days')} ${r.days} days</span><span>${App.icon('route')} ${r.km} km</span></div><p>${r.desc}</p><a class="link-arrow" href="#/search?dest=${d.id}">Find a van for this route →</a></article>`)}</div>
       </section>
-      <section class="block"><h2>Top attractions</h2><div class="chip-row">${d.attractions.map(a => h`<span class="chip">📍 ${a}</span>`)}</div></section>
+      <section class="block"><h2>Top attractions</h2><div class="chip-row">${d.attractions.map(a => h`<span class="chip">${App.icon('map-pin')} ${a}</span>`)}</div></section>
       <section class="block"><h2>Things to do</h2><div class="chip-row">${d.activities.map(a => h`<span class="chip">${a}</span>`)}</div></section>
       <section class="block"><h2>Photos</h2><div class="photo-strip">${d.gallery.map(g => h`<img src="${photo(g, 600)}" alt="${d.name} scenery" loading="lazy">`)}</div></section>
       <section class="block"><h2>Nearby campsites</h2>
@@ -230,9 +230,9 @@ App.pages.search = (el, _p, q) => {
         </fieldset>
         <fieldset class="field"><legend>Van type</legend>${App.VAN_TYPES.map(t => h`<label class="check"><input type="checkbox" name="types" value="${t}" ${state.types.includes(t) ? 'checked' : ''}> ${t}</label>`)}</fieldset>
         <fieldset class="field"><legend>Good to know</legend>
-          <label class="check"><input type="checkbox" name="family" ${state.family ? 'checked' : ''}> 👨‍👩‍👧 Family friendly</label>
-          <label class="check"><input type="checkbox" name="pets" ${state.pets ? 'checked' : ''}> 🐾 Pet friendly</label>
-          <label class="check"><input type="checkbox" name="instant" ${state.instant ? 'checked' : ''}> ⚡ Instant book</label>
+          <label class="check"><input type="checkbox" name="family" ${state.family ? 'checked' : ''}> ${App.icon('users')} Family friendly</label>
+          <label class="check"><input type="checkbox" name="pets" ${state.pets ? 'checked' : ''}> ${App.icon('paw-print')} Pet friendly</label>
+          <label class="check"><input type="checkbox" name="instant" ${state.instant ? 'checked' : ''}> ${App.icon('zap')} Instant book</label>
           <label class="check"><input type="checkbox" name="auto" ${state.auto ? 'checked' : ''}> Automatic transmission</label>
         </fieldset>
         <fieldset class="field"><legend>Amenities</legend><div class="amen-grid">${App.AMENITIES.filter(a => a.id !== 'pets').map(a => h`<label class="check"><input type="checkbox" name="amen" value="${a.id}" ${state.amen.includes(a.id) ? 'checked' : ''}> ${a.label}</label>`)}</div></fieldset>
@@ -242,10 +242,10 @@ App.pages.search = (el, _p, q) => {
     </aside>
     <section class="results">
       <div class="results-bar">
-        <button class="btn btn-sm filters-toggle" id="filters-toggle" aria-expanded="false" aria-controls="filters">⚙ Filters<span class="count" id="filter-count" hidden></span></button>
+        <button class="btn btn-sm filters-toggle" id="filters-toggle" aria-expanded="false" aria-controls="filters">${App.icon('cog')} Filters<span class="count" id="filter-count" hidden></span></button>
         <div class="seg" role="group" aria-label="View">
           <button class="${state.view === 'list' ? 'on' : ''}" data-view="list" aria-pressed="${state.view === 'list'}">☰ List</button>
-          <button class="${state.view === 'map' ? 'on' : ''}" data-view="map" aria-pressed="${state.view === 'map'}">🗺 Map</button>
+          <button class="${state.view === 'map' ? 'on' : ''}" data-view="map" aria-pressed="${state.view === 'map'}">${App.icon('map')} Map</button>
         </div>
         <label class="field inline"><span class="sr-only">Sort by</span><select id="sort">
           ${[['recommended', 'Recommended'], ['price_asc', 'Price: low to high'], ['price_desc', 'Price: high to low'], ['rating', 'Top rated'], ['sleeps', 'Sleeps most']].map(([v, l]) => h`<option value="${v}" ${state.sort === v ? 'selected' : ''}>${l}</option>`)}
@@ -341,7 +341,7 @@ App.pages.map = (el, _p, q) => {
       <div class="filter-row" role="group" aria-label="Map layers">
         <label class="check"><input type="checkbox" data-layer="dests" checked> <span class="map-pin map-pin-dest mini">Destinations</span></label>
         <label class="check"><input type="checkbox" data-layer="vans" checked> <span class="map-pin map-pin-van mini">Vans</span></label>
-        <label class="check"><input type="checkbox" data-layer="camps" checked> <span class="map-pin map-pin-camp mini">⛺ Campsites</span></label>
+        <label class="check"><input type="checkbox" data-layer="camps" checked> <span class="map-pin map-pin-camp mini">${App.icon('tent')} Campsites</span></label>
       </div></div>
     <div class="container"><div class="map map-xl" id="full-map"></div></div>
     <div class="container section-tight"><h2 class="section-sub">All locations</h2><div class="loc-cols" id="loc-list"></div></div>`);
@@ -354,7 +354,7 @@ App.pages.map = (el, _p, q) => {
     if (map) map.remove();
     const mEl = el.querySelector('#full-map'); mEl.innerHTML = '';
     map = await App.mountMap(mEl, markers);
-    el.querySelector('#loc-list').innerHTML = String(h`${App.db.destinations.map(d => h`<div><h3><a href="#/destinations/${d.id}">${d.name}</a></h3><ul class="small">${publishedVans().filter(v => v.destinationId === d.id).map(v => h`<li>🚐 <a href="#/vans/${v.id}">${v.name}</a> — ${v.pickup.city}</li>`)}${d.campsites.map(c => h`<li>⛺ ${c.name}</li>`)}</ul></div>`)}`);
+    el.querySelector('#loc-list').innerHTML = String(h`${App.db.destinations.map(d => h`<div><h3><a href="#/destinations/${d.id}">${d.name}</a></h3><ul class="small">${publishedVans().filter(v => v.destinationId === d.id).map(v => h`<li>${App.icon('caravan')} <a href="#/vans/${v.id}">${v.name}</a> — ${v.pickup.city}</li>`)}${d.campsites.map(c => h`<li>${App.icon('tent')} ${c.name}</li>`)}</ul></div>`)}`);
   };
   el.querySelectorAll('[data-layer]').forEach(c => c.onchange = () => { show[c.dataset.layer] = c.checked; draw(); });
   draw();
@@ -384,10 +384,10 @@ App.pages.van = (el, { id }, q) => {
     <div class="van-head">
       <div>
         <h1>${van.name}</h1>
-        <div class="van-sub">${App.vanRating(van, { long: true })} · <span>📍 ${van.pickup.city}${dest ? ', ' + dest.region : ''}</span> · ${App.verifiedBadge(van.ownerId)}</div>
+        <div class="van-sub">${App.vanRating(van, { long: true })} · <span>${App.icon('map-pin')} ${van.pickup.city}${dest ? ', ' + dest.region : ''}</span> · ${App.verifiedBadge(van.ownerId)}</div>
       </div>
       <div class="row gap">
-        <button class="btn btn-ghost" id="share">↗ Share</button>
+        <button class="btn btn-ghost" id="share">${App.icon('share')} Share</button>
         <button class="btn btn-ghost ${me && me.savedVans.includes(van.id) ? 'is-saved' : ''}" data-save="${van.id}" aria-pressed="${!!(me && me.savedVans.includes(van.id))}">♡ Save</button>
       </div>
     </div>
@@ -402,23 +402,23 @@ App.pages.van = (el, { id }, q) => {
     <div class="van-layout">
       <div class="van-main">
         <section class="block key-specs">
-          <div><span class="ks-ic">🛏</span><strong>Sleeps ${van.sleeps}</strong><span class="muted small">${van.beds}</span></div>
-          <div><span class="ks-ic">💺</span><strong>${van.seats} seats</strong><span class="muted small">with seat belts</span></div>
-          <div><span class="ks-ic">⚙️</span><strong>${van.transmission}</strong><span class="muted small">${van.fuel} · ${van.mileage}</span></div>
-          <div><span class="ks-ic">🚐</span><strong>${van.type}</strong><span class="muted small">${van.year} ${van.make}</span></div>
+          <div><span class="ks-ic">${App.icon('bed-double')}</span><strong>Sleeps ${van.sleeps}</strong><span class="muted small">${van.beds}</span></div>
+          <div><span class="ks-ic">${App.icon('armchair')}</span><strong>${van.seats} seats</strong><span class="muted small">with seat belts</span></div>
+          <div><span class="ks-ic">${App.icon('cog')}</span><strong>${van.transmission}</strong><span class="muted small">${van.fuel} · ${van.mileage}</span></div>
+          <div><span class="ks-ic">${App.icon('caravan')}</span><strong>${van.type}</strong><span class="muted small">${van.year} ${van.make}</span></div>
         </section>
         <section class="block owner-strip">
           ${App.avatar(owner, 52)}
           <div><strong>Hosted by ${owner.name}</strong><div class="muted small">${owner.business || ''} · ${App.plural(ownerVans, 'van')} · joined ${new Date(owner.createdAt).getFullYear()}</div></div>
-          <button class="btn btn-ghost" id="msg-owner">💬 Message owner</button>
+          <button class="btn btn-ghost" id="msg-owner">${App.icon('message-circle')} Message owner</button>
         </section>
-        ${van.instantBook ? h`<div class="callout">⚡ <strong>Instant book</strong> — your booking is confirmed straight away, no waiting.</div>` : h`<div class="callout">🕑 <strong>Request to book</strong> — the owner responds within 24 hours. You're only charged if they accept.</div>`}
+        ${van.instantBook ? h`<div class="callout">${App.icon('zap')} <strong>Instant book</strong> — your booking is confirmed straight away, no waiting.</div>` : h`<div class="callout">${App.icon('clock')} <strong>Request to book</strong> — the owner responds within 24 hours. You're only charged if they accept.</div>`}
         ${trustPanel(van)}
         <section class="block"><h2>About this van</h2><p>${van.description}</p></section>
         <section class="block"><h2>Sleeping arrangements</h2>
-          <div class="sleep-grid"><div class="sleep-card">🛏<strong>Beds</strong><span>${van.beds}</span></div><div class="sleep-card">👨‍👩‍👧<strong>Up to ${van.sleeps} people</strong><span>${van.familyFriendly ? 'Family friendly' : 'Best for adults'}</span></div>${van.amenities.includes('childseat') ? h`<div class="sleep-card">👶<strong>Child seats</strong><span>ISOFIX anchors fitted</span></div>` : ''}</div></section>
+          <div class="sleep-grid"><div class="sleep-card">${App.icon('bed-double')}<strong>Beds</strong><span>${van.beds}</span></div><div class="sleep-card">${App.icon('users')}<strong>Up to ${van.sleeps} people</strong><span>${van.familyFriendly ? 'Family friendly' : 'Best for adults'}</span></div>${van.amenities.includes('childseat') ? h`<div class="sleep-card">${App.icon('baby')}<strong>Child seats</strong><span>ISOFIX anchors fitted</span></div>` : ''}</div></section>
         <section class="block"><h2>What’s included</h2>
-          <ul class="amen-list">${App.AMENITIES.map(a => h`<li class="${van.amenities.includes(a.id) ? '' : 'missing'}"><span aria-hidden="true">${a.icon}</span> ${van.amenities.includes(a.id) ? a.label : h`<s>${a.label}</s><span class="sr-only"> (not included)</span>`}</li>`)}</ul></section>
+          <ul class="amen-list">${App.AMENITIES.map(a => h`<li class="${van.amenities.includes(a.id) ? '' : 'missing'}">${App.icon(a.icon)} ${van.amenities.includes(a.id) ? a.label : h`<s>${a.label}</s><span class="sr-only"> (not included)</span>`}</li>`)}</ul></section>
         <section class="block"><h2>Vehicle specifications</h2>
           <table class="spec-table"><tbody>
             ${[['Make & model', `${van.make} ${van.model}`], ['Year', van.year], ['Type', van.type], ['Length', van.length], ['Fuel', `${van.fuel} (${van.mileage})`], ['Transmission', van.transmission], ['Licence needed', van.licence], ['Included distance', `${van.kmPerDay} km/day, then ${money(van.extraKmFee)}/km`], ['Minimum rental', App.plural(van.minNights, 'night')]].map(([k, v]) => h`<tr><th scope="row">${k}</th><td>${v}</td></tr>`)}
@@ -440,7 +440,7 @@ App.pages.van = (el, { id }, q) => {
 
       <aside class="van-aside">
         <div class="card booking-card" id="booking-card"></div>
-        <p class="small muted center">🛡️ Report this listing? <a href="#/help/support?topic=listing&van=${van.id}">Contact trust & safety</a></p>
+        <p class="small muted center">${App.icon('shield-check')} Report this listing? <a href="#/help/support?topic=listing&van=${van.id}">Contact trust & safety</a></p>
       </aside>
     </div>
 
@@ -468,7 +468,7 @@ App.pages.van = (el, { id }, q) => {
       ${guests > van.sleeps ? h`<p class="error">This van sleeps up to ${van.sleeps}.</p>` : ''}
       ${valid && !ok ? h`<p class="error">Some of those nights are booked. See the calendar for open dates.</p>` : ''}
       ${tooShort ? h`<p class="error">Minimum rental is ${App.plural(van.minNights, 'night')}.</p>` : ''}
-      <button class="btn btn-accent btn-block btn-lg" id="book-btn" ${!valid || !ok || tooShort || guests > van.sleeps || van.status !== 'published' ? 'disabled' : ''}>${van.instantBook ? '⚡ Book now' : 'Request to book'}</button>
+      <button class="btn btn-accent btn-block btn-lg" id="book-btn" ${!valid || !ok || tooShort || guests > van.sleeps || van.status !== 'published' ? 'disabled' : ''}>${van.instantBook ? h`${App.icon('zap')} Book now` : 'Request to book'}</button>
       <p class="center small muted">${valid ? 'You won’t be charged yet' : 'Select dates to see the total price'}</p>
       ${qte ? h`${App.priceLines(qte)}<button type="button" class="link small" data-price-van="${van.id}" data-start="${state.start}" data-end="${state.end}">See full price breakdown</button>` : ''}`);
     el.querySelector('#mobile-bar').innerHTML = String(h`<div><strong>${qte ? money(qte.total) : money(van.pricePerNight) + ' / night'}</strong><div class="small muted">${valid ? `${App.fmt.dateRange(state.start, state.end)}` : 'Add dates'}</div></div><a class="btn btn-accent" href="#booking-card" id="mb-go">${valid && ok && !tooShort ? 'Reserve · ' + money(qte.total) : 'Check dates'}</a>`);
@@ -519,7 +519,7 @@ const trustPanel = (van) => {
     ...(t.permit ? [[true, 'All India Tourist Permit', until(t.permit), t.permit]] : [])
   ];
   return h`<section class="block trust-panel" aria-labelledby="trust-h">
-    <h2 id="trust-h">🛡️ Verified by VanYatra</h2>
+    <h2 id="trust-h">${App.icon('shield-check')} Verified by VanYatra</h2>
     <ul class="trust-list">${items.map(([ok, label, detail, x]) => h`<li class="${ok ? 'ok' : 'wait'}"><span class="ti" aria-hidden="true">${ok ? '✓' : '…'}</span><div><strong>${label}</strong><span class="small muted">${ok ? detail : 'Being checked'}</span>${ok && x ? src(x) : ''}</div></li>`)}</ul>
     ${t.lastChecked ? h`<p class="small muted">Last checked ${fmtDate(t.lastChecked)}. Listings pause automatically if a document expires.</p>` : h`<p class="small muted">Listings pause automatically if a document expires.</p>`}
   </section>`;

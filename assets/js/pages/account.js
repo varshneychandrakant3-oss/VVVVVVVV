@@ -46,9 +46,9 @@ const tripCard = (b) => {
       ${b.status === 'declined' ? h`<p class="small muted">The owner couldn’t accept this request. Your authorisation was released.</p>` : ''}
       <div class="trip-actions">
         <strong>${money(b.pricing.total)}</strong>
-        ${upcoming ? h`<a class="btn btn-sm" href="#/account/trips/${b.id}">🗺 Itinerary</a>` : ''}
-        ${thread ? h`<a class="btn btn-sm btn-ghost" href="#/account/messages/${thread.id}">💬 Message</a>` : ''}
-        <button class="btn btn-sm btn-ghost" data-receipt="${b.id}">🧾 Receipt</button>
+        ${upcoming ? h`<a class="btn btn-sm" href="#/account/trips/${b.id}">${App.icon('map')} Itinerary</a>` : ''}
+        ${thread ? h`<a class="btn btn-sm btn-ghost" href="#/account/messages/${thread.id}">${App.icon('message-circle')} Message</a>` : ''}
+        <button class="btn btn-sm btn-ghost" data-receipt="${b.id}">${App.icon('receipt')} Receipt</button>
         ${upcoming ? h`<button class="btn btn-sm btn-ghost danger-text" data-cancel="${b.id}">Cancel</button>` : ''}
         ${b.status === 'completed' && !reviewed ? h`<button class="btn btn-sm btn-primary" data-review="${b.id}">★ Leave review</button>` : ''}
         ${b.status === 'completed' ? h`<button class="btn btn-sm btn-ghost" data-issue="${b.id}">Report an issue</button>` : ''}
@@ -163,8 +163,8 @@ const itineraryTab = (m, id) => {
       <img src="${photo(dest?.hero || van.photos[0], 600)}" alt="">
       <div><span class="eyebrow">${b.id} · ${b.status}</span><h2>${dest ? dest.name : ''} with ${van.name}</h2>
         <p>${App.fmt.dateRange(b.start, b.end)} · ${App.plural(b.nights, 'night')}</p>
-        <p class="small">📍 Pickup: ${b.status === 'confirmed' ? van.pickup.address : van.pickup.city + ' (address after confirmation)'} · ${van.pickup.time}</p>
-        <div class="row gap wrap"><button class="btn btn-sm" id="ics">📅 Add to calendar</button>${dest ? h`<button class="btn btn-sm btn-ghost" id="suggest">✨ Fill from suggested route</button>` : ''}</div></div>
+        <p class="small">${App.icon('map-pin')} Pickup: ${b.status === 'confirmed' ? van.pickup.address : van.pickup.city + ' (address after confirmation)'} · ${van.pickup.time}</p>
+        <div class="row gap wrap"><button class="btn btn-sm" id="ics">${App.icon('calendar-days')} Add to calendar</button>${dest ? h`<button class="btn btn-sm btn-ghost" id="suggest">${App.icon('sparkles')} Fill from suggested route</button>` : ''}</div></div>
     </div>
     <div class="itin-layout">
       <form id="itin-form" class="itin-days">
@@ -174,7 +174,7 @@ const itineraryTab = (m, id) => {
       </form>
       <aside>
         ${dest ? h`<div class="card"><h3>Routes in ${dest.name}</h3>${dest.routes.map(r => h`<div class="mini-route"><strong>${r.name}</strong><span class="small muted">${r.days} days · ${r.km} km</span></div>`)}
-          <h3>Campsites</h3><div class="map map-sm" id="itin-map"></div><ul class="small">${dest.campsites.map(c => h`<li>⛺ ${c.name}</li>`)}</ul></div>` : ''}
+          <h3>Campsites</h3><div class="map map-sm" id="itin-map"></div><ul class="small">${dest.campsites.map(c => h`<li>${App.icon('tent')} ${c.name}</li>`)}</ul></div>` : ''}
         <div class="card"><h3>Packing checklist</h3>${PACKING.map((p, i) => h`<label class="check"><input type="checkbox" data-pack="${i}" ${b.checklist[i] ? 'checked' : ''}> ${p}</label>`)}</div>
       </aside>
     </div>`);
@@ -211,9 +211,9 @@ const paymentsTab = (m, me) => {
   const tx = App.db.transactions.filter(t => t.customerId === me.id && t.type !== 'payout');
   const held = App.db.bookings.filter(b => b.customerId === me.id && b.depositStatus === 'held');
   m.innerHTML = String(h`<h1>Payments</h1>
-    ${held.length ? h`<div class="callout">🔒 Deposits currently held: ${held.map(b => h`<strong>${money(b.pricing.deposit)}</strong> for ${b.id} `)}— released within ${App.C.depositReleaseDays} days of return.</div>` : ''}
+    ${held.length ? h`<div class="callout">${App.icon('lock')} Deposits currently held: ${held.map(b => h`<strong>${money(b.pricing.deposit)}</strong> for ${b.id} `)}— released within ${App.C.depositReleaseDays} days of return.</div>` : ''}
     <div class="card"><h2>Saved payment methods</h2><p class="muted small">Cards are tokenised by our payment gateway; we only keep the brand and last 4 digits.</p>
-      <ul class="plain"><li>💳 Visa •• 4242 <span class="badge badge-muted">default</span></li><li>📱 UPI · ${me.email.split('@')[0]}@okbank</li></ul></div>
+      <ul class="plain"><li>${App.icon('credit-card')} Visa •• 4242 <span class="badge badge-muted">default</span></li><li>${App.icon('smartphone')} UPI · ${me.email.split('@')[0]}@okbank</li></ul></div>
     <h2 class="section-sub">Transaction history</h2>
     ${tx.length ? h`<div class="table-wrap"><table class="table"><thead><tr><th>Date</th><th>Booking</th><th>Type</th><th>Method</th><th class="num">Amount</th><th>Status</th><th></th></tr></thead><tbody>
       ${tx.map(t => h`<tr><td>${fmtDate(t.at)}</td><td>${t.bookingId}</td><td>${t.type}</td><td>${t.method || '—'}</td><td class="num ${t.type === 'refund' ? 'good' : ''}">${t.type === 'refund' ? '+' : ''}${money(t.amount)}</td><td>${App.pill(t.status)}</td><td><button class="link" data-receipt="${t.bookingId}">Receipt</button></td></tr>`)}
@@ -248,7 +248,7 @@ const profileTab = (m, me) => {
     <div class="card"><h2>Notifications</h2>
       ${[['email', 'Booking updates by email', true], ['sms', 'Trip reminders by SMS', true], ['marketing', 'Trip ideas & offers', false]].map(([k, l, d]) => h`<label class="check"><input type="checkbox" data-pref="${k}" ${(me.prefs?.[k] ?? d) ? 'checked' : ''}> ${l}</label>`)}</div>
     <div class="card"><h2>Your data</h2><p class="small muted">Download a copy of everything we hold about you, or ask us to delete your account.</p>
-      <div class="row gap wrap"><button class="btn" id="export">⬇ Download my data</button><button class="btn btn-danger" id="delete">Request account deletion</button></div></div>`);
+      <div class="row gap wrap"><button class="btn" id="export">${App.icon('download')} Download my data</button><button class="btn btn-danger" id="delete">Request account deletion</button></div></div>`);
   m.querySelector('#profile-form').onsubmit = (e) => { e.preventDefault(); const d = App.formData(e.target); me.name = d.name.trim() || me.name; me.city = d.city.trim(); App.save(); App.renderHeader(); App.toast('Profile updated', 'good'); };
   m.querySelector('#pw-form').onsubmit = async (e) => {
     e.preventDefault();
@@ -298,7 +298,7 @@ App.messagesView = (m, role, activeId) => {
         return h`<section class="chat">
           <header class="chat-head"><a href="${base}" class="back-link only-sm">←</a>${App.avatar(o, 36)}<div><strong>${o.name}</strong><div class="small muted">${App.get.van(active.vanId).name}${b ? h` · ${b.id} ${App.pill(b.status)}` : ''}</div></div></header>
           <div class="chat-body" id="chat-body">${active.messages.length ? active.messages.map(msg => h`<div class="msg ${msg.from === me.id ? 'me' : ''}"><p>${msg.text}</p><time class="small muted">${App.fmtDateTime(msg.at)}</time></div>`) : h`<p class="muted center">Say hello and ask anything about the van or route.</p>`}</div>
-          ${!confirmed ? h`<p class="chat-note small">🔒 For your safety, phone numbers, emails and links are hidden until a booking is confirmed. Always pay through VanYatra.</p>` : ''}
+          ${!confirmed ? h`<p class="chat-note small">${App.icon('lock')} For your safety, phone numbers, emails and links are hidden until a booking is confirmed. Always pay through VanYatra.</p>` : ''}
           <form class="chat-form" id="chat-form"><label class="sr-only" for="chat-input">Message</label><textarea id="chat-input" rows="2" maxlength="2000" placeholder="Write a message…" required></textarea><button class="btn btn-primary">Send</button></form>
         </section>`;
       })() : ''}

@@ -30,7 +30,7 @@ App.travellerVerificationView = (m, me) => {
   const minDob = App.addDays(App.today(), -365 * 18);
   const tomorrow = App.addDays(App.today(), 1);
 
-  const files = (f) => Object.values(f || {}).map(n => h`<span class="small muted">📎 ${n}</span> `);
+  const files = (f) => Object.values(f || {}).map(n => h`<span class="small muted">${App.icon('paperclip')} ${n}</span> `);
   const note = (x) => x.note ? h`<p class="small ${x.status === 'verified' ? 'muted' : 'error'}">${x.note}</p>` : '';
   const source = (x) => x.check ? h`<span class="source-tag">✓ ${x.check.source} · ${App.timeAgo(x.check.checkedAt)}</span>`
     : x.reviewedAt ? h`<span class="source-tag">✓ Reviewed by VanYatra · ${App.timeAgo(x.reviewedAt)}</span>` : '';
@@ -49,13 +49,13 @@ App.travellerVerificationView = (m, me) => {
     return h`${note(id)}
       <div class="tabs" role="tablist" aria-label="Where do you live?">
         <button type="button" role="tab" data-res="india" aria-selected="${residency === 'india'}" class="${residency === 'india' ? 'on' : ''}">🇮🇳 I live in India</button>
-        <button type="button" role="tab" data-res="foreign" aria-selected="${residency === 'foreign'}" class="${residency === 'foreign' ? 'on' : ''}">✈️ I’m visiting from abroad</button>
+        <button type="button" role="tab" data-res="foreign" aria-selected="${residency === 'foreign'}" class="${residency === 'foreign' ? 'on' : ''}">${App.icon('plane')} I’m visiting from abroad</button>
       </div>
       ${residency === 'india' ? h`
         <p class="small muted">Sign in to DigiLocker and approve sharing your eAadhaar. We keep only your name, date of birth and the last 4 digits — never your Aadhaar number, password or OTP.</p>
-        ${test ? h`<p class="test-hint">🧪 <strong>Test mode</strong> — DigiLocker shows a test consent screen where you can type any name.</p>` : ''}
+        ${test ? h`<p class="test-hint">${App.icon('flask-conical')} <strong>Test mode</strong> — DigiLocker shows a test consent screen where you can type any name.</p>` : ''}
         <label class="check consent"><input type="checkbox" id="id-consent"> I consent to VanYatra verifying my identity with UIDAI via DigiLocker, only to confirm who is renting.</label>
-        <div><button type="button" class="btn btn-primary" id="dl-btn"><span aria-hidden="true">🔐</span> Verify with DigiLocker</button></div>`
+        <div><button type="button" class="btn btn-primary" id="dl-btn"><span aria-hidden="true">${App.icon('lock-keyhole')}</span> Verify with DigiLocker</button></div>`
       : h`<form id="pp-form" class="stack" novalidate>
         <p class="small muted">Upload your passport photo page and Indian visa. A member of our team checks them, usually within a few hours.</p>
         <div class="grid-2">
@@ -100,7 +100,7 @@ App.travellerVerificationView = (m, me) => {
           <label class="field"><span>Driving licence number</span><input name="dlNumber" required autocomplete="off" placeholder="e.g. DL-0420110012345" pattern="[A-Za-z0-9 \\-]{8,20}" title="Your licence number as printed, e.g. DL-0420110012345"></label>
           <label class="field"><span>Date of birth</span><input type="date" name="dob" required max="${minDob}" value="${id.data?.dob || ''}"></label>
         </div>
-        ${test ? h`<p class="test-hint">🧪 <strong>Test mode</strong> — licences ending 0000 are “not found”, ending 1111 are expired.</p>` : ''}
+        ${test ? h`<p class="test-hint">${App.icon('flask-conical')} <strong>Test mode</strong> — licences ending 0000 are “not found”, ending 1111 are expired.</p>` : ''}
         <label class="check consent"><input type="checkbox" name="consent" required> I consent to VanYatra verifying this licence with the SARATHI registry.</label>
         <div id="dlp-result"></div>
         <div><button class="btn btn-primary">Verify licence</button></div>
@@ -117,7 +117,7 @@ App.travellerVerificationView = (m, me) => {
       <section class="card verify-card"><div class="row-between"><h2>1. Email & mobile</h2>${me.emailVerified && me.phoneVerified ? App.statusBadge('verified') : ''}</div><div id="otp"></div></section>
       <section class="card verify-card"><div class="row-between"><h2>2. Identity</h2>${App.statusBadge(id.status)}</div>${identityBody()}</section>
       <section class="card verify-card"><div class="row-between"><h2>3. Driving licence</h2>${App.statusBadge(lic.status)}</div>${licenceBody()}</section>
-      <p class="small muted">🔒 Why we ask: rental rules in India require us to know who is driving. We store masked numbers only. Owners never see your documents — only your verified badge. You can ask us to delete them any time from Profile &amp; privacy.</p>`);
+      <p class="small muted">${App.icon('lock')} Why we ask: rental rules in India require us to know who is driving. We store masked numbers only. Owners never see your documents — only your verified badge. You can ask us to delete them any time from Profile &amp; privacy.</p>`);
 
     App.otpWidget(m.querySelector('#otp'), me, draw);
     m.querySelectorAll('[data-res]').forEach(b => b.onclick = () => { residency = App._residency = b.dataset.res; draw(); });

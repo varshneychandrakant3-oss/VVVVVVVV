@@ -68,7 +68,7 @@ const overview = (m, { me, vans, vanIds, bookings, docAlerts, requests }) => {
   const onboardingIncomplete = !App.get.ownerVerified(me.id) || vans.some(v => ['draft', 'in_review'].includes(v.status));
   m.innerHTML = String(h`
     <h1>Welcome back, ${me.name.split(' ')[0]}</h1>
-    ${onboardingIncomplete ? h`<div class="alert alert-warn row-between wrap"><span>🪪 ${!vans.length ? 'Finish onboarding to list your first van.' : 'Some verification steps are still in progress.'}</span><a class="btn btn-sm" href="#/owner/onboarding">Continue onboarding</a></div>` : ''}
+    ${onboardingIncomplete ? h`<div class="alert alert-warn row-between wrap"><span>${App.icon('id-card')} ${!vans.length ? 'Finish onboarding to list your first van.' : 'Some verification steps are still in progress.'}</span><a class="btn btn-sm" href="#/owner/onboarding">Continue onboarding</a></div>` : ''}
     <div class="kpis">
       <div class="kpi"><span>Earned this month</span><strong>${money(earnedMonth)}</strong></div>
       <div class="kpi"><span>Upcoming payouts</span><strong>${money(pendingPayout)}</strong><small>${App.plural(upcoming.length, 'trip')}</small></div>
@@ -77,7 +77,7 @@ const overview = (m, { me, vans, vanIds, bookings, docAlerts, requests }) => {
     </div>
     <div class="grid-2 align-start">
       <section class="card"><h2>Needs your attention</h2>
-        ${!requests.length && !docAlerts.length ? h`<p class="muted">All clear — nothing needs action. 🎉</p>` : ''}
+        ${!requests.length && !docAlerts.length ? h`<p class="muted">All clear — nothing needs action. ${App.icon('party-popper')}</p>` : ''}
         <ul class="alert-list">
           ${requests.map(b => h`<li><span class="badge badge-warn">Request</span> <span>${App.get.user(b.customerId).name} · ${App.get.van(b.vanId).name} · ${fmtDate(b.start)}</span><a href="#/owner/bookings" class="link">Respond</a></li>`)}
           ${docAlerts.map(d => { const ex = App.docExpiryState(d); return h`<li><span class="badge badge-${d.status === 'verified' ? ex.tone : App.VERIFICATION_STATUS[d.status].tone}">${d.status === 'verified' ? ex.label : App.VERIFICATION_STATUS[d.status].label}</span> <span>${d.label}${d.vanId ? ' · ' + App.get.van(d.vanId).name : ''}</span><a href="#/owner/documents" class="link">Update</a></li>`; })}
@@ -146,7 +146,7 @@ const vanEditor = (m, { me, id }) => {
       <section class="card"><h2>Listing content</h2>
         <p class="small muted">Edit photos, specs, amenities, description and pickup details.</p>
         <div class="photo-strip small">${van.photos.slice(0, 4).map(p => h`<img src="${photo(p, 200)}" alt="">`)}</div>
-        <div class="stack"><a class="btn btn-ghost" href="#/owner/onboarding?van=${van.id}&step=8">📷 Photos & specifications</a><a class="btn btn-ghost" href="#/owner/onboarding?van=${van.id}&step=9">🧰 Amenities, description & pickup</a><a class="btn btn-ghost" href="#/owner/calendar?van=${van.id}">📅 Availability calendar</a><a class="btn btn-ghost" href="#/owner/documents">📄 Documents</a></div>
+        <div class="stack"><a class="btn btn-ghost" href="#/owner/onboarding?van=${van.id}&step=8">${App.icon('camera')} Photos & specifications</a><a class="btn btn-ghost" href="#/owner/onboarding?van=${van.id}&step=9">${App.icon('toolbox')} Amenities, description & pickup</a><a class="btn btn-ghost" href="#/owner/calendar?van=${van.id}">${App.icon('calendar-days')} Availability calendar</a><a class="btn btn-ghost" href="#/owner/documents">${App.icon('file-text')} Documents</a></div>
       </section>
     </div>`);
   const f = m.querySelector('#price-form');
@@ -184,7 +184,7 @@ const bookingsTab = (m, { bookings }) => {
       <div class="tabs" role="tablist">${Object.entries(groups).map(([k, [l, arr]]) => h`<button role="tab" aria-selected="${k === active}" class="${k === active ? 'on' : ''}" data-tab="${k}">${l} <span class="count">${arr.length}</span></button>`)}</div>
       ${list.length ? h`<div class="table-wrap"><table class="table"><thead><tr><th>Booking</th><th>Traveller</th><th>Van</th><th>Dates</th><th class="num">Your payout</th><th>Status</th><th></th></tr></thead><tbody>
         ${list.slice(0, 60).map(b => { const c = App.get.user(b.customerId); return h`<tr>
-          <td>${b.id}${b.risk?.score >= 50 ? h`<br><span class="badge badge-serious" title="${b.risk.flags.join('; ')}">⚠ Risk ${b.risk.score}</span>` : ''}</td>
+          <td>${b.id}${b.risk?.score >= 50 ? h`<br><span class="badge badge-serious" title="${b.risk.flags.join('; ')}">${App.icon('triangle-alert')} Risk ${b.risk.score}</span>` : ''}</td>
           <td>${c.name}<br>${b.traveller ? App.travellerBadge(b.traveller) : h`<span class="small muted">${c.phoneVerified ? '✓ phone verified' : 'phone unverified'}</span>`}<span class="small muted"> · ${b.travelers} guests${b.driver?.check?.status === 'verified' ? (b.traveller?.level === 'verified' ? '' : ' · licence ✓') : b.driver?.check?.status === 'review' ? ' · licence under review' : ''}</span></td>
           <td>${App.get.van(b.vanId).name}</td>
           <td>${App.fmt.dateRange(b.start, b.end)}<br><span class="small muted">${App.plural(b.nights, 'night')}</span></td>
@@ -287,7 +287,7 @@ const earnings = (m, { me, bookings }) => {
       <div class="kpi"><span>Payout account</span><strong class="small-strong">${payout?.data ? `${payout.data.bank} ••${payout.data.last4}` : 'Not set'}</strong>${App.statusBadge(payout?.status || 'not_started')}</div>
     </div>
     <section class="card"><h2>Payouts by month</h2>${App.barChart(App.monthly(tx, 'at', t => t.amount), { format: compact, label: 'Monthly payouts' })}</section>
-    <section class="card"><div class="row-between"><h2>Transaction history</h2><button class="btn btn-sm btn-ghost" id="csv">⬇ Export CSV</button></div>
+    <section class="card"><div class="row-between"><h2>Transaction history</h2><button class="btn btn-sm btn-ghost" id="csv">${App.icon('download')} Export CSV</button></div>
       <div class="table-wrap"><table class="table"><thead><tr><th>Date</th><th>Booking</th><th>Van</th><th class="num">Gross</th><th class="num">Commission</th><th class="num">Payout</th><th>Status</th></tr></thead><tbody>
       ${tx.slice(0, 50).map(t => { const b = App.get.booking(t.bookingId); return h`<tr><td>${fmtDate(t.at)}</td><td>${t.bookingId}</td><td>${b ? App.get.van(b.vanId).name : ''}</td><td class="num">${b ? money(b.pricing.rental + b.pricing.addOns + b.pricing.cleaning) : ''}</td><td class="num">${b ? '−' + money(b.pricing.commission) : ''}</td><td class="num"><strong>${money(t.amount)}</strong></td><td>${App.pill(t.status)}</td></tr>`; })}
       </tbody></table></div></section>`);
