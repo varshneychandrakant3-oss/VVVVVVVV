@@ -71,16 +71,17 @@ App.pages.book = (el, { id }, q) => {
       <div class="grid-2">
         <label class="field"><span>Full name (as on licence)</span><input name="name" autocomplete="name" value="${s.driver.name}" required></label>
         <label class="field"><span>Date of birth</span><input type="date" name="dob" max="${App.addDays(App.today(), -365 * 18)}" value="${s.driver.dob || ''}" required></label>
-        <label class="field"><span>Driving licence number</span><input name="licence" autocomplete="off" value="${s.driver.licence}" placeholder="e.g. DL-0420110012345" required pattern="[A-Za-z0-9 \\-]{8,20}"></label>
-        <label class="field"><span>Mobile number</span><input type="tel" name="phone" autocomplete="tel" value="${s.driver.phone}" required></label>
+        <label class="field"><span>Driving licence number</span><input name="licence" autocomplete="off" title="Your licence number as printed, e.g. DL-0420110012345" value="${s.driver.licence}" placeholder="e.g. DL-0420110012345" required pattern="[A-Za-z0-9 \\-]{8,20}"></label>
+        <label class="field"><span>Mobile number</span><input type="tel" name="phone" autocomplete="tel" value="${s.driver.phone}" required pattern="(\\+?91[ \\-]?)?[6-9][0-9]{4}[ \\-]?[0-9]{5}" title="A 10-digit Indian mobile number, e.g. 98765 43210"></label>
       </div>
       ${App.serverOnline && App.verifyConfig?.testMode ? h`<p class="test-hint">🧪 <strong>Test mode</strong> — licences ending 0000 are “not found”, ending 1111 are expired.</p>` : ''}
-      ${App.serverOnline ? h`<label class="check consent"><input type="checkbox" name="dlConsent" required> I consent to VanYatra verifying this driving licence with the SARATHI registry.</label>` : ''}
+      ${App.serverOnline ? h`<label class="check consent"><input type="checkbox" name="dlConsent" required ${s.dlConsent ? "checked" : ""}> I consent to VanYatra verifying this driving licence with the SARATHI registry.</label>` : ''}
       <div id="dl-result">${s.dlCheck ? App.checkResultBox(s.dlCheck) : ''}</div>
       <label class="field"><span>Message to the owner (optional)</span><textarea name="specialRequests" rows="3" placeholder="Who's coming, your route, any questions…">${s.specialRequests}</textarea></label>
       <div class="form-actions"><button type="button" class="btn btn-ghost" data-back>Back</button><button class="btn btn-primary btn-lg" type="submit">Continue to payment</button></div>`;
     return h`
       <h2>Payment</h2>
+      ${s.payError ? h`<div class="alert alert-bad" role="alert"><strong>Payment didn’t go through.</strong> ${s.payError}</div>` : ''}
       <div class="pay-methods" role="radiogroup" aria-label="Payment method">
         ${[['upi', 'UPI', 'GPay, PhonePe, Paytm, BHIM'], ['card', 'Credit / debit card', 'Visa, Mastercard, RuPay, Amex'], ['netbanking', 'Net banking', 'All major Indian banks']].map(([v, l, d]) => h`<label class="pay-opt ${s.payMethod === v ? 'on' : ''}"><input type="radio" name="payMethod" value="${v}" ${s.payMethod === v ? 'checked' : ''}><span><strong>${l}</strong><span class="small muted">${d}</span></span></label>`)}
       </div>
@@ -117,6 +118,7 @@ App.pages.book = (el, { id }, q) => {
         const age = Math.floor((new Date(s.start) - new Date(d.dob)) / (365.25 * 86400000));
         s.driver = { name: d.name.trim(), dob: d.dob, age, licence: d.licence.trim(), phone: d.phone.trim() };
         s.specialRequests = d.specialRequests.trim();
+        s.dlConsent = !!f.dlConsent?.checked;
         if (age < App.C.minDriverAge) return App.toast(`The main driver must be at least ${App.C.minDriverAge} on the pickup date.`, 'bad');
         if (App.serverOnline) {
           const btn = f.querySelector('[type=submit]');
@@ -135,26 +137,27 @@ App.pages.book = (el, { id }, q) => {
       const d = App.formData(f);
       s.payMethod = d.payMethod; s.agree = !!d.agree;
       if (!s.agree) return App.toast('Please accept the terms to continue.', 'bad');
-      const paid = await gateway(qte, s.payMethod);
-      if (!paid) return;
+      // Dates can be taken while the traveller is on this page
+      if (!App.isAvailable(van.id, s.start, s.end)) { s.payError = 'Sorry — these dates were just booked by someone else. Go back and pick new dates.'; return draw(); }
+      const btn = f.querySelector('[type=submit]');
+      const label = btn.innerHTML;
+      btn.disabled = true; btn.innerHTML = '<span class="spinner" aria-hidden="true"></span> Starting secure checkout…';
       try {
-        const b = App.api.createBooking({ vanId: van.id, start: s.start, end: s.end, adults: s.adults, children: s.children, addOnIds: s.addOns, driver: s.driver, payment: paid, specialRequests: s.specialRequests });
+        const order = await App.payments.createOrder({ amount: qte.total, receipt: `${van.id}:${s.start}:${s.end}`, notes: { van: van.name } });
+        const pay = await App.payments.checkout(order, { method: s.payMethod, description: van.instantBook ? 'Pay now' : 'Authorise (charged if accepted)' });
+        if (pay.status === 'cancelled') { btn.disabled = false; btn.innerHTML = label; return App.toast('Payment cancelled — you haven’t been charged.'); }
+        if (pay.status === 'failed') { s.payError = pay.reason + ' You haven’t been charged. Try again or choose another payment method.'; return draw(); }
+        btn.innerHTML = '<span class="spinner" aria-hidden="true"></span> Confirming payment…';
+        if (!(await App.payments.verify(order, pay))) { s.payError = 'We couldn’t confirm this payment. You haven’t been charged. Please try again.'; return draw(); }
+        const b = App.api.createBooking({ vanId: van.id, start: s.start, end: s.end, adults: s.adults, children: s.children, addOnIds: s.addOns, driver: s.driver, payment: { method: pay.method, label: pay.label, orderId: order.id, paymentId: pay.paymentId }, specialRequests: s.specialRequests });
         App.go('#/booking/' + b.id + '/confirmed');
-      } catch (err) { App.toast(err.message, 'bad'); }
+      } catch (err) {
+        s.payError = err.message; draw();
+      }
     });
-    if (s.step === 3) f.querySelectorAll('[name=payMethod]').forEach(r => r.onchange = () => { s.payMethod = r.value; s.agree = f.agree.checked; draw(); });
+    if (s.step === 3) f.querySelectorAll('[name=payMethod]').forEach(r => r.onchange = () => { s.payMethod = r.value; s.agree = f.agree.checked; s.payError = null; draw(); });
   };
 
-  // Stand-in for a hosted payment page / SDK. Card data never touches our code.
-  const gateway = (qte, method) => App.modal({
-    title: 'Secure payment gateway (simulated)',
-    body: h`<div class="gateway">
-      <p class="small muted">In production this is the payment provider's hosted checkout (3-D Secure / UPI collect). This demo does not take real payment details.</p>
-      <div class="gw-amount"><span>Amount</span><strong>${money(qte.total)}</strong></div>
-      <div class="gw-method">${method === 'upi' ? '📱 Approve the request in your UPI app' : method === 'card' ? '💳 Card entered on the gateway’s secure page, verified with 3-D Secure OTP' : '🏦 Redirect to your bank to approve'}</div>
-    </div>`,
-    actions: [{ label: 'Cancel', value: null }, { label: 'Simulate successful payment', primary: true, value: () => ({ method, label: method === 'upi' ? 'UPI' : method === 'card' ? 'Card •• 4242' : 'Net banking' }) }]
-  });
   draw();
 };
 
@@ -181,7 +184,7 @@ App.pages.bookingConfirmed = (el, { id }) => {
           <div><dt>Return</dt><dd>${fmtDate(b.end)}, by ${van.pickup.returnTime}</dd></div>
           <div><dt>Travellers</dt><dd>${b.travelers}</dd></div>
           <div><dt>Main driver</dt><dd>${b.driver.name} · licence ${b.driver.licenceMasked}</dd></div>
-          <div><dt>Payment</dt><dd>${b.payment?.label || ''} · ${b.paymentStatus}</dd></div>
+          <div><dt>Payment</dt><dd>${b.payment?.label || ''} · ${b.paymentStatus}${b.payment?.paymentId ? h`<br><span class="small muted">Ref ${b.payment.paymentId}</span>` : ''}</dd></div>
         </dl>
         ${App.priceLines(b.pricing)}
       </section>

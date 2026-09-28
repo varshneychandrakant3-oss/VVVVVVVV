@@ -193,7 +193,7 @@ const itineraryTab = (m, id) => {
     });
     App.save(); App._keepScroll = true; App.render(); App.toast('Suggestions added — edit anything you like.', 'good');
   };
-  if (dest) App.mountMap(m.querySelector('#itin-map'), dest.campsites.map(c => ({ lat: c.lat, lng: c.lng, label: '⛺', kind: 'camp', html: h`<strong>${c.name}</strong>` })));
+  if (dest) App.mountMap(m.querySelector('#itin-map'), dest.campsites.map(c => ({ lat: c.lat, lng: c.lng, label: '⛺', kind: 'camp', title: c.name, html: App.mapCard.camp(c, dest) })));
 };
 
 /* ---------- Saved ---------- */

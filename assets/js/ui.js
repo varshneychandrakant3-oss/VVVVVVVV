@@ -271,15 +271,59 @@ App.loadLeaflet = () => {
     document.head.appendChild(css);
     const s = document.createElement('script');
     s.src = 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js'; s.crossOrigin = '';
-    s.onload = () => resolve(window.L); s.onerror = reject;
+    s.onload = () => {
+      // Marker clustering plugin; the map still works (unclustered) if it fails to load
+      const base = 'https://cdnjs.cloudflare.com/ajax/libs/leaflet.markercluster/1.5.3/';
+      for (const f of ['MarkerCluster.css', 'MarkerCluster.Default.css']) { const l = document.createElement('link'); l.rel = 'stylesheet'; l.href = base + f; document.head.appendChild(l); }
+      const mc = document.createElement('script');
+      mc.src = base + 'leaflet.markercluster.js'; mc.crossOrigin = '';
+      mc.onload = mc.onerror = () => resolve(window.L);
+      document.head.appendChild(mc);
+    };
+    s.onerror = reject;
     document.head.appendChild(s);
   });
   return App._leafletP;
 };
+
+/* Preview cards shown when a map marker is clicked */
+App.mapCard = {
+  van: (v) => {
+    const r = App.get.rating(v.id);
+    return App.h`<div class="map-card">
+      <img src="${App.photo(v.photos[0], 360)}" alt="" loading="lazy">
+      <div class="mc-body">
+        <div class="mc-row"><span class="eyebrow">${v.type} · ${v.pickup.city}</span>${r.count ? App.h`<span class="stars"><span class="star-icon">★</span> ${r.avg.toFixed(1)}</span>` : ''}</div>
+        <strong>${v.name}</strong>
+        <span class="small muted">Sleeps ${v.sleeps} · ${v.transmission}${v.instantBook ? ' · ⚡ Instant book' : ''}</span>
+        <div class="mc-row"><span><strong>${App.money(v.pricePerNight)}</strong> <span class="small muted">/ night</span></span><a class="btn btn-sm btn-primary" href="#/vans/${v.id}">View van</a></div>
+      </div></div>`;
+  },
+  dest: (d) => {
+    const count = App.db.vans.filter(v => v.destinationId === d.id && v.status === 'published').length;
+    return App.h`<div class="map-card">
+      <img src="${App.photo(d.hero, 360)}" alt="" loading="lazy">
+      <div class="mc-body">
+        <span class="eyebrow">${d.region}</span>
+        <strong>${d.name}</strong>
+        <span class="small muted">${d.tagline}</span>
+        <span class="small">🗓 ${d.bestTime} · 🚐 ${App.plural(count, 'van')}${d.familyScore >= 5 ? ' · 👨‍👩‍👧 Family pick' : ''}</span>
+        <div class="mc-row"><a class="btn btn-sm btn-ghost" href="#/search?dest=${d.id}">See vans</a><a class="btn btn-sm btn-primary" href="#/destinations/${d.id}">Explore</a></div>
+      </div></div>`;
+  },
+  camp: (c, d) => App.h`<div class="map-card map-card-text"><div class="mc-body">
+    <span class="eyebrow">⛺ ${c.type}${d ? ' · near ' + d.name : ''}</span>
+    <strong>${c.name}</strong>
+    <span class="small muted">${c.facilities.join(' · ')}</span>
+    ${d ? App.h`<a class="btn btn-sm btn-ghost" href="#/destinations/${d.id}">About ${d.name}</a>` : ''}
+  </div></div>`
+};
 // India's official boundary (DataMeet "India composite", CC BY 4.0), loaded once
 App.loadIndiaBoundary = () => App._indiaP || (App._indiaP = fetch('assets/data/india-boundary.geojson').then(r => (r.ok ? r.json() : null)).catch(() => null));
 /* markers: [{lat, lng, html, label, kind:'van'|'dest'|'camp', price}]  */
-App.mountMap = async (el, markers, { zoom = 5, center, circle } = {}) => {
+App.mountMap = async (el, markers, { zoom = 5, center, circle, cluster = true } = {}) => {
+  if (!el) return null;
+  if (!el.firstChild) el.innerHTML = '<div class="map-loading" role="status"><span class="spinner" aria-hidden="true"></span> Loading map…</div>';
   try {
     const L = await App.loadLeaflet();
     if (!el.isConnected) return null;
@@ -296,18 +340,26 @@ App.mountMap = async (el, markers, { zoom = 5, center, circle } = {}) => {
       if (!geo || !map.getContainer().isConnected) return;
       L.geoJSON(geo, { interactive: false, style: { color: '#ffd28a', weight: 2, opacity: 0.95, fillColor: '#ffffff', fillOpacity: 0.06 } }).addTo(map).bringToBack();
     });
-    const layer = [];
+    // Nearby markers group into numbered clusters that split as you zoom in
+    const group = cluster && L.markerClusterGroup && markers.length > 3
+      ? L.markerClusterGroup({
+        showCoverageOnHover: false, maxClusterRadius: 48, spiderfyOnMaxZoom: true,
+        iconCreateFunction: (c) => L.divIcon({ className: 'map-cluster-wrap', html: `<span class="map-cluster">${c.getChildCount()}</span>`, iconSize: null })
+      })
+      : L.featureGroup();
     markers.forEach(m => {
       const icon = L.divIcon({ className: 'map-pin-wrap', html: `<span class="map-pin map-pin-${m.kind || 'dest'}">${App.esc(m.label || '')}</span>`, iconSize: null });
-      const mk = L.marker([m.lat, m.lng], { icon, title: m.title || m.label || '' }).addTo(map);
-      if (m.html) mk.bindPopup(String(m.html), { maxWidth: 260 });
-      layer.push(mk);
+      const mk = L.marker([m.lat, m.lng], { icon, title: m.title || m.label || '', alt: m.title || m.label || '', riseOnHover: true });
+      if (m.html) mk.bindPopup(String(m.html), { maxWidth: 280, minWidth: 220, className: 'map-popup' });
+      group.addLayer(mk);
     });
+    group.addTo(map);
     if (circle) L.circle([circle.lat, circle.lng], { radius: circle.radius || 1500, color: '#1f6f54', fillOpacity: 0.15 }).addTo(map);
-    if (!center && markers.length > 1) map.fitBounds(L.featureGroup(layer).getBounds().pad(0.15));
+    if (!center && markers.length > 1) map.fitBounds(group.getBounds().pad(0.15));
+    else if (!center && markers.length === 1) map.setView([markers[0].lat, markers[0].lng], 9);
     return map;
   } catch (e) {
-    el.innerHTML = '<div class="map-fallback">Map unavailable offline. Locations are listed below.</div>';
+    el.innerHTML = '<div class="map-fallback" role="status">🗺️ The map couldn’t load (check your connection). All locations are listed below.</div>';
     return null;
   }
 };
@@ -328,6 +380,57 @@ App.readPhoto = (file, maxW = 960) => new Promise((resolve, reject) => {
   };
   img.onerror = () => reject(new Error('Could not read that image.'));
   img.src = url;
+});
+
+/* ---------- Inline form validation ----------
+ * Native constraints (required, pattern, min…) stay the source of truth; this adds
+ * a readable message under the field, marks it for screen readers and clears it
+ * as soon as the value changes.
+ */
+const fieldMessage = (el) => {
+  const v = el.validity;
+  if (v.valueMissing) return el.type === 'checkbox' ? 'Please tick this box to continue.' : el.type === 'file' ? 'Please attach a file.' : el.tagName === 'SELECT' ? 'Please choose an option.' : 'This field is required.';
+  if (v.typeMismatch) return el.type === 'email' ? 'Enter a valid email address, like name@example.com.' : 'Please check the format.';
+  if (v.patternMismatch) return el.title || (el.placeholder ? `Please match the format, e.g. ${el.placeholder}.` : 'Please check the format.');
+  if (v.tooShort) return `Use at least ${el.minLength} characters.`;
+  if (v.tooLong) return `Use at most ${el.maxLength} characters.`;
+  if (v.rangeUnderflow) return el.type === 'date' ? `Pick a date on or after ${App.fmtDate(el.min)}.` : `Enter ${el.min} or more.`;
+  if (v.rangeOverflow) return el.type === 'date' ? `Pick a date on or before ${App.fmtDate(el.max)}.` : `Enter ${el.max} or less.`;
+  if (v.stepMismatch) return 'Please enter a valid value.';
+  return el.validationMessage;
+};
+let fieldErrN = 0;
+document.addEventListener('invalid', (e) => {
+  const el = e.target;
+  if (!(el instanceof HTMLElement) || !el.closest('form')) return;
+  el.setAttribute('aria-invalid', 'true');
+  const wrap = el.closest('.field, .check, .doc-field') || el.parentElement;
+  let msg = wrap.querySelector(':scope > .field-error');
+  if (!msg) {
+    msg = document.createElement('small');
+    msg.className = 'field-error';
+    msg.id = 'fe-' + (++fieldErrN);
+    wrap.appendChild(msg);
+  }
+  el.setAttribute('aria-describedby', [el.getAttribute('aria-describedby'), msg.id].filter(Boolean).filter((x, i, a) => a.indexOf(x) === i).join(' '));
+  msg.textContent = fieldMessage(el);
+}, true);
+const clearFieldError = (e) => {
+  const el = e.target;
+  if (!(el instanceof HTMLElement) || el.getAttribute('aria-invalid') !== 'true' || !el.checkValidity || !el.checkValidity()) return;
+  el.removeAttribute('aria-invalid');
+  const msg = (el.closest('.field, .check, .doc-field') || el.parentElement).querySelector(':scope > .field-error');
+  if (msg) msg.remove();
+};
+document.addEventListener('input', clearFieldError, true);
+document.addEventListener('change', clearFieldError, true);
+
+/* ---------- Connection and unexpected errors ---------- */
+window.addEventListener('offline', () => App.toast('You’re offline. Browsing still works, but changes can’t be saved until you reconnect.', 'bad'));
+window.addEventListener('online', () => App.toast('Back online.', 'good'));
+window.addEventListener('unhandledrejection', (e) => {
+  console.error(e.reason);
+  App.toast(e.reason?.expose || e.reason?.status ? e.reason.message : 'Something went wrong. Please try again.', 'bad');
 });
 
 App.emptyState = (icon, title, text, cta) => App.h`<div class="empty"><div class="empty-icon" aria-hidden="true">${icon}</div><h3>${title}</h3><p class="muted">${text}</p>${cta || ''}</div>`;

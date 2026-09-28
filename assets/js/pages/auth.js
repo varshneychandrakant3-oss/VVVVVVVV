@@ -57,7 +57,7 @@ App.pages.signup = (el, _p, q) => {
         </fieldset>
         <label class="field"><span>Full name</span><input name="name" autocomplete="name" required minlength="2"></label>
         <label class="field"><span>Email</span><input type="email" name="email" autocomplete="email" required></label>
-        <label class="field"><span>Mobile number</span><input type="tel" name="phone" autocomplete="tel" placeholder="${App.C.phonePrefix} 98xxx xxxxx" required pattern="[+0-9 ]{10,16}"></label>
+        <label class="field"><span>Mobile number</span><input type="tel" name="phone" autocomplete="tel" title="Enter a 10-digit mobile number, optionally with +91" placeholder="${App.C.phonePrefix} 98xxx xxxxx" required pattern="[+0-9 ]{10,16}"></label>
         <label class="field"><span>Password</span><input type="password" name="password" autocomplete="new-password" required minlength="8" aria-describedby="pw-hint"><small id="pw-hint" class="muted">At least 8 characters with a letter and a number.</small></label>
         <label class="check"><input type="checkbox" name="terms" required> I agree to the <a href="#/help/terms" target="_blank">Terms</a> and <a href="#/help/privacy" target="_blank">Privacy Policy</a>.</label>
         <label class="check"><input type="checkbox" name="marketing"> Send me trip ideas and offers (optional).</label>
@@ -89,7 +89,7 @@ App.otpWidget = (container, me, onDone) => {
       ${[['email', 'Email', me.email, me.emailVerified], ['phone', 'Mobile', me.phone, me.phoneVerified]].map(([k, l, v, ok]) => h`
         <div class="otp-row">
           <div><strong>${l}</strong><div class="small muted">${v}</div></div>
-          ${ok ? App.statusBadge('verified') : codes[k] ? h`<form class="row gap" data-otp="${k}"><input name="code" inputmode="numeric" maxlength="6" pattern="[0-9]{6}" placeholder="6-digit code" aria-label="${l} verification code" required><button class="btn btn-sm btn-primary">Verify</button></form>`
+          ${ok ? App.statusBadge('verified') : codes[k] ? h`<form class="row gap" data-otp="${k}"><input name="code" title="The 6-digit code we sent you" inputmode="numeric" maxlength="6" pattern="[0-9]{6}" placeholder="6-digit code" aria-label="${l} verification code" required><button class="btn btn-sm btn-primary">Verify</button></form>`
             : h`<button class="btn btn-sm" data-send="${k}">Send code</button>`}
         </div>`)}
     </div>`);
@@ -122,6 +122,43 @@ App.pages.verifyContact = (el, _p, q) => {
     <div class="form-actions"><a class="btn btn-ghost" href="${safeNext(q.next) || '#/'}">Skip for now</a><a class="btn btn-primary" href="${safeNext(q.next) || '#/'}">Continue</a></div>
   </div>`);
   App.otpWidget(el.querySelector('#otp'), me, () => App.go(safeNext(q.next) || '#/'));
+};
+
+/* ================= DIGILOCKER (demo consent screen) =================
+ * In demo mode there is no real DigiLocker; this screen stands in for its
+ * consent page. With the real server, owners are sent to DigiLocker instead.
+ */
+App.pages.digilockerDemo = (el, _p, q) => {
+  const me = App.me();
+  el.innerHTML = String(h`<div class="container narrow section">
+    <div class="card dl-demo">
+      <div class="dl-head"><strong>DigiLocker</strong><span>TEST MODE — no real Aadhaar data is used</span></div>
+      <p class="callout">VanYatra is requesting your <strong>eAadhaar</strong> (name, date of birth, gender, last 4 digits) and the list of your issued documents.</p>
+      <form id="dl-form" novalidate>
+        <label class="field"><span>Name on Aadhaar</span><input name="name" value="${me.name}" required maxlength="80"></label>
+        <div class="grid-2">
+          <label class="field"><span>Date of birth</span><input type="date" name="dob" value="1990-01-15" max="${App.today()}" required></label>
+          <label class="field"><span>Gender</span><select name="gender"><option value="M">Male</option><option value="F">Female</option><option value="T">Transgender</option></select></label>
+        </div>
+        <label class="field"><span>Aadhaar (last 4 digits)</span><input name="last4" value="4821" title="The last 4 digits of your Aadhaar" inputmode="numeric" pattern="[0-9]{4}" maxlength="4" required></label>
+        <label class="check"><input type="checkbox" name="noaadhaar"> Simulate: Aadhaar not linked to DigiLocker</label>
+        <p class="small muted">Tip: change the name to see a name-mismatch result.</p>
+        <div class="form-actions"><button type="button" class="btn btn-ghost" data-decision="deny">Deny</button><button class="btn btn-primary" data-decision="allow">Allow</button></div>
+      </form>
+    </div></div>`);
+  const f = el.querySelector('#dl-form');
+  const send = async (decision, btn) => {
+    if (decision === 'allow' && !f.reportValidity()) return;
+    btn.disabled = true;
+    try {
+      const d = App.formData(f);
+      const { redirect } = await App.server('POST', '/api/digilocker/demo-complete', { state: q.state, decision, name: d.name, dob: d.dob, gender: d.gender, last4: d.last4, noaadhaar: !!d.noaadhaar });
+      await App.syncMarket();
+      location.hash = redirect;
+    } catch (e) { btn.disabled = false; App.toast(e.message, 'bad'); }
+  };
+  f.onsubmit = (e) => { e.preventDefault(); send('allow', f.querySelector('[data-decision=allow]')); };
+  f.querySelector('[data-decision=deny]').onclick = (e) => send('deny', e.currentTarget);
 };
 
 /* ================= LIST YOUR VAN ================= */

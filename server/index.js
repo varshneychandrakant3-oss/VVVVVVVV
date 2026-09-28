@@ -56,6 +56,9 @@ const VERIFY_ROUTES = {
   dl: { roles: ['customer', 'owner', 'admin'], fn: verify.checkDrivingLicence }
 };
 
+// Errors safe to show the user: the server's own, or ones raised by the shared core rules
+const isUserError = (e) => e instanceof HttpError || (e && e.expose === true && Number.isInteger(e.status));
+
 async function handleApi(req, res, url) {
   const p = url.pathname;
   const ip = clientIp(req);
@@ -199,7 +202,7 @@ async function handleApi(req, res, url) {
       market.onVerification(rec, u);
       return back(rec.status);
     } catch (e) {
-      return back('error', e instanceof HttpError ? e.message : 'DigiLocker is unavailable. Please try again.');
+      return back('error', isUserError(e) ? e.message : 'DigiLocker is unavailable. Please try again.');
     }
   }
   throw new HttpError(404, 'Not found');
@@ -220,7 +223,7 @@ async function handle(req, res) {
     if (req.method !== 'GET' && req.method !== 'HEAD') throw new HttpError(405, 'Method not allowed');
     return serveStatic(req, res, decodeURIComponent(url.pathname));
   } catch (e) {
-    const status = e instanceof HttpError ? e.status : 500;
+    const status = isUserError(e) ? e.status : 500;
     if (status === 500) console.error(e);
     if (url.pathname.startsWith('/api/') || req.method === 'POST') return sendJson(res, status, { error: status === 500 ? 'Something went wrong.' : e.message, code: e.code });
     res.writeHead(status, { 'Content-Type': 'text/plain; charset=utf-8', ...SECURITY_HEADERS });

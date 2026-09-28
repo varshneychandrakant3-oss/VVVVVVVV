@@ -123,7 +123,7 @@ App.pages.home = (el) => {
     </div>
   </section>`);
   bindSearchForm(el);
-  App.mountMap(el.querySelector('#home-map'), App.db.destinations.map(d => ({ lat: d.lat, lng: d.lng, label: d.name, kind: 'dest', html: h`<strong>${d.name}</strong><br>${d.tagline}<br><a href="#/destinations/${d.id}">Explore →</a>` })));
+  App.mountMap(el.querySelector('#home-map'), App.db.destinations.map(d => ({ lat: d.lat, lng: d.lng, label: d.name, kind: 'dest', title: d.name, html: App.mapCard.dest(d) })));
 };
 
 /* ================= DESTINATIONS ================= */
@@ -197,8 +197,8 @@ App.pages.destination = (el, { id }) => {
   </section>`);
   bindSearchForm(el);
   App.mountMap(el.querySelector('#dest-map'), [
-    ...d.campsites.map(c => ({ lat: c.lat, lng: c.lng, label: '⛺', kind: 'camp', title: c.name, html: h`<strong>${c.name}</strong><br>${c.type}<br><small>${c.facilities.join(', ')}</small>` })),
-    ...vans.map(v => ({ lat: v.pickup.lat, lng: v.pickup.lng, label: money(v.pricePerNight), kind: 'van', html: h`<strong>${v.name}</strong><br>${v.type}<br><a href="#/vans/${v.id}">View van →</a>` }))
+    ...d.campsites.map(c => ({ lat: c.lat, lng: c.lng, label: '⛺', kind: 'camp', title: c.name, html: App.mapCard.camp(c, d) })),
+    ...vans.map(v => ({ lat: v.pickup.lat, lng: v.pickup.lng, label: money(v.pricePerNight), kind: 'van', title: v.name, html: App.mapCard.van(v) }))
   ]);
 };
 
@@ -302,7 +302,7 @@ App.pages.search = (el, _p, q) => {
       const mapEl = el.querySelector('#search-map');
       if (map) { map.remove(); map = null; }
       mapEl.innerHTML = '';
-      App.mountMap(mapEl, avail.map(v => ({ lat: v.pickup.lat, lng: v.pickup.lng, label: money(v.pricePerNight), kind: 'van', title: v.name, html: h`<img src="${photo(v.photos[0], 300)}" alt="" class="popup-img"><strong>${v.name}</strong><br>${v.type} · sleeps ${v.sleeps}<br><a href="#/vans/${v.id}">View van →</a>` }))).then(m => map = m);
+      App.mountMap(mapEl, avail.map(v => ({ lat: v.pickup.lat, lng: v.pickup.lng, label: money(v.pricePerNight), kind: 'van', title: v.name, html: App.mapCard.van(v) }))).then(m => map = m);
     }
   };
   const clear = () => { App.go('#/search'); };
@@ -351,9 +351,9 @@ App.pages.map = (el, _p, q) => {
   let map;
   const draw = async () => {
     const markers = [];
-    if (show.dests) App.db.destinations.forEach(d => markers.push({ lat: d.lat, lng: d.lng, label: d.name, kind: 'dest', html: h`<img src="${photo(d.hero, 300)}" alt="" class="popup-img"><strong>${d.name}</strong><br>Best: ${d.bestTime}<br><a href="#/destinations/${d.id}">Explore →</a>` }));
-    if (show.vans) publishedVans().forEach(v => markers.push({ lat: v.pickup.lat, lng: v.pickup.lng, label: money(v.pricePerNight), kind: 'van', html: h`<img src="${photo(v.photos[0], 300)}" alt="" class="popup-img"><strong>${v.name}</strong><br>${v.type} · sleeps ${v.sleeps}<br><a href="#/vans/${v.id}">View van →</a>` }));
-    if (show.camps) App.db.destinations.forEach(d => d.campsites.forEach(c => markers.push({ lat: c.lat, lng: c.lng, label: '⛺', kind: 'camp', title: c.name, html: h`<strong>${c.name}</strong><br>${c.type} near ${d.name}<br><small>${c.facilities.join(', ')}</small>` })));
+    if (show.dests) App.db.destinations.forEach(d => markers.push({ lat: d.lat, lng: d.lng, label: d.name, kind: 'dest', title: d.name, html: App.mapCard.dest(d) }));
+    if (show.vans) publishedVans().forEach(v => markers.push({ lat: v.pickup.lat, lng: v.pickup.lng, label: money(v.pricePerNight), kind: 'van', title: v.name, html: App.mapCard.van(v) }));
+    if (show.camps) App.db.destinations.forEach(d => d.campsites.forEach(c => markers.push({ lat: c.lat, lng: c.lng, label: '⛺', kind: 'camp', title: c.name, html: App.mapCard.camp(c, d) })));
     if (map) map.remove();
     const mEl = el.querySelector('#full-map'); mEl.innerHTML = '';
     map = await App.mountMap(mEl, markers);
@@ -416,6 +416,7 @@ App.pages.van = (el, { id }, q) => {
           <button class="btn btn-ghost" id="msg-owner">💬 Message owner</button>
         </section>
         ${van.instantBook ? h`<div class="callout">⚡ <strong>Instant book</strong> — your booking is confirmed straight away, no waiting.</div>` : h`<div class="callout">🕑 <strong>Request to book</strong> — the owner responds within 24 hours. You're only charged if they accept.</div>`}
+        ${trustPanel(van)}
         <section class="block"><h2>About this van</h2><p>${van.description}</p></section>
         <section class="block"><h2>Sleeping arrangements</h2>
           <div class="sleep-grid"><div class="sleep-card">🛏<strong>Beds</strong><span>${van.beds}</span></div><div class="sleep-card">👨‍👩‍👧<strong>Up to ${van.sleeps} people</strong><span>${van.familyFriendly ? 'Family friendly' : 'Best for adults'}</span></div>${van.amenities.includes('childseat') ? h`<div class="sleep-card">👶<strong>Child seats</strong><span>ISOFIX anchors fitted</span></div>` : ''}</div></section>
@@ -511,6 +512,28 @@ App.pages.van = (el, { id }, q) => {
     App.go('#/account/messages/' + t.id);
   };
   App.mountMap(el.querySelector('#van-map'), [], { center: [van.pickup.lat, van.pickup.lng], zoom: 12, circle: { lat: van.pickup.lat, lng: van.pickup.lng, radius: 1500 } });
+};
+
+// What VanYatra has verified for this van (summary computed by the backend rules)
+const trustPanel = (van) => {
+  const t = van.trust;
+  if (!t) return '';
+  const until = (x) => (x?.validUntil ? `valid until ${fmtDate(x.validUntil)}` : 'verified');
+  const src = (x) => (x?.source ? h` <span class="source-tag">${x.source}</span>` : '');
+  const items = [
+    [t.ownerVerified, 'Host identity verified', 'Aadhaar via DigiLocker and PAN, plus bank account'],
+    [!!t.ownership, 'Vehicle ownership checked', t.ownership && t.ownership !== 'Checked by VanYatra' ? t.ownership : 'Registration certificate matched to the host'],
+    [!!t.rc, 'Registration (RC)', t.rc && until(t.rc), t.rc],
+    [!!t.insurance, 'Commercial insurance', t.insurance && until(t.insurance), t.insurance],
+    [!!t.puc, 'Pollution certificate (PUC)', t.puc && until(t.puc), t.puc],
+    [!!t.inspection, 'Safety inspection passed', t.inspection && until(t.inspection), t.inspection],
+    ...(t.permit ? [[true, 'All India Tourist Permit', until(t.permit), t.permit]] : [])
+  ];
+  return h`<section class="block trust-panel" aria-labelledby="trust-h">
+    <h2 id="trust-h">🛡️ Verified by VanYatra</h2>
+    <ul class="trust-list">${items.map(([ok, label, detail, x]) => h`<li class="${ok ? 'ok' : 'wait'}"><span class="ti" aria-hidden="true">${ok ? '✓' : '…'}</span><div><strong>${label}</strong><span class="small muted">${ok ? detail : 'Being checked'}</span>${ok && x ? src(x) : ''}</div></li>`)}</ul>
+    ${t.lastChecked ? h`<p class="small muted">Last checked ${fmtDate(t.lastChecked)}. Listings pause automatically if a document expires.</p>` : h`<p class="small muted">Listings pause automatically if a document expires.</p>`}
+  </section>`;
 };
 
 const openLightbox = (van, start) => {

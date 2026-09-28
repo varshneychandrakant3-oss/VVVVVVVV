@@ -18,7 +18,7 @@ App.ONBOARDING_STEPS = [
   { id: 'insurance', scope: 'van', title: 'Insurance', blurb: 'Commercial cover for self-drive rental.' },
   { id: 'inspection', scope: 'van', title: 'Safety inspection', blurb: 'Roadworthiness and habitation checks.' },
   { id: 'photos', scope: 'van', title: 'Photos & specifications', blurb: 'Show travellers what they’re booking.' },
-  { id: 'listing', scope: 'van', title: 'Amenities, pricing & rules', blurb: 'Prices, availability, deposit, cancellation.' },
+  { id: 'listing', scope: 'van', title: 'Pricing, availability & rules', blurb: 'Prices, blocked dates, deposit, cancellation, amenities.' },
   { id: 'payout', scope: 'owner', title: 'Payout setup', blurb: 'Bank account checked with a ₹1 deposit.' },
   { id: 'review', scope: 'van', title: 'Platform review', blurb: 'Our team checks everything (≈2 business days).' },
   { id: 'publish', scope: 'van', title: 'Publish listing', blurb: 'Go live and start taking bookings.' }
@@ -177,7 +177,7 @@ const STEPS = {
       </div>
       <div class="kyc-block"><h3>2. PAN</h3>
         <form id="pan-form" class="grid-3" novalidate>
-          <label class="field"><span>PAN</span><input name="pan" maxlength="10" required autocomplete="off" style="text-transform:uppercase" placeholder="ABCDE1234F" pattern="[A-Za-z]{5}[0-9]{4}[A-Za-z]"></label>
+          <label class="field"><span>PAN</span><input name="pan" maxlength="10" title="10 characters: 5 letters, 4 digits, 1 letter (e.g. ABCDE1234F)" required autocomplete="off" style="text-transform:uppercase" placeholder="ABCDE1234F" pattern="[A-Za-z]{5}[0-9]{4}[A-Za-z]"></label>
           <label class="field"><span>Date of birth</span><input type="date" name="dob" required value="${aad?.data?.dob || ''}" max="${App.today()}"></label>
           <label class="field"><span>Name (from Aadhaar)</span><input name="name" value="${mine.kycName}" readonly></label>
         </form>
@@ -220,12 +220,12 @@ const STEPS = {
         <label class="check"><input type="radio" name="kind" value="company" ${d.kind === 'company' ? 'checked' : ''}> A registered business</label></fieldset>
       <div class="grid-2">
         <label class="field"><span>Display / business name</span><input name="business" value="${d.business || me.business || me.name}" required></label>
-        <label class="field"><span>${App.C.business.taxIdLabel}</span><span class="input-action"><input name="gstin" value="${d.gstin || ''}" pattern="${App.C.business.taxIdPattern.slice(1, -1)}" style="text-transform:uppercase" autocomplete="off"><button type="button" class="btn btn-sm" id="gst-btn">Verify</button></span></label>
-        <label class="field"><span>Support phone for travellers</span><input type="tel" name="phone" value="${d.phone || me.phone}" required></label>
+        <label class="field"><span>${App.C.business.taxIdLabel}</span><span class="input-action"><input name="gstin" value= title="15-character GSTIN, e.g. 27ABCDE1234F1Z5 (leave blank if not registered)""${d.gstin || ''}" pattern="${App.C.business.taxIdPattern.slice(1, -1)}" style="text-transform:uppercase" autocomplete="off"><button type="button" class="btn btn-sm" id="gst-btn">Verify</button></span></label>
+        <label class="field"><span>Support phone for travellers</span><input type="tel" name="phone" value="${d.phone || me.phone}" required pattern="[+0-9 ]{10,16}" title="Enter a 10-digit mobile number, optionally with +91"></label>
         <label class="field"><span>Emergency contact (name & phone)</span><input name="emergency" value="${d.emergency || ''}" required></label>
       </div>
       <label class="field"><span>Registered address</span><textarea name="address" rows="2" required>${d.address || ''}</textarea></label>
-      <div class="grid-3"><label class="field"><span>City</span><input name="city" value="${d.city || me.city || ''}" required></label><label class="field"><span>State</span><input name="state" value="${d.state || ''}" required></label><label class="field"><span>PIN code</span><input name="pin" value="${d.pin || ''}" pattern="[0-9]{6}" inputmode="numeric" required></label></div>
+      <div class="grid-3"><label class="field"><span>City</span><input name="city" value="${d.city || me.city || ''}" required></label><label class="field"><span>State</span><input name="state" value="${d.state || ''}" required></label><label class="field"><span>PIN code</span><input name="pin" value= title="A 6-digit PIN code""${d.pin || ''}" pattern="[0-9]{6}" inputmode="numeric" required></label></div>
       <div id="gst-result"></div>
       ${testHint('Any GSTIN with a correct check digit works; use “Fill test GSTIN” to make one. A 13th character of 9 simulates a cancelled registration.')}
       ${App.verifyConfig?.testMode ? h`<button type="button" class="link small" id="gst-test">Fill test GSTIN</button>` : ''}
@@ -274,7 +274,7 @@ const STEPS = {
     c.innerHTML = String(h`${docStatusList(docs)}<form id="f" novalidate>
       <fieldset class="field"><legend>Your relationship to the vehicle</legend>
         ${App.C.ownership.options.map(o => h`<label class="check"><input type="radio" name="relation" value="${o.value}" ${(van?.relation || 'owner') === o.value ? 'checked' : ''}> ${o.label}</label>`)}</fieldset>
-      <label class="field"><span>Registration number</span><span class="input-action"><input name="reg" value="${van?.regNo || ''}" placeholder="e.g. HP 01 AB 1234" required pattern="[A-Za-z]{2}[ \\-]?[0-9]{1,2}[ \\-]?[A-Za-z]{0,3}[ \\-]?[0-9]{1,4}" autocomplete="off"><button type="button" class="btn btn-sm" id="vahan-btn" ${locked ? 'disabled' : ''}>Check VAHAN</button></span></label>
+      <label class="field"><span>Registration number</span><span class="input-action"><input name="reg" value= title="Registration number as on the RC, e.g. HP 01 AB 1234""${van?.regNo || ''}" placeholder="e.g. HP 01 AB 1234" required pattern="[A-Za-z]{2}[ \\-]?[0-9]{1,2}[ \\-]?[A-Za-z]{0,3}[ \\-]?[0-9]{1,4}" autocomplete="off"><button type="button" class="btn btn-sm" id="vahan-btn" ${locked ? 'disabled' : ''}>Check VAHAN</button></span></label>
       ${testHint('Registration numbers ending 0000 = not found, 1111 = insurance expired, 2222 = different owner, 3333 = blacklisted, 4444 = private vehicle, 5555 = PUC expired, 9999 = registry down.')}
       ${consentBox('rc-consent', 'I consent to VanYatra fetching this vehicle’s records (RC, insurance, PUC, permit) from the VAHAN registry.')}
       <div id="vahan-result">${reg ? h`${App.checkResultBox({ status: reg.status, reasons: reg.reasons, source: reg.source, checkedAt: reg.checkedAt })}${registryTable(reg)}` : ''}</div>
@@ -451,9 +451,35 @@ const STEPS = {
       <label class="check"><input type="checkbox" name="instantBook" ${van.instantBook ? 'checked' : ''}> Allow instant book (recommended — instant-book vans get ~2× more bookings)</label>
       <fieldset class="field"><legend>Cancellation policy</legend>${Object.entries(App.CANCELLATION_POLICIES).map(([k, p]) => h`<label class="check"><input type="radio" name="cancellation" value="${k}" ${van.cancellation === k ? 'checked' : ''}> <strong>${p.label}</strong> — ${p.summary}</label>`)}</fieldset>
       <label class="field"><span>House rules (one per line)</span><textarea name="rules" rows="4">${van.rules.join('\n')}</textarea></label>
-      <p class="small muted">You can block dates and adjust prices anytime from the calendar in your dashboard.</p>
+      <h3>Availability</h3>
+      <p class="small muted">Your van is bookable on every date except the ones you block here (service, personal trips). You can change this anytime in Calendar &amp; pricing.</p>
+      <ul class="plain list-rows" id="blocked-list"></ul>
+      <div class="grid-3 align-end">
+        <label class="field"><span>Unavailable from</span><input type="date" id="bl-start" min="${App.today()}"></label>
+        <label class="field"><span>Until</span><input type="date" id="bl-end" min="${App.today()}"></label>
+        <label class="field"><span>Reason (optional)</span><input id="bl-note" placeholder="Service, personal use…" maxlength="60"></label>
+      </div>
+      <button type="button" class="btn btn-sm" id="bl-add">＋ Block these dates</button>
       <div class="form-actions"><button class="btn btn-primary" id="ls-save">Save & continue</button></div></form>`);
     const f = c.querySelector('#f');
+    const blocked = (van.blocked || []).map(r => ({ ...r }));
+    const drawBlocked = () => {
+      c.querySelector('#blocked-list').innerHTML = String(blocked.length
+        ? h`${blocked.map((r, i) => h`<li><span>${App.fmtDate(r.start)} → ${App.fmtDate(r.end)} <span class="small muted">${r.note || ''}</span></span><button type="button" class="link" data-unblock="${i}">Remove</button></li>`)}`
+        : h`<li class="muted small">No blocked dates — available every day.</li>`);
+      c.querySelectorAll('[data-unblock]').forEach(b => b.onclick = () => { blocked.splice(+b.dataset.unblock, 1); drawBlocked(); });
+    };
+    drawBlocked();
+    c.querySelector('#bl-add').onclick = () => {
+      const s = c.querySelector('#bl-start').value, e = c.querySelector('#bl-end').value || s;
+      if (!s) return App.toast('Pick the first unavailable date.', 'bad');
+      if (e < s) return App.toast('“Until” must be on or after the start date.', 'bad');
+      if (blocked.some(r => s <= r.end && r.start <= e)) return App.toast('Those dates overlap a range you already blocked.', 'bad');
+      blocked.push({ start: s, end: e, note: c.querySelector('#bl-note').value.trim() || 'Unavailable' });
+      blocked.sort((a, b) => a.start.localeCompare(b.start));
+      c.querySelector('#bl-start').value = c.querySelector('#bl-end').value = c.querySelector('#bl-note').value = '';
+      drawBlocked();
+    };
     f.onsubmit = (e) => {
       e.preventDefault();
       if (!f.checkValidity()) return f.reportValidity();
@@ -468,6 +494,7 @@ const STEPS = {
           // Approximate pin near the destination until a geocoder is connected
           pickup: { city: d.city.trim(), address: d.address.trim(), time: d.time, returnTime: d.returnTime, lat: van.pickup.lat || dest.lat + 0.02, lng: van.pickup.lng || dest.lng + 0.02 }
         });
+        if (JSON.stringify(blocked) !== JSON.stringify(van.blocked || [])) await App.market('PUT', `/api/owner/vans/${van.id}/blocked`, { blocked });
         App.toast('Listing details saved', 'good'); next();
       });
     };
@@ -487,8 +514,8 @@ const STEPS = {
       c.innerHTML = String(h`<form id="f" novalidate>
         <div class="grid-2">
           <label class="field"><span>Account holder name</span><input name="holder" value="${owner.business?.data?.business || App.me().name}" required></label>
-          <label class="field"><span>${App.C.payout.routingLabel}</span><input name="ifsc" pattern="${App.C.payout.routingPattern.slice(1, -1)}" maxlength="11" required style="text-transform:uppercase" autocomplete="off"></label>
-          <label class="field"><span>${App.C.payout.accountLabel}</span><input name="acct" inputmode="numeric" pattern="[0-9]{9,18}" required autocomplete="off"></label>
+          <label class="field"><span>${App.C.payout.routingLabel}</span><input name="ifsc" pattern title="11 characters, e.g. HDFC0001234 (printed on your cheque book)"="${App.C.payout.routingPattern.slice(1, -1)}" maxlength="11" required style="text-transform:uppercase" autocomplete="off"></label>
+          <label class="field"><span>${App.C.payout.accountLabel}</span><input name="acct" inputmode title="9 to 18 digits, no spaces"="numeric" pattern="[0-9]{9,18}" required autocomplete="off"></label>
           <label class="field"><span>Confirm account number</span><input name="acct2" inputmode="numeric" required autocomplete="off"></label>
         </div>
         <p class="small muted">We’ll deposit ₹1 to confirm the account exists and the name matches your verified identity (penny-drop). Only the last 4 digits are kept.</p>

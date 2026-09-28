@@ -21,6 +21,7 @@ const ROUTES = [
   ['/account/:tab/:id', 'account', ['customer', 'owner', 'admin']],
   ['/list-your-van', 'ownerLanding'],
   ['/owner/onboarding', 'onboarding', ['owner']],
+  ['/digilocker-demo', 'digilockerDemo', ['owner', 'admin']],
   ['/owner', 'owner', ['owner']],
   ['/owner/:tab', 'owner', ['owner']],
   ['/owner/:tab/:id', 'owner', ['owner']],
@@ -216,7 +217,7 @@ App.renderFooter = () => {
       <div><h4>Support</h4><a href="#/help/safety">Trust & safety</a><a href="#/help/faq">FAQs</a><a href="#/help/support">Contact support</a><a href="#/help/cancellation">Cancellation & refunds</a><a href="#/help/terms">Terms</a><a href="#/help/privacy">Privacy</a></div>
     </div>
     <div class="container footer-bottom"><span>© ${new Date().getFullYear()} VanYatra (demo prototype). Prices in ${App.C.currency}, incl. ${App.C.taxLabel} where shown.
-      ${App.serverOnline ? App.h` · Document checks: ${App.verifyConfig.provider}` : App.h` · Preview mode: sign-ins and bookings are demo data kept in this browser`}</span><button class="link" id="reset-demo">Reset demo data</button></div>`);
+      ${App.backend === 'demo' ? App.h` · Demo mode: accounts, bookings and document checks (test mode) are saved in this browser only` : App.serverOnline ? App.h` · Document checks: ${App.verifyConfig.provider}` : ''}</span><button class="link" id="reset-demo">Reset demo data</button></div>`);
   document.getElementById('reset-demo').onclick = async () => {
     if (await App.confirm('Reset demo data?', 'This restores all vans, bookings and accounts to their original state and signs you out.', 'Reset')) {
       await App.api.logout(); App.resetDemo(); await App.syncMarket().catch(() => {}); App.runExpiryChecks(); App.toast('Demo data reset', 'good'); App.go('#/');

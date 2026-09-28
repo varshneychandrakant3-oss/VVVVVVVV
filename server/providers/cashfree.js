@@ -6,7 +6,7 @@ import { config } from '../config.js';
 import { toIsoDate } from '../lib/validate.js';
 
 export class ProviderError extends Error {
-  constructor(message, { status = 502, retryable = false, code } = {}) { super(message); this.status = status; this.retryable = retryable; this.code = code; }
+  constructor(message, { status = 502, retryable = false, code } = {}) { super(message); this.status = status; this.retryable = retryable; this.code = code; this.isProviderError = true; }
 }
 
 const base = () => config.cashfree.env === 'production' ? 'https://api.cashfree.com/verification' : 'https://sandbox.cashfree.com/verification';

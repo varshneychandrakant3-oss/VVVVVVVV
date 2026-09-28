@@ -79,7 +79,11 @@ App.save = () => {
   try { localStorage.setItem(STORAGE_KEY, JSON.stringify(App.db)); }
   catch (e) { App.toast && App.toast('Storage is full — large photos may not be saved.', 'bad'); }
 };
-App.resetDemo = () => { localStorage.removeItem(STORAGE_KEY); App.load(); };
+App.resetDemo = () => {
+  localStorage.removeItem(STORAGE_KEY);
+  if (App.backend === 'demo') App.mockServer.reset();
+  App.load();
+};
 
 /* ---------------- Lookups ---------------- */
 App.get = {
@@ -202,16 +206,36 @@ App.docExpiryState = (doc) => {
   return { tone: 'muted', label: 'Valid until ' + App.fmtDate(doc.expiry), days };
 };
 
-/* ---------------- Server (auth + government-document verification) ---------------- */
+/* ---------------- Backend (auth, verification, marketplace) ----------------
+ * App.backend is 'server' when the VanYatra server answers, otherwise 'demo':
+ * the in-browser backend (assets/js/mock-server.js) with the same API and rules.
+ */
+App.backend = null;
 App.server = async (method, path, body) => {
-  const res = await fetch(path, {
-    method, credentials: 'same-origin',
-    headers: body !== undefined ? { 'Content-Type': 'application/json' } : {},
-    body: body !== undefined ? JSON.stringify(body) : undefined
-  });
+  if (App.backend === 'demo') return App.mockServer.handle(method, path, body);
+  let res;
+  try {
+    res = await fetch(path, {
+      method, credentials: 'same-origin',
+      headers: body !== undefined ? { 'Content-Type': 'application/json' } : {},
+      body: body !== undefined ? JSON.stringify(body) : undefined
+    });
+  } catch (err) {
+    const e = new Error('Can’t reach VanYatra right now. Check your connection and try again.');
+    e.status = 0; e.network = true; throw e;
+  }
   const json = await res.json().catch(() => ({}));
-  if (!res.ok) { const e = new Error(json.error || 'Request failed (' + res.status + ')'); e.status = res.status; e.code = json.code; throw e; }
+  if (!res.ok) { const e = new Error(json.error || 'Something went wrong (' + res.status + '). Please try again.'); e.status = res.status; e.code = json.code; throw e; }
   return json;
+};
+// Real server if /api/config answers with JSON; otherwise the in-browser demo backend
+App.detectBackend = async () => {
+  try {
+    const res = await fetch('/api/config', { credentials: 'same-origin' });
+    if (res.ok && (res.headers.get('content-type') || '').includes('json')) { App.backend = 'server'; return await res.json(); }
+  } catch (e) { /* no server (static hosting or opened from disk) */ }
+  App.backend = 'demo';
+  return App.mockServer.handle('GET', '/api/config');
 };
 
 // Make sure a server account has a matching record in the local demo data
@@ -227,14 +251,12 @@ const bindLocalUser = (su) => {
   return u;
 };
 
-// The server is the source of truth for who is signed in. Without it (e.g. the
-// page opened from disk) the app falls back to local demo sign-in and
-// verification features are disabled.
+// The backend is the source of truth for who is signed in
 App.syncSession = async () => {
   try {
-    const [{ user }, cfg] = await Promise.all([App.server('GET', '/api/auth/me'), App.server('GET', '/api/config')]);
+    App.verifyConfig = await App.detectBackend();
     App.serverOnline = true;
-    App.verifyConfig = cfg;
+    const { user } = await App.server('GET', '/api/auth/me');
     if (user) bindLocalUser(user); else { App.db.session = null; App.save(); }
     await App.syncMarket();
   } catch (e) {
@@ -352,7 +374,7 @@ App.api = {
       start, end, nights, adults, children, travelers: adults + children, addOns: addOns.map(a => a.id), pricing, status,
       paymentStatus: status === 'confirmed' ? 'paid' : 'authorised', depositStatus: status === 'confirmed' ? 'held' : 'none',
       driver: { name: driver.name, age: driver.age, licenceMasked: 'XXXXXXXX' + driver.licence.slice(-4), check: driver.check || null },
-      payment: { method: payment.method, label: payment.label }, specialRequests,
+      payment: { method: payment.method, label: payment.label, orderId: payment.orderId || null, paymentId: payment.paymentId || null }, specialRequests,
       createdAt: new Date().toISOString(), risk, itinerary: []
     };
     App.db.bookings.push(b);

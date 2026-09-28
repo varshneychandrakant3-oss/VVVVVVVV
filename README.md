@@ -38,6 +38,10 @@ All passwords are `demo1234`. The sign-in page has one-click buttons for each.
 
 Use **Reset demo data** in the footer to start over.
 
+### Without the server (GitHub Pages, or opening the files directly)
+
+If `/api/config` doesn't answer, the site switches to an **in-browser demo backend** (`assets/js/mock-server.js`). It answers the same API routes as the Node server, using the same rules, and keeps its data in `localStorage`. Every flow still works, including owner onboarding, test-mode government checks, the DigiLocker consent screen and admin decisions. The footer says when this mode is active.
+
 ## Government document verification
 
 | Document | Where it's checked | What happens |
@@ -100,11 +104,13 @@ In test mode the ending of an identifier decides the outcome, so you can try eve
 - Destination guides: highlights, attractions, suggested routes, best months, family suitability, activities and campsites on a map
 - Search with filters (price, destination, dates, travellers, van type, amenities, family-friendly, pet-friendly, instant book, transmission) and list and map views
 - Van page: photo gallery, specifications, sleeping arrangements, amenities, availability calendar, approximate pickup location, house rules, cancellation policy, deposit and reviews
-- Booking flow: extras → driver details with licence check → payment (simulated gateway) → confirmation, with GST, fees and the deposit shown up front
+- Booking flow: extras → driver details with licence check → availability re-check → payment → confirmation → My trips, with GST, fees and the deposit shown up front. The test checkout lets you simulate a failed or successful payment. A failed payment creates no booking.
+- Van page also shows what VanYatra verified: host identity, ownership, and RC, insurance, PUC and inspection validity
+- Maps cluster nearby pins. Clicking a pin opens a preview card for the van, destination or campsite.
 - Account: trips, itinerary planner and packing list, saved vans, messages, payments and receipts, reviews, and profile. Profile covers verification, password change, data export and account deletion.
 
 **Owners**
-- 12-step onboarding wizard with automatic government checks. Each step shows Pending / Verified / Action required / Rejected.
+- 12-step onboarding wizard with automatic government checks. Each step shows Pending / Verified / Action required / Rejected. The pricing step also sets blocked dates.
 - Dashboard: vans, requests, calendar and pricing, earnings and payouts, messages, review replies, document expiry and analytics
 
 **Admins**
@@ -134,9 +140,15 @@ server/verify.js           Checks, cross-document name matching, outcomes, recor
 server/market.js           Vans, documents, owner verification, admin decisions, expiry job
 server/digilocker.js       DigiLocker OAuth + PKCE, eAadhaar parsing, test-mode consent page
 server/providers/          cashfree.js (real) and sandbox.js (test mode)
-server/lib/                auth (scrypt, sessions), validation (PAN/GSTIN/IFSC…), names, rate limits, store
+server/core.js             Loads the shared rules from assets/js/core into Node
+server/lib/                auth (scrypt, sessions), rate limits, store
 server/test/               Unit and end-to-end API tests (node --test)
-assets/js/                 Web app (config, seed data, mock marketplace API, UI, pages)
+assets/js/core/            Shared rules used by BOTH the server and the in-browser demo backend:
+                           validation and name matching, test-mode provider, verification outcomes,
+                           marketplace rules (onboarding steps, approvals, expiry, trust summary)
+assets/js/mock-server.js   In-browser demo backend (used when there is no server)
+assets/js/payments.js      Payment service: createOrder / checkout / verify (test checkout today)
+assets/js/                 Web app (config, seed data, UI, pages)
 assets/css/app.css         Styles (mobile-first, light + dark)
 _headers                   Security headers for static hosting
 ```
@@ -145,7 +157,12 @@ _headers                   Security headers for static hosting
 
 - **Bookings, messages and reviews:** these are still per-browser demo data. Move them to the server the same way vans and documents were moved.
 - **Database:** the server stores JSON files, which is fine for a single-server pilot. Swap `server/lib/store.js` for Postgres or similar before running more than one server.
-- **Payments:** use a PCI-DSS gateway with hosted checkout (UPI, cards with 3-D Secure, net banking), deposit pre-authorisation and marketplace payouts.
+- **Payments:** `assets/js/payments.js` has the same three steps as Razorpay and Cashfree PG: create an order, open hosted checkout, verify the signature. To go live:
+  - Add a server endpoint that creates the order with the gateway's secret key.
+  - Add a server endpoint that verifies the payment signature and creates the booking. Don't let the browser decide a payment succeeded.
+  - Replace the test checkout dialog with the gateway's checkout script.
+  - Add deposit pre-authorisation, marketplace payouts (Route or Easy Split) and webhooks.
+- **Notifications:** owner notifications are stored on the server today. Send them by email, SMS or WhatsApp through a provider as well.
 - **Document storage:** uploaded files need encrypted object storage with access logging. Today only file names are kept.
 - **Face match:** compare the selfie with the Aadhaar photo through the provider's face-match and liveness APIs.
 - **Scheduled jobs:** re-check VAHAN nightly for documents close to expiry, and send email and SMS through a provider.
