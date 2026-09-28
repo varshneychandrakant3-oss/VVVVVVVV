@@ -4,9 +4,19 @@
   "private": true,
   "description": "Camper van rental marketplace with government-document verification",
   "type": "module",
-  "engines": { "node": ">=20" },
+  "engines": {
+    "node": ">=20"
+  },
   "scripts": {
     "start": "node server/index.js",
-    "test": "node --test \"server/test/*.test.js\""
+    "test": "node --test \"server/test/*.test.js\"",
+    "lint": "eslint . --max-warnings 0",
+    "journeys": "node scripts/journeys.mjs",
+    "check": "npm run lint && npm test && npm run journeys"
+  },
+  "devDependencies": {
+    "@eslint/js": "^9.39.5",
+    "eslint": "^9.39.5",
+    "globals": "^17.12.0"
   }
 }

@@ -266,7 +266,7 @@ const STEPS = {
   },
 
   ownership(c, ctx) {
-    const { me, link } = ctx;
+    const { link } = ctx;
     const van = ctx.van;
     const locked = van?.status === 'in_review';
     const docs = van ? docsOf(van.id).filter(d => d.type.startsWith('ownership')) : [];

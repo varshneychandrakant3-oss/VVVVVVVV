@@ -251,11 +251,16 @@ App.server = async (method, path, body) => {
   return json;
 };
 // Real server if /api/config answers with JSON; otherwise the in-browser demo backend
+// assets/backend.json always exists, so static hosting never logs a 404: the file says
+// "demo", while the Node server answers that path with "server".
 App.detectBackend = async () => {
   try {
-    const res = await fetch('/api/config', { credentials: 'same-origin' });
-    if (res.ok && (res.headers.get('content-type') || '').includes('json')) { App.backend = 'server'; return await res.json(); }
-  } catch (e) { /* no server (static hosting or opened from disk) */ }
+    const probe = await fetch('assets/backend.json', { credentials: 'same-origin', cache: 'no-store' }).then(r => r.json());
+    if (probe.backend === 'server') {
+      const res = await fetch('/api/config', { credentials: 'same-origin' });
+      if (res.ok) { App.backend = 'server'; return await res.json(); }
+    }
+  } catch (e) { /* opened from disk, or the server is unreachable */ }
   App.backend = 'demo';
   return App.mockServer.handle('GET', '/api/config');
 };

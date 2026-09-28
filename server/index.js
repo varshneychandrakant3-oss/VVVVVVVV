@@ -221,6 +221,8 @@ async function handle(req, res) {
   const url = new URL(req.url, config.publicUrl);
   try {
     if (url.pathname.startsWith('/api/')) return await handleApi(req, res, url);
+    // Tells the web app a real server is here (static hosts serve the file, which says "demo")
+    if (url.pathname === '/assets/backend.json') return sendJson(res, 200, { backend: 'server' });
     if (url.pathname === '/sandbox/digilocker/authorize' && config.digilocker.mode !== 'live') {
       const u = auth.requireUser(req);
       if (req.method === 'GET') {
