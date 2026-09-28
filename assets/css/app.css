@@ -138,6 +138,10 @@ button, input, select, textarea { font: inherit; color: inherit; }
 .bell .dot { position: absolute; top: 2px; right: 0; background: var(--accent); color: var(--accent-ink); font-size: .68rem; font-weight: 800; min-width: 18px; height: 18px; border-radius: 9px; display: grid; place-items: center; padding: 0 4px; }
 .user-btn { display: inline-flex; align-items: center; gap: 8px; border: 1.5px solid var(--line); background: var(--surface); padding: 4px 12px 4px 4px; border-radius: 999px; cursor: pointer; font-weight: 650; }
 .hide-sm { display: none; } @media (min-width: 640px) { .hide-sm { display: inline; } }
+.badge-new { background: var(--primary-soft); color: var(--primary); text-transform: none; }
+.new-badge { display: inline-flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+.verified-stay { color: var(--good); font-weight: 650; }
+img.avatar { object-fit: cover; }
 .avatar { display: inline-grid; place-items: center; flex: none; border-radius: 50%; background: hsl(var(--hue, 160) 45% 42%); color: #fff; font-weight: 750; }
 
 /* Hero */

@@ -51,7 +51,7 @@ const destCard = (d, big = false) => {
 /* ================= HOME ================= */
 App.pages.home = (el) => {
   const vans = publishedVans();
-  const featured = [...vans].sort((a, b) => App.get.rating(b.id).avg - App.get.rating(a.id).avg).slice(0, 6);
+  const featured = [...vans].sort((a, b) => App.get.ratingScore(b.id) - App.get.ratingScore(a.id)).slice(0, 6);
   const month = new Date().getMonth() + 1;
   const inSeason = App.db.destinations.filter(d => d.bestMonths.includes(month));
   const dests = [...inSeason, ...App.db.destinations.filter(d => !inSeason.includes(d))];
@@ -278,9 +278,9 @@ App.pages.search = (el, _p, q) => {
       (!state.family || v.familyFriendly) && (!state.pets || v.petFriendly) && (!state.instant || v.instantBook) && (!state.auto || v.transmission === 'Automatic'));
     const avail = validDates ? list.filter(v => App.isAvailable(v.id, state.start, state.end)) : list;
     const sorters = {
-      recommended: (a, b) => (App.get.rating(b.id).avg * 10 + (b.instantBook ? 5 : 0)) - (App.get.rating(a.id).avg * 10 + (a.instantBook ? 5 : 0)),
+      recommended: (a, b) => (App.get.ratingScore(b.id) * 10 + (b.instantBook ? 5 : 0)) - (App.get.ratingScore(a.id) * 10 + (a.instantBook ? 5 : 0)),
       price_asc: (a, b) => a.pricePerNight - b.pricePerNight, price_desc: (a, b) => b.pricePerNight - a.pricePerNight,
-      rating: (a, b) => App.get.rating(b.id).avg - App.get.rating(a.id).avg, sleeps: (a, b) => b.sleeps - a.sleeps
+      rating: (a, b) => App.get.ratingScore(b.id) - App.get.ratingScore(a.id), sleeps: (a, b) => b.sleeps - a.sleeps
     };
     avail.sort(sorters[state.sort]);
     const unavailable = list.filter(v => !avail.includes(v));
@@ -387,7 +387,7 @@ App.pages.van = (el, { id }, q) => {
     <div class="van-head">
       <div>
         <h1>${van.name}</h1>
-        <div class="van-sub">${App.stars(r.avg, r.count)} · <span>📍 ${van.pickup.city}${dest ? ', ' + dest.region : ''}</span> · ${App.verifiedBadge(van.ownerId)}</div>
+        <div class="van-sub">${App.vanRating(van, { long: true })} · <span>📍 ${van.pickup.city}${dest ? ', ' + dest.region : ''}</span> · ${App.verifiedBadge(van.ownerId)}</div>
       </div>
       <div class="row gap">
         <button class="btn btn-ghost" id="share">↗ Share</button>
@@ -433,9 +433,10 @@ App.pages.van = (el, { id }, q) => {
         <section class="block"><h2>House rules</h2><ul class="ticks">${van.rules.map(x => h`<li>${x}</li>`)}</ul></section>
         <section class="block"><h2>Cancellation policy: ${policy.label}</h2><p>${policy.summary}</p><p class="small muted">Plus a 24-hour grace period after booking for a full refund when your trip is at least 7 days away. <a href="#/help/cancellation">Full policy</a></p></section>
         <section class="block"><h2>Security deposit</h2><p>${money(van.deposit)} is held on your card at pickup and released within ${App.C.depositReleaseDays} days of return if there's no damage. Add Damage Cover at checkout to reduce your liability.</p></section>
-        <section class="block" id="reviews"><h2>${r.count ? h`★ ${r.avg.toFixed(1)} · ${App.plural(r.count, 'review')}` : 'Reviews'}</h2>
-          ${r.count ? h`<div class="rating-bars">${cats.map(([k, v]) => h`<div><span>${k[0].toUpperCase() + k.slice(1)}</span><span class="bar-track"><span style="width:${v / 5 * 100}%"></span></span><span>${v.toFixed(1)}</span></div>`)}</div>
-            <div class="review-list">${reviews.slice(0, 6).map(rv => { const a = App.get.user(rv.authorId); return h`<article class="review">${App.avatar(a, 40)}<div><strong>${a?.name || 'Traveller'}</strong><div class="muted small">${fmtDate(rv.createdAt)} · ${'★'.repeat(rv.rating)}</div><p>${rv.text}</p>${rv.ownerReply ? h`<div class="reply"><strong>Response from ${owner.name}</strong><p>${rv.ownerReply}</p></div>` : ''}</div></article>`; })}</div>`
+        <section class="block" id="reviews"><h2>${r.count >= App.C.minReviewsForRating ? h`★ ${r.avg.toFixed(1)} · ${App.plural(r.count, 'review')}` : r.count ? `Reviews (${r.count})` : 'Reviews'}</h2>
+          ${r.count && r.count < App.C.minReviewsForRating ? h`<p class="small muted">This van is new on VanYatra, so we don’t show an average yet. ${App.get.hostRating(van.ownerId).count >= App.C.minReviewsForRating ? h`Its host is rated ★ ${App.get.hostRating(van.ownerId).avg.toFixed(1)} across ${App.plural(App.get.hostRating(van.ownerId).count, 'review')} of their vans.` : ''}</p>` : ''}
+          ${r.count ? h`${r.count >= App.C.minReviewsForRating ? h`<div class="rating-bars">${cats.map(([k, v]) => h`<div><span>${k[0].toUpperCase() + k.slice(1)}</span><span class="bar-track"><span style="width:${v / 5 * 100}%"></span></span><span>${v.toFixed(1)}</span></div>`)}</div>` : ''}
+            <div class="review-list">${reviews.slice(0, 6).map(rv => { const a = App.get.user(rv.authorId); return h`<article class="review">${App.avatar(a, 40)}<div><strong>${a?.name || 'Traveller'}</strong><div class="muted small">${fmtDate(rv.createdAt)} · <span aria-label="${rv.rating} out of 5">${'★'.repeat(rv.rating)}</span>${App.get.verifiedStay(rv) ? h` · <span class="verified-stay" title="Written after a completed VanYatra booking">✓ Verified stay</span>` : ''}</div><p>${rv.text}</p>${rv.ownerReply ? h`<div class="reply"><strong>Response from ${owner.name}</strong><p>${rv.ownerReply}</p></div>` : ''}</div></article>`; })}</div>`
           : h`<p class="muted">No reviews yet — be the first to take this van on the road.</p>`}
         </section>
       </div>

@@ -438,25 +438,41 @@ App.buildSeed = function () {
   const risky = mkBooking('v5', 'u_cust4', 32, 12, 'requested');
   risky.risk = { score: 62, flags: ['High-value booking from an account under 30 days old', 'Different card country to profile'] };
 
-  // Reviews for completed bookings
-  const reviewTexts = [
-    [5, 'Spotless van and super helpful owner. The handover walkthrough made us feel confident on mountain roads.'],
-    [5, 'Our kids loved the bunks! Everything we needed was on board, even a kettle and fairy lights.'],
-    [4, 'Great van and fair price. Pickup took a little longer than expected but the owner was very responsive.'],
-    [5, 'Best trip we have ever done. Route suggestions from the owner were spot on.'],
-    [4, 'Comfortable bed and a good kitchen. Solar kept the fridge running all week.'],
-    [3, 'Van was good but the awning was hard to set up. Owner refunded the extra km charge without fuss.'],
-    [5, 'Felt very safe — GPS tracker, first-aid kit and a 24x7 helpline number. Will book again.']
-  ];
+  // Reviews for completed bookings. Built from parts so no two reviews read the same.
+  const OPENERS = {
+    5: ['Honestly one of the best trips we have taken as a family.', 'Ten out of ten, would book this van again tomorrow.', 'Our first camper trip and it could not have gone better.', 'Everything about this rental was smooth from start to finish.', 'We were nervous about van life with kids — no need to be.'],
+    4: ['A really good trip with a couple of small niggles.', 'Solid van, fair price and a friendly host.', 'We had a lovely week overall.', 'Pretty much what the listing promised.'],
+    3: ['An okay trip, though not everything worked as described.', 'Decent value, but a few things could be better.']
+  };
+  const DETAILS = {
+    good: ['The handover walkthrough took 30 minutes and covered the gas, water and the inverter.', 'Beds were made up with fresh sheets, which we did not expect.', 'The kitchen had proper pans, a pressure cooker and spices — we cooked dal every night.', 'The solar setup kept the fridge and phones going even at the campsite with no power.', 'Pickup was on time and the van was spotless inside.', 'Our kids took the top bunk and did not want to come down.', 'The fuel economy was better than we expected for a van this size.', 'The host shared a hand-drawn map of dhabas with safe overnight parking.', 'Heater worked well on the cold nights.', 'Reversing camera made the narrow lanes much less stressful.'],
+    meh: ['The awning was stiff and took two of us to open.', 'One of the cupboard latches kept popping open on bends.', 'Water pump was noisy at night.', 'Pickup took longer than planned because of paperwork.', 'The bike rack was missing a strap, though the host sorted it the next day.']
+  };
+  const PLACE = (dest) => [`Driving around ${dest.name} in our own little home was the highlight.`, `The route tips for ${dest.name} were spot on.`, `We found a quiet spot to park every night in ${dest.name}.`, `Waking up to those ${dest.name} views never got old.`];
+  const CLOSERS = ['Will book again.', 'Highly recommend for families.', 'Thank you for a trip we will remember.', 'Great communication throughout.', '', 'Deposit came back within two days.'];
+  const usedTexts = new Set();
+  const reviewText = (rating, van) => {
+    const dest = destinations.find(x => x.id === van.destinationId) || { name: 'the hills' };
+    for (let tries = 0; tries < 50; tries++) {
+      const parts = [pick(OPENERS[rating] || OPENERS[4]), pick(rating >= 4 ? DETAILS.good : DETAILS.meh), rnd() < 0.6 ? pick(PLACE(dest)) : pick(DETAILS.good), pick(CLOSERS)];
+      const text = parts.filter(Boolean).join(' ');
+      if (!usedTexts.has(text)) { usedTexts.add(text); return text; }
+    }
+    return pick(OPENERS[4]);
+  };
+  const clamp = (n) => Math.max(1, Math.min(5, n));
   const reviews = [];
   bookings.filter(b => b.status === 'completed').forEach((b, i) => {
     if (i % 2 === 1 && b !== pastGoa) return;
-    const [rating, text] = b === pastGoa ? [5, 'Perfect beach van for Goa. Agonda campsite recommendation was a gem, and Meera replied within minutes every time.'] : pick(reviewTexts);
+    const van = vans.find(v => v.id === b.vanId);
+    const rating = b === pastGoa ? 5 : rnd() < 0.55 ? 5 : rnd() < 0.8 ? 4 : 3;
+    const text = b === pastGoa ? 'Perfect beach van for Goa. Agonda campsite recommendation was a gem, and Meera replied within minutes every time.' : reviewText(rating, van);
+    const jitter = () => (rnd() < 0.25 ? -1 : 0);
     reviews.push({
       id: 'r' + reviews.length, vanId: b.vanId, bookingId: b.id, authorId: b.customerId, ownerId: b.ownerId, rating,
-      categories: { cleanliness: rating, accuracy: rating, communication: Math.min(5, rating + 1), value: rating },
+      categories: { cleanliness: clamp(rating + jitter()), accuracy: clamp(rating + jitter()), communication: clamp(rating + 1 + jitter()), value: clamp(rating + jitter()) },
       text, createdAt: new Date(new Date(b.end).getTime() + 2 * day).toISOString(), status: 'published',
-      ownerReply: rnd() < 0.4 ? 'Thank you so much — you are welcome back any time!' : ''
+      ownerReply: rnd() < 0.4 ? pick(['Thank you so much — you are welcome back any time!', 'So glad the kids loved it. See you next season!', 'Thanks for looking after the van so well.', 'Thank you! We have fixed the latch you mentioned.']) : ''
     });
   });
   reviews.push({ id: 'r_flag', vanId: 'v2', bookingId: bookings.find(b => b.vanId === 'v2' && b.status === 'completed')?.id, authorId: 'u_cust4', ownerId: 'u_owner1', rating: 1, categories: { cleanliness: 1, accuracy: 1, communication: 1, value: 1 }, text: 'Terrible!!! Call me on 98xxxxxx12 and I will tell you a cheaper van outside this site.', createdAt: ts(-6), status: 'flagged', flagReason: 'Contains contact details / off-platform solicitation', ownerReply: '' });

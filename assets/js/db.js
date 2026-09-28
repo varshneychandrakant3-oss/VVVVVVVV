@@ -13,7 +13,7 @@
  */
 window.App = window.App || {};
 
-const STORAGE_KEY = 'vanyatra.db.v4';
+const STORAGE_KEY = 'vanyatra.db.v5';
 const DAY = 86400000;
 
 App.iso = (date) => {
@@ -71,6 +71,8 @@ App.load = () => {
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
     if (raw) { App.db = JSON.parse(raw); return; }
+    // Demo data from an older version: start fresh rather than mixing shapes
+    for (const k of Object.keys(localStorage)) if (k.startsWith('vanyatra.db.') && k !== STORAGE_KEY) localStorage.removeItem(k);
   } catch (e) { console.warn('Could not read saved data, resetting demo.', e); }
   App.db = App.buildSeed();
   App.save();
@@ -97,6 +99,16 @@ App.get = {
     const rs = App.get.reviewsFor(vanId);
     return rs.length ? { avg: rs.reduce((s, r) => s + r.rating, 0) / rs.length, count: rs.length } : { avg: 0, count: 0 };
   },
+  // For ranking: the average pulled towards 4.2 until there are enough reviews,
+  // so one 5-star review doesn't outrank twenty 4.8s
+  ratingScore: (vanId) => { const r = App.get.rating(vanId), m = App.C.minReviewsForRating; return (r.avg * r.count + 4.2 * m) / (r.count + m); },
+  // Across every van a host has listed
+  hostRating: (ownerId) => {
+    const rs = App.db.reviews.filter(r => r.ownerId === ownerId && r.status === 'published');
+    return rs.length ? { avg: rs.reduce((s, r) => s + r.rating, 0) / rs.length, count: rs.length } : { avg: 0, count: 0 };
+  },
+  // A review counts as a verified stay when it's tied to a trip that was completed
+  verifiedStay: (review) => App.get.booking(review.bookingId)?.status === 'completed',
   ownerVerified: (ownerId) => {
     const o = App.db.owners[ownerId];
     return !!o && ['account', 'kyc', 'business', 'payout'].every(k => o[k]?.status === 'verified');

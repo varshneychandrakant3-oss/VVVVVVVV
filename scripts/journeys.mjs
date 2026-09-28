@@ -243,6 +243,30 @@ async function run(mode) {
   return results;
 }
 
+// Screenshots for visual review (demo mode):
+//   node scripts/journeys.mjs --screens out/ "#/vans/v1" "traveller@vanyatra.in#/account/verification" ...
+// A route may be prefixed with an email to sign in first, and suffixed with @selector to scroll to it.
+async function screens(dir, routes) {
+  fs.mkdirSync(dir, { recursive: true });
+  const host = await startStatic(), chrome = await launchChrome();
+  await chrome.send('Page.enable'); await chrome.send('Runtime.enable');
+  await chrome.send('Emulation.setDeviceMetricsOverride', { width: WIDTH, height: Number(opt('height', 780)), deviceScaleFactor: 1, mobile: WIDTH < 768 });
+  await chrome.send('Page.addScriptToEvaluateOnNewDocument', { source: HELPERS });
+  await chrome.send('Page.navigate', { url: host.url }); await sleep(1500);
+  for (const [i, spec] of routes.entries()) {
+    const [, email, hash, sel] = spec.match(/^([^#]*)(#[^@]*)(?:@(.+))?$/) || [];
+    const js = `(async () => { await T.until(() => window.App && App.backend, 10000); ${email ? `await T.login(${JSON.stringify(email)}, '/');` : ''} await T.go(${JSON.stringify(hash)}); await T.wait(900); ${sel ? `document.querySelector(${JSON.stringify(sel)})?.scrollIntoView({ block: 'start', behavior: 'instant' }); scrollBy(0, -70); await T.wait(300);` : 'scrollTo(0, 0);'} })()`;
+    const r = await chrome.send('Runtime.evaluate', { expression: js, awaitPromise: true });
+    if (r.exceptionDetails) console.log('✗', spec, r.exceptionDetails.exception?.description?.split('\n')[0]);
+    const shot = await chrome.send('Page.captureScreenshot', { format: 'png' });
+    const file = path.join(dir, `${String(i + 1).padStart(2, '0')}-${hash.replace(/[^\w]+/g, '-').replace(/^-|-$/g, '') || 'home'}.png`);
+    fs.writeFileSync(file, Buffer.from(shot.data, 'base64'));
+    console.log('📸', file);
+  }
+  chrome.close(); host.stop();
+}
+if (opt('screens')) { await screens(opt('screens'), args.slice(args.indexOf('--screens') + 2).filter(a => a.includes('#'))); process.exit(0); }
+
 const all = [];
 for (const m of MODES) all.push(...await run(m));
 const failed = all.filter(r => !r.ok);

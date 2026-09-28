@@ -35,11 +35,13 @@ App.timeAgo = (s) => {
 };
 App.plural = (n, w) => App.fmt.plural(n, w);
 App.photo = (src, w = 800) => !src ? '' : src.startsWith('photo-') ? `https://images.unsplash.com/${src}?auto=format&fit=crop&w=${w}&q=70` : src;
-App.initials = (name) => name.split(/\s+/).map(p => p[0]).slice(0, 2).join('').toUpperCase();
+App.initials = (name) => App.fmt.initial(name);
 
 /* ---------- Small components ---------- */
+// Profile photo when there is one, otherwise the first initial on a coloured disc
 App.avatar = (u, size = 36) => u
-  ? App.h`<span class="avatar" style="--hue:${u.avatarHue || 200};width:${size}px;height:${size}px;font-size:${Math.round(size * 0.4)}px" aria-hidden="true">${App.initials(u.name)}</span>`
+  ? (u.photo ? App.h`<img class="avatar" src="${u.photo}" alt="" width="${size}" height="${size}" loading="lazy">`
+    : App.h`<span class="avatar" style="--hue:${u.avatarHue || 200};width:${size}px;height:${size}px;font-size:${Math.round(size * 0.45)}px" aria-hidden="true">${App.initials(u.name)}</span>`)
   : App.h`<span class="avatar" style="width:${size}px;height:${size}px">?</span>`;
 
 App.statusBadge = (status) => {
@@ -53,6 +55,16 @@ App.stars = (avg, count) => avg
   ? App.h`<span class="stars" aria-label="Rated ${avg.toFixed(1)} out of 5"><span class="star-icon" aria-hidden="true">★</span> ${avg.toFixed(1)}${count !== undefined ? App.h` <span class="muted">(${count})</span>` : ''}</span>`
   : App.h`<span class="stars muted">New</span>`;
 
+// A van's rating only counts once there are enough reviews; before that show it's new,
+// plus the host's rating across all their vans when they have one
+App.vanRating = (van, { long = false } = {}) => {
+  const r = App.get.rating(van.id), min = App.C.minReviewsForRating;
+  if (r.count >= min) return App.h`<span class="stars" aria-label="Rated ${r.avg.toFixed(1)} out of 5 from ${r.count} reviews"><span class="star-icon" aria-hidden="true">★</span> ${r.avg.toFixed(1)} <span class="muted">(${r.count})</span></span>`;
+  const host = App.get.hostRating(van.ownerId);
+  const hostTxt = host.count >= min ? App.h` <span class="muted" title="Average across all of this host’s vans">· Host ★ ${host.avg.toFixed(1)}${long ? App.h` from ${App.plural(host.count, 'review')}` : ''}</span>` : '';
+  return App.h`<span class="stars new-badge"><span class="badge badge-new">New on VanYatra</span>${hostTxt}${long && r.count ? App.h` <span class="muted">· ${App.plural(r.count, 'review')} so far</span>` : ''}</span>`;
+};
+
 App.verifiedBadge = (ownerId) => App.get.ownerVerified(ownerId)
   ? App.h`<span class="verified" title="Identity, documents and insurance verified by VanYatra"><svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true"><path fill="currentColor" d="M12 2l2.4 2.1 3.2-.4.9 3.1 2.8 1.6-1 3 1 3-2.8 1.6-.9 3.1-3.2-.4L12 22l-2.4-2.1-3.2.4-.9-3.1L2.7 15.6l1-3-1-3 2.8-1.6.9-3.1 3.2.4z"/><path fill="#fff" d="M10.6 15.6l-3.2-3.2 1.4-1.4 1.8 1.8 4.6-4.6 1.4 1.4z"/></svg>Verified owner</span>`
   : '';
@@ -61,7 +73,6 @@ App.amenityChips = (ids, limit = 99) => App.h`${ids.slice(0, limit).map(id => { 
 
 App.vanCard = (van, opts = {}) => {
   const me = App.me();
-  const r = App.get.rating(van.id);
   const dest = App.get.dest(van.destinationId);
   const saved = me && me.savedVans.includes(van.id);
   const q = opts.start && opts.end ? App.quote(van, opts.start, opts.end) : null;
@@ -78,7 +89,7 @@ App.vanCard = (van, opts = {}) => {
       <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true"><path d="M12 21s-7.5-4.6-9.5-9.2C1 8.3 3.2 5 6.6 5c2 0 3.4 1.1 4.4 2.5C12 6.1 13.4 5 15.4 5 18.8 5 21 8.3 19.5 11.8 17.5 16.4 12 21 12 21z"/></svg>
     </button>
     <div class="van-card-body">
-      <div class="row-between"><span class="eyebrow">${van.type} · ${van.pickup.city}</span>${App.stars(r.avg, r.count || undefined)}</div>
+      <div class="row-between"><span class="eyebrow">${van.type} · ${van.pickup.city}</span>${App.vanRating(van)}</div>
       <h3><a href="${link}">${van.name}</a></h3>
       <p class="meta">Sleeps ${van.sleeps} · ${van.seats} seats · ${van.transmission} · ${dest ? dest.name : ''}</p>
       ${App.verifiedBadge(van.ownerId)}
@@ -289,11 +300,10 @@ App.loadLeaflet = () => {
 /* Preview cards shown when a map marker is clicked */
 App.mapCard = {
   van: (v) => {
-    const r = App.get.rating(v.id);
     return App.h`<div class="map-card">
       <img src="${App.photo(v.photos[0], 360)}" alt="" loading="lazy">
       <div class="mc-body">
-        <div class="mc-row"><span class="eyebrow">${v.type} · ${v.pickup.city}</span>${r.count ? App.h`<span class="stars"><span class="star-icon">★</span> ${r.avg.toFixed(1)}</span>` : ''}</div>
+        <div class="mc-row"><span class="eyebrow">${v.type} · ${v.pickup.city}</span>${App.vanRating(v)}</div>
         <strong>${v.name}</strong>
         <span class="small muted">Sleeps ${v.sleeps} · ${v.transmission}${v.instantBook ? ' · ⚡ Instant book' : ''}</span>
         <div class="mc-row"><span><strong>${App.money(v.pricePerNight)}</strong> <span class="small muted">/ night</span></span><a class="btn btn-sm btn-primary" href="#/vans/${v.id}">View van</a></div>

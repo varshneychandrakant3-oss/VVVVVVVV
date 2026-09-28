@@ -41,7 +41,7 @@ App.pages.book = (el, { id }, q) => {
       <div class="book-layout">
         <form class="book-main card" id="book-form" novalidate>${stepBody(qte)}</form>
         <aside class="book-summary card">
-          <div class="bs-van"><img src="${photo(van.photos[0], 400)}" alt=""><div><strong>${van.name}</strong><div class="small muted">${van.type} · ${van.pickup.city}</div>${App.stars(App.get.rating(van.id).avg, App.get.rating(van.id).count)}</div></div>
+          <div class="bs-van"><img src="${photo(van.photos[0], 400)}" alt=""><div><strong>${van.name}</strong><div class="small muted">${van.type} · ${van.pickup.city}</div>${App.vanRating(van)}</div></div>
           <dl class="trip-lines">
             <div><dt>Dates</dt><dd>${fmtDate(s.start)} → ${fmtDate(s.end)}<br><span class="small muted">Pickup ${van.pickup.time} · return by ${van.pickup.returnTime}</span></dd></div>
             <div><dt>Travellers</dt><dd>${App.plural(s.adults, 'adult')}${s.children ? ', ' + App.plural(s.children, 'child').replace('childs', 'children') : ''}</dd></div>

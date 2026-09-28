@@ -25,6 +25,8 @@ App.COUNTRY_PROFILES = {
     serviceFeeRate: 0.08,        // charged to the traveller
     ownerCommissionRate: 0.12,   // deducted from owner payout
     minDriverAge: 21,
+    // Below this many reviews a van shows "New on VanYatra" and its host's rating instead
+    minReviewsForRating: 3,
     depositReleaseDays: 7,
     expiryWarningDays: 30,
     supportPhone: '1800-120-4455',
