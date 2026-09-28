@@ -9,7 +9,9 @@
 - One feature per commit.
 - After each phase: `npm test`, lint, a scripted headless browser run of the renter and owner journeys at 360px and on desktop, and a console-error check. Then publish to GitHub Pages.
 
-## Decisions I need from you
+## Decisions
+
+Agreed on 28 Sep 2026: go ahead with the recommendations below.
 
 | # | Decision | My recommendation |
 |---|---|---|
@@ -34,6 +36,8 @@
 
 ## P0 — Fix friction and trust
 
+**Status: ✅ done (28 Sep 2026).** Details, before/after notes and open TODOs are in [CHANGELOG.md](CHANGELOG.md).
+
 | Item | Status | Change | Files | Effort |
 |---|---|---|---|---|
 | P0.1 Date-range picker | Native inputs (B1) | New `App.dateRange` component: popover calendar showing `DD MMM YYYY` (en-IN), night count, past dates disabled, booked and blocked dates greyed for a van, and min-nights shown inline. Keyboard support: arrows, Enter, Esc. On mobile it opens as a bottom sheet. Used on the home, search, van card and booking step 1 (the owner calendar keeps its grid). The native input stays as a no-JS fallback. | `ui/daterange.js` (new), `ui.js`, `pages/public.js`, `pages/booking.js`, `app.css` | M |
@@ -47,6 +51,8 @@
 | P0.9 Tooling | None (B15) | ESLint config, `npm run lint`, `npm run check`, and `scripts/journeys.mjs`: a headless Chrome run over the renter and owner flows at 360px with a console-error check. It uses a Chrome already installed on this machine through the DevTools protocol, with no npm dependency. If that isn't possible, I'll ask first. | `package.json`, `eslint.config.js`, `scripts/` | M |
 
 ## P1 — Journey features
+
+**Status: not started.** Waiting for review of P0. The van page phone bar reading "Reserve · ₹X total" (part of P1.13) and the photo captions were built early, in P0.1 and P0.6.
 
 | Item | Status | Change | Files | Effort | Depends |
 |---|---|---|---|---|---|

@@ -1,6 +1,6 @@
 # VanYatra — codebase audit
 
-*28 Sep 2026 · branch `camper-van-marketplace` @ `63c6b78` · written before any P0 work*
+*28 Sep 2026 · branch `camper-van-marketplace` @ `63c6b78` · a snapshot from before any P0 work. Findings B1, B3–B9, B13 (partly) and B15 are fixed; see [CHANGELOG.md](CHANGELOG.md).*
 
 ## 1. Stack
 

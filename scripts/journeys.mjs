@@ -168,7 +168,7 @@ const JOURNEYS = {
     const field = T.$('#search-form .drf-btn'); T.assert(field, 'No date field on home');
     T.assert(!T.$('#search-form input[type=date]'), 'Native date inputs still on home');
     field.click(); await T.until(() => T.$('.drp'), 3000, 'picker to open');
-    T.assert(T.$('.drp').classList.contains('sheet'), 'Picker should be a bottom sheet on phones');
+    T.assert(T.$('.drp').classList.contains('sheet') === innerWidth < 640, innerWidth < 640 ? 'Picker should be a bottom sheet on phones' : 'Picker should be a popover on wide screens');
     const yesterday = App.addDays(App.today(), -1);
     if (dayBtn(yesterday)) T.assert(dayBtn(yesterday).hasAttribute('aria-disabled'), 'Past date is pickable');
     // Keyboard: focus is on a day; ArrowRight moves one day, Enter picks

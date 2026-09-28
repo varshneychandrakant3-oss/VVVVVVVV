@@ -19,11 +19,15 @@ npm start
 
 Then open http://localhost:8080. It starts in **test mode**: every check returns realistic results without contacting any government system, so you can click through every flow for free.
 
-Run the server tests:
+Checks (run all three with `npm run check`):
 
 ```bash
-npm test
+npm test          # server unit and API tests
+npm run lint      # ESLint (install once with npm install)
+npm run journeys  # headless Chrome at 360px: crawl, renter, dates, verification gate, owner, admin
 ```
+
+The journeys need Chrome or Edge installed (or set `CHROME_PATH`). Add `--width 1280` for desktop, or `--screens out/ "#/vans/v1"` to save screenshots. Planning documents are in `docs/`: an audit, the roadmap and a changelog.
 
 ### Demo accounts
 
