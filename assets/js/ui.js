@@ -94,13 +94,69 @@ App.vanCard = (van, opts = {}) => {
       <p class="meta">Sleeps ${van.sleeps} · ${van.seats} seats · ${van.transmission} · ${dest ? dest.name : ''}</p>
       ${App.verifiedBadge(van.ownerId)}
       <div class="van-card-price">
-        ${q ? App.h`<span><strong>${App.money(q.total)}</strong> total</span><span class="muted">${App.money(q.avgNight)}/night · ${App.plural(q.nights, 'night')}</span>`
+        ${q ? App.h`<span><strong>${App.money(q.total)}</strong> total</span><span class="muted">${App.fmt.nights(q.nights)} · incl. fees &amp; GST</span><button type="button" class="link small price-link" data-price-van="${van.id}" data-start="${opts.start}" data-end="${opts.end}">Price details</button>`
             : App.h`<span><strong>${App.money(van.pricePerNight)}</strong> <span class="muted">/ night</span></span>`}
         ${!available ? App.h`<span class="badge badge-bad">Unavailable for your dates</span>` : ''}
       </div>
     </div>
   </article>`;
 };
+
+/* ---------- Prices ----------
+ * Every screen shows the same App.quote result, so the card, van page, checkout
+ * and receipts always agree. Bookings saved before the weekday/weekend split
+ * only have an average nightly rate, which is shown instead.
+ */
+App.priceLines = (p, { deposit = true, detail = false } = {}) => {
+  const { money, nights } = App.fmt;
+  const split = p.weekdayNights !== undefined;
+  const nightLines = !split ? App.h`<div><dt>${money(p.avgNight)} × ${nights(p.nights)}</dt><dd>${money(p.base)}</dd></div>`
+    : App.h`${p.weekdayNights ? App.h`<div><dt>${money(p.weekdayRate)} × ${App.fmt.plural(p.weekdayNights, 'weeknight')}</dt><dd>${money(p.weekdayRate * p.weekdayNights)}</dd></div>` : ''}
+      ${p.weekendNights ? App.h`<div><dt>${money(p.weekendRate)} × ${App.fmt.plural(p.weekendNights, 'weekend night')} <span class="muted small">(Fri, Sat)</span></dt><dd>${money(p.weekendRate * p.weekendNights)}</dd></div>` : ''}`;
+  return App.h`<dl class="price-lines">
+    ${nightLines}
+    ${p.discount ? App.h`<div class="good"><dt>${p.discountPct}% ${p.nights >= 28 ? 'monthly' : 'weekly'} discount</dt><dd>−${money(p.discount)}</dd></div>` : ''}
+    ${detail && p.addOnLines?.length ? p.addOnLines.map(a => App.h`<div><dt>${a.label} <span class="muted small">(${a.detail})</span></dt><dd>${money(a.amount)}</dd></div>`)
+      : p.addOns ? App.h`<div><dt>Extras</dt><dd>${money(p.addOns)}</dd></div>` : ''}
+    <div><dt>Cleaning fee</dt><dd>${money(p.cleaning)}</dd></div>
+    <div><dt>Service fee</dt><dd>${money(p.service)}</dd></div>
+    <div><dt>${App.C.taxLabel} (${Math.round(App.C.taxRate * 100)}%)</dt><dd>${money(p.tax)}</dd></div>
+    <div class="total"><dt>Total</dt><dd>${money(p.total)}</dd></div>
+    ${deposit ? App.h`<div class="muted"><dt>Refundable security deposit <span class="small">(held, not part of the total)</span></dt><dd>${money(p.deposit)}</dd></div>` : ''}
+    ${detail && p.kmIncluded ? App.h`<div class="muted"><dt>Distance included</dt><dd>${App.fmt.km(p.kmIncluded)}</dd></div>` : ''}
+  </dl>`;
+};
+
+// Full breakdown with what each line means, from any card or page
+App.priceDrawer = (van, start, end, { addOnIds = [] } = {}) => {
+  const addOns = App.ADD_ONS.filter(a => addOnIds.includes(a.id));
+  const q = App.quote(van, start, end, { addOns });
+  const { money } = App.fmt;
+  return App.modal({
+    title: 'Price breakdown',
+    body: App.h`<p class="muted small">${van.name} · ${App.fmt.dateRange(start, end)} · ${App.fmt.nights(q.nights)}</p>
+      ${App.priceLines(q, { detail: true })}
+      <ul class="plain price-notes small">
+        <li><strong>Nightly rates.</strong> ${money(q.weekdayRate)} Sunday–Thursday${q.weekendRate !== q.weekdayRate ? `, ${money(q.weekendRate)} on Friday and Saturday nights` : ''}.${q.discountPct ? ` ${q.discountPct}% off because the trip is ${q.nights >= 28 ? '28' : '7'}+ nights.` : ''}</li>
+        <li><strong>Cleaning fee.</strong> Set by the owner, charged once per trip.</li>
+        <li><strong>Service fee.</strong> ${Math.round(App.C.serviceFeeRate * 100)}% of the rental and extras. Covers 24×7 roadside and trip support, secure payments and verification.</li>
+        <li><strong>${App.C.taxLabel}.</strong> ${Math.round(App.C.taxRate * 100)}% on the rental, extras and fees, shown on your tax invoice.</li>
+        <li><strong>Distance.</strong> ${App.fmt.km(q.kmIncluded)} included (${App.fmt.km(q.kmPerDay)} a day). Extra kilometres are ${money(q.extraKmFee)}/km, settled at return.</li>
+        <li><strong>Security deposit.</strong> ${money(q.deposit)}, refundable. It isn’t part of the total: it’s held at pickup and released within ${App.C.depositReleaseDays} days of return if there’s no damage.</li>
+        <li><strong>Protection.</strong> 24×7 roadside assistance is included. Damage cover to reduce your deposit liability is optional at checkout.</li>
+      </ul>
+      <p class="small muted">No other charges are added at checkout.</p>`
+  });
+};
+
+// Delegated handler for "price details" buttons anywhere on the page
+document.addEventListener('click', (e) => {
+  const b = e.target.closest('[data-price-van]');
+  if (!b) return;
+  e.preventDefault();
+  const van = App.get.van(b.dataset.priceVan);
+  if (van && b.dataset.start && b.dataset.end) App.priceDrawer(van, b.dataset.start, b.dataset.end, { addOnIds: (b.dataset.addons || '').split(',').filter(Boolean) });
+});
 
 // Delegated handler for save (heart) buttons anywhere on the page
 document.addEventListener('click', (e) => {
@@ -299,14 +355,15 @@ App.loadLeaflet = () => {
 
 /* Preview cards shown when a map marker is clicked */
 App.mapCard = {
-  van: (v) => {
+  van: (v, opts = {}) => {
+    const q = opts.start && opts.end ? App.quote(v, opts.start, opts.end) : null;
     return App.h`<div class="map-card">
       <img src="${App.photo(v.photos[0], 360)}" alt="" loading="lazy">
       <div class="mc-body">
         <div class="mc-row"><span class="eyebrow">${v.type} · ${v.pickup.city}</span>${App.vanRating(v)}</div>
         <strong>${v.name}</strong>
         <span class="small muted">Sleeps ${v.sleeps} · ${v.transmission}${v.instantBook ? ' · ⚡ Instant book' : ''}</span>
-        <div class="mc-row"><span><strong>${App.money(v.pricePerNight)}</strong> <span class="small muted">/ night</span></span><a class="btn btn-sm btn-primary" href="#/vans/${v.id}">View van</a></div>
+        <div class="mc-row"><span>${q ? App.h`<strong>${App.money(q.total)}</strong> <span class="small muted">total · ${App.fmt.nights(q.nights)}</span>` : App.h`<strong>${App.money(v.pricePerNight)}</strong> <span class="small muted">/ night</span>`}</span><a class="btn btn-sm btn-primary" href="#/vans/${v.id}${q ? `?start=${opts.start}&end=${opts.end}` : ''}">View van</a></div>
       </div></div>`;
   },
   dest: (d) => {

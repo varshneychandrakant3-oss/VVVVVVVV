@@ -37,22 +37,29 @@ App.hashPassword = (pw) => {
 App.quote = (van, start, end, extras = {}) => {
   const C = App.C;
   const nights = App.nightsBetween(start, end);
-  let base = 0;
+  // Friday and Saturday nights use the weekend rate
+  const weekdayRate = van.pricePerNight, weekendRate = van.weekendPrice || van.pricePerNight;
+  let weekendNights = 0;
   for (let i = 0; i < nights; i++) {
     const dow = App.parseDate(App.addDays(start, i)).getDay();
-    base += (dow === 5 || dow === 6) ? (van.weekendPrice || van.pricePerNight) : van.pricePerNight;
+    if (dow === 5 || dow === 6) weekendNights++;
   }
+  const weekdayNights = nights - weekendNights;
+  const base = weekdayNights * weekdayRate + weekendNights * weekendRate;
   const discountPct = nights >= 28 ? (van.discounts?.monthly || 0) : nights >= 7 ? (van.discounts?.weekly || 0) : 0;
   const discount = Math.round(base * discountPct / 100);
   const rental = base - discount;
-  const addOns = (extras.addOns || []).reduce((s, a) => s + a.price * (a.perNight ? nights : 1), 0);
+  const addOnLines = (extras.addOns || []).map(a => ({ id: a.id, label: a.label, amount: a.price * (a.perNight ? nights : 1), detail: a.perNight ? `${App.fmt.money(a.price)} × ${App.fmt.nights(nights)}` : 'per trip' }));
+  const addOns = addOnLines.reduce((s, a) => s + a.amount, 0);
   const cleaning = van.cleaningFee || 0;
   const service = Math.round((rental + addOns) * C.serviceFeeRate);
   const tax = Math.round((rental + addOns + cleaning + service) * C.taxRate);
   const total = rental + addOns + cleaning + service + tax;
   const commission = Math.round((rental + addOns) * C.ownerCommissionRate);
   return {
-    nights, base, discountPct, discount, rental, addOns, cleaning, service, tax, total,
+    nights, base, discountPct, discount, rental, addOns, addOnLines, cleaning, service, tax, total,
+    weekdayNights, weekendNights, weekdayRate, weekendRate,
+    kmIncluded: (van.kmPerDay || 0) * nights, kmPerDay: van.kmPerDay || 0, extraKmFee: van.extraKmFee || 0,
     deposit: van.deposit || 0, commission, ownerPayout: rental + addOns + cleaning - commission,
     avgNight: nights ? Math.round(base / nights) : van.pricePerNight
   };

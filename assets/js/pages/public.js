@@ -299,7 +299,7 @@ App.pages.search = (el, _p, q) => {
       const mapEl = el.querySelector('#search-map');
       if (map) { map.remove(); map = null; }
       mapEl.innerHTML = '';
-      App.mountMap(mapEl, avail.map(v => ({ lat: v.pickup.lat, lng: v.pickup.lng, label: money(v.pricePerNight), kind: 'van', title: v.name, html: App.mapCard.van(v) }))).then(m => map = m);
+      App.mountMap(mapEl, avail.map(v => ({ lat: v.pickup.lat, lng: v.pickup.lng, label: validDates ? App.fmt.moneyCompact(App.quote(v, state.start, state.end).total) : money(v.pricePerNight), kind: 'van', title: v.name, html: App.mapCard.van(v, opts) }))).then(m => map = m);
     }
   };
   const clear = () => { App.go('#/search'); };
@@ -444,7 +444,7 @@ App.pages.van = (el, { id }, q) => {
       </aside>
     </div>
 
-    ${similar.length ? h`<section class="section"><h2>Similar vans</h2><div class="van-grid">${similar.map(v => App.vanCard(v))}</div></section>` : ''}
+    ${similar.length ? h`<section class="section"><h2>Similar vans</h2><div class="van-grid">${similar.map(v => App.vanCard(v, state.start && state.end ? { start: state.start, end: state.end } : {}))}</div></section>` : ''}
   </div>
   <div class="mobile-book-bar" id="mobile-bar"></div>`);
 
@@ -470,15 +470,7 @@ App.pages.van = (el, { id }, q) => {
       ${tooShort ? h`<p class="error">Minimum rental is ${App.plural(van.minNights, 'night')}.</p>` : ''}
       <button class="btn btn-accent btn-block btn-lg" id="book-btn" ${!valid || !ok || tooShort || guests > van.sleeps || van.status !== 'published' ? 'disabled' : ''}>${van.instantBook ? '⚡ Book now' : 'Request to book'}</button>
       <p class="center small muted">${valid ? 'You won’t be charged yet' : 'Select dates to see the total price'}</p>
-      ${qte ? h`<dl class="price-lines">
-        <div><dt>${money(qte.avgNight)} × ${App.plural(nights, 'night')}</dt><dd>${money(qte.base)}</dd></div>
-        ${qte.discount ? h`<div class="good"><dt>${qte.discountPct}% ${nights >= 28 ? 'monthly' : 'weekly'} discount</dt><dd>−${money(qte.discount)}</dd></div>` : ''}
-        <div><dt>Cleaning fee</dt><dd>${money(qte.cleaning)}</dd></div>
-        <div><dt>Service fee <button class="info-btn" type="button" title="Covers 24×7 support, secure payments and insurance administration" aria-label="About the service fee">ⓘ</button></dt><dd>${money(qte.service)}</dd></div>
-        <div><dt>${App.C.taxLabel} (${Math.round(App.C.taxRate * 100)}%)</dt><dd>${money(qte.tax)}</dd></div>
-        <div class="total"><dt>Total</dt><dd>${money(qte.total)}</dd></div>
-        <div class="muted"><dt>Refundable security deposit (held)</dt><dd>${money(qte.deposit)}</dd></div>
-      </dl>` : ''}`);
+      ${qte ? h`${App.priceLines(qte)}<button type="button" class="link small" data-price-van="${van.id}" data-start="${state.start}" data-end="${state.end}">See full price breakdown</button>` : ''}`);
     el.querySelector('#mobile-bar').innerHTML = String(h`<div><strong>${qte ? money(qte.total) : money(van.pricePerNight) + ' / night'}</strong><div class="small muted">${valid ? `${App.fmt.dateRange(state.start, state.end)}` : 'Add dates'}</div></div><a class="btn btn-accent" href="#booking-card" id="mb-go">${valid && ok && !tooShort ? 'Reserve · ' + money(qte.total) : 'Check dates'}</a>`);
     const range = App.dateRangeField(card.querySelector('#bc-dates'), { start: state.start, end: state.end, vanId: van.id, minNights: van.minNights, onChange: (s, e) => { state.start = s; state.end = e; cal.set(s, e); drawCard(); } });
     if (refocus) card.querySelector('#bc-dates .drf-btn').focus();

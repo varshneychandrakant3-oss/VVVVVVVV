@@ -132,6 +132,13 @@ const JOURNEYS = {
     const quote = App.quote(van, s, e).total;
     const cardTotal = T.rupees((card.innerText.match(/₹[\d,]+(?=\s*total)/i) || [''])[0]);
     T.assert(cardTotal === quote, 'Card total ' + cardTotal + ' ≠ quote ' + quote);
+    // Price breakdown drawer from the card: same total, weekday/weekend split, deposit apart
+    card.querySelector('[data-price-van]').click();
+    await T.until(() => T.$('.modal'), 3000, 'price breakdown');
+    const drawer = T.text('.modal');
+    T.assert(T.rupees((drawer.match(/Total\s*₹[\d,]+/) || [''])[0]) === quote, 'Drawer total differs from the card');
+    T.assert(/weeknight|weekend night/.test(drawer) && /Refundable security deposit/.test(drawer) && /km/.test(drawer), 'Drawer is missing lines');
+    T.$('.modal [data-close]').click(); await T.wait(200);
     await T.go('#/vans/' + van.id + '?start=' + s + '&end=' + e); T.noOverflow();
     const vanTotal = T.rupees((T.text('#booking-card').match(/Total\s*₹[\d,]+/) || [''])[0]);
     T.assert(vanTotal === quote, 'Van page total ' + vanTotal + ' ≠ quote ' + quote);

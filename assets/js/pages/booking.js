@@ -4,16 +4,8 @@
 (() => {
 const { h, money, photo, fmtDate } = App;
 
-App.priceLines = (p, { deposit = true } = {}) => h`<dl class="price-lines">
-  <div><dt>${money(p.avgNight)} × ${App.plural(p.nights, 'night')}</dt><dd>${money(p.base)}</dd></div>
-  ${p.discount ? h`<div class="good"><dt>${p.discountPct}% long-stay discount</dt><dd>−${money(p.discount)}</dd></div>` : ''}
-  ${p.addOns ? h`<div><dt>Extras</dt><dd>${money(p.addOns)}</dd></div>` : ''}
-  <div><dt>Cleaning fee</dt><dd>${money(p.cleaning)}</dd></div>
-  <div><dt>Service fee</dt><dd>${money(p.service)}</dd></div>
-  <div><dt>${App.C.taxLabel} (${Math.round(App.C.taxRate * 100)}%)</dt><dd>${money(p.tax)}</dd></div>
-  <div class="total"><dt>Total</dt><dd>${money(p.total)}</dd></div>
-  ${deposit ? h`<div class="muted"><dt>Security deposit — held, not charged</dt><dd>${money(p.deposit)}</dd></div>` : ''}
-</dl>`;
+// Price lines and the breakdown drawer live in ui.js (App.priceLines, App.priceDrawer)
+
 
 App.pages.book = (el, { id }, q) => {
   const van = App.get.van(id);
@@ -48,6 +40,7 @@ App.pages.book = (el, { id }, q) => {
             <div><dt>Cancellation</dt><dd>${App.CANCELLATION_POLICIES[van.cancellation].label}: ${App.CANCELLATION_POLICIES[van.cancellation].summary}</dd></div>
           </dl>
           ${App.priceLines(qte)}
+          <button type="button" class="link small" data-price-van="${van.id}" data-start="${s.start}" data-end="${s.end}" data-addons="${s.addOns.join(',')}">See full price breakdown</button>
           <p class="small muted">🔒 Payments are processed by a PCI-DSS compliant gateway. VanYatra never sees or stores your full card number.</p>
         </aside>
       </div>

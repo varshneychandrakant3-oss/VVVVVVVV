@@ -861,6 +861,9 @@ button, a, label, select { touch-action: manipulation; }
 .nf-links { display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 8px 16px; }
 
 /* Date-range field + picker (assets/js/daterange.js) */
+.price-link { align-self: flex-start; padding: 0; text-align: left; }
+.price-notes { margin-top: 16px; }
+.price-notes li { margin: 0 0 8px; }
 .drf { min-width: 0; }
 .drf-btn { display: flex; align-items: center; gap: 8px; width: 100%; min-height: 48px; padding: 8px 12px; border: 1.5px solid var(--line); border-radius: var(--radius-sm); background: var(--surface); color: var(--ink); font: inherit; text-align: left; cursor: pointer; flex-wrap: wrap; }
 .drf-btn:hover { border-color: var(--primary); }
