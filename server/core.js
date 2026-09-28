@@ -7,6 +7,7 @@ import { ROOT } from './config.js';
 
 const FILES = [
   'assets/js/config.js',
+  'assets/js/core/format.js',
   'assets/js/core/validate.js',
   'assets/js/core/sandbox.js',
   'assets/js/core/verify-rules.js',

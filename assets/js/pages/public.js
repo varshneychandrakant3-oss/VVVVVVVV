@@ -170,7 +170,7 @@ App.pages.destination = (el, { id }) => {
     <div>
       <section class="facts">
         <div class="fact"><span class="muted small">Best time to visit</span><strong>${d.bestTime}</strong>
-          <div class="months" aria-label="Best months">${monthNames.map((m, i) => h`<span class="${d.bestMonths.includes(i + 1) ? 'on' : ''}" title="${new Date(2000, i).toLocaleString('en', { month: 'long' })}">${m}</span>`)}</div></div>
+          <div class="months" aria-label="Best months">${monthNames.map((m, i) => h`<span class="${d.bestMonths.includes(i + 1) ? 'on' : ''}" title="${App.fmt.MONTHS_LONG[i]}">${m}</span>`)}</div></div>
         <div class="fact"><span class="muted small">Family suitability</span><strong>${'★'.repeat(d.familyScore)}${'☆'.repeat(5 - d.familyScore)} <span class="sr-only">${d.familyScore} of 5</span></strong><p class="small">${d.familyNotes}</p></div>
       </section>
       <section class="block"><h2>Highlights</h2><ul class="ticks">${d.highlights.map(x => h`<li>${x}</li>`)}</ul></section>

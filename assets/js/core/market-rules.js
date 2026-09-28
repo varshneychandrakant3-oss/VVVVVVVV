@@ -43,7 +43,7 @@
    *   useProfileLicence — a verified licence on file covers the trip, so no check at booking
    *   blockers / notes — what to tell the traveller */
   core.TRAVELLER_VISAS = ['e-Tourist Visa', 'Tourist Visa', 'OCI card', 'Nepal / Bhutan citizen'];
-  const fmt = (iso) => new Date(iso + 'T00:00:00Z').toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric', timeZone: 'UTC' });
+  const fmt = (iso) => App.fmt.date(iso);
   core.travellerEligibility = (t, tripEnd) => {
     const id = t?.identity || { status: 'not_started' }, lic = t?.licence || { status: 'not_started' };
     const blockers = [], notes = [];

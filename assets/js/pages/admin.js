@@ -3,7 +3,7 @@
  */
 (() => {
 const { h, money, photo, fmtDate } = App;
-const compact = (v) => v >= 100000 ? '₹' + (v / 100000).toFixed(1) + 'L' : v >= 1000 ? '₹' + Math.round(v / 1000) + 'k' : '₹' + v;
+const compact = App.fmt.moneyCompact;
 
 App.pages.admin = (el, { tab = 'overview', id }) => {
   const db = App.db;

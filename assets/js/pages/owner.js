@@ -20,11 +20,11 @@ App.monthly = (items, dateKey, valFn, months = 6) => {
   for (let i = months - 1; i >= 0; i--) {
     const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
     const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
-    out.push({ label: d.toLocaleDateString('en', { month: 'short' }), value: items.filter(x => String(x[dateKey]).startsWith(key)).reduce((s, x) => s + valFn(x), 0) });
+    out.push({ label: App.fmt.MONTHS[d.getMonth()], value: items.filter(x => String(x[dateKey]).startsWith(key)).reduce((s, x) => s + valFn(x), 0) });
   }
   return out;
 };
-const compact = (v) => v >= 100000 ? '₹' + (v / 100000).toFixed(1) + 'L' : v >= 1000 ? '₹' + Math.round(v / 1000) + 'k' : '₹' + v;
+const compact = App.fmt.moneyCompact;
 
 App.pages.owner = (el, { tab = 'overview', id }) => {
   const me = App.me();
@@ -351,7 +351,7 @@ const analytics = (m, { vans, vanIds, bookings }) => {
     </div>
     <section class="card"><h2>Bookings per month</h2>${App.barChart(App.monthly(completed, 'start', () => 1), { label: 'Bookings per month' })}</section>
     <section class="card"><h2>Listing performance</h2><div class="table-wrap"><table class="table"><thead><tr><th>Van</th><th class="num">Views</th><th class="num">Bookings (90d)</th><th class="num">Conversion</th><th class="num">Occupancy</th><th class="num">Revenue (90d)</th><th class="num">Rating</th></tr></thead><tbody>
-      ${rows.map(r => h`<tr><td><a href="#/owner/vans/${r.v.id}">${r.v.name}</a></td><td class="num">${r.views.toLocaleString()}</td><td class="num">${r.bookings}</td><td class="num">${(r.conv * 100).toFixed(1)}%</td><td class="num">${Math.round(r.occ * 100)}%</td><td class="num">${money(r.revenue)}</td><td class="num">${r.rating ? r.rating.toFixed(1) : '—'}</td></tr>`)}
+      ${rows.map(r => h`<tr><td><a href="#/owner/vans/${r.v.id}">${r.v.name}</a></td><td class="num">${App.fmt.number(r.views)}</td><td class="num">${r.bookings}</td><td class="num">${(r.conv * 100).toFixed(1)}%</td><td class="num">${Math.round(r.occ * 100)}%</td><td class="num">${money(r.revenue)}</td><td class="num">${r.rating ? r.rating.toFixed(1) : '—'}</td></tr>`)}
     </tbody></table></div>
     <p class="small muted">Tip: vans with instant book and 8+ photos convert about twice as often.</p></section>`);
 };

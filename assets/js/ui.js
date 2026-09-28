@@ -21,11 +21,11 @@ const renderVal = (v) => {
 App.h = (strings, ...vals) => new SafeHTML(strings.reduce((acc, s, i) => acc + s + (i < vals.length ? renderVal(vals[i]) : ''), ''));
 
 /* ---------- Formatting ---------- */
-const moneyFmt = new Intl.NumberFormat(App.C.locale, { style: 'currency', currency: App.C.currency, maximumFractionDigits: 0 });
-App.money = (n) => moneyFmt.format(Math.round(n || 0));
-App.fmtDate = (s, opts = { day: 'numeric', month: 'short', year: 'numeric' }) => s ? App.parseDate(String(s).slice(0, 10)).toLocaleDateString(App.C.locale, opts) : '';
-App.fmtShort = (s) => App.fmtDate(s, { day: 'numeric', month: 'short' });
-App.fmtDateTime = (s) => new Date(s).toLocaleString(App.C.locale, { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' });
+// All formatting lives in assets/js/core/format.js (App.fmt); these are shorthands
+App.money = App.fmt.money;
+App.fmtDate = (s) => App.fmt.date(s);
+App.fmtShort = (s) => App.fmt.date(s, { year: false });
+App.fmtDateTime = App.fmt.dateTime;
 App.timeAgo = (s) => {
   const m = Math.round((Date.now() - new Date(s)) / 60000);
   if (m < 1) return 'just now';
@@ -33,7 +33,7 @@ App.timeAgo = (s) => {
   if (m < 1440) return Math.round(m / 60) + ' h ago';
   return Math.round(m / 1440) + ' d ago';
 };
-App.plural = (n, w) => `${n} ${w}${n === 1 ? '' : 's'}`;
+App.plural = (n, w) => App.fmt.plural(n, w);
 App.photo = (src, w = 800) => !src ? '' : src.startsWith('photo-') ? `https://images.unsplash.com/${src}?auto=format&fit=crop&w=${w}&q=70` : src;
 App.initials = (name) => name.split(/\s+/).map(p => p[0]).slice(0, 2).join('').toUpperCase();
 
@@ -189,7 +189,7 @@ App.calendar = (el, { vanId, start, end, months = 2, mode = 'select', onChange, 
     let out = '';
     for (let m = 0; m < months; m++) {
       const first = new Date(monthStart.getFullYear(), monthStart.getMonth() + state.offset + m, 1);
-      const label = first.toLocaleDateString(App.C.locale, { month: 'long', year: 'numeric' });
+      const label = App.fmt.monthYear(first.getFullYear(), first.getMonth() + 1);
       const pad = (first.getDay() + 6) % 7; // Monday first
       const daysIn = new Date(first.getFullYear(), first.getMonth() + 1, 0).getDate();
       let cells = '<span></span>'.repeat(pad);
