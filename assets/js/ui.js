@@ -35,6 +35,22 @@ App.timeAgo = (s) => {
   return Math.round(m / 1440) + ' d ago';
 };
 App.plural = (n, w) => App.fmt.plural(n, w);
+/* Responsive, lazy images. Sample photos come from Unsplash's image CDN, which serves
+ * WebP/AVIF automatically (auto=format); a tiny blurred copy shows while the real
+ * one loads. Owner uploads are already-resized JPEGs and are used as they are. */
+const unsplash = (src, w, extra = '') => `https://images.unsplash.com/${src}?auto=format&fit=crop&w=${w}&q=70${extra}`;
+App.img = (src, { w = 640, sizes = '(min-width: 900px) 33vw, 100vw', alt = '', cls = '', eager = false, width, height } = {}) => {
+  if (!src) return '';
+  const dims = width ? App.h` width="${width}" height="${height}"` : '';
+  if (!src.startsWith('photo-')) return App.h`<img class="${cls}" src="${src}" alt="${alt}"${dims} ${eager ? '' : App.h`loading="lazy"`} decoding="async">`;
+  const widths = [320, 480, 640, 960, 1280, 1600].filter(x => x <= w * 2);
+  const srcset = widths.map(x => `${unsplash(src, x)} ${x}w`).join(', ');
+  return App.h`<img class="blur-up ${cls}" src="${unsplash(src, w)}" srcset="${srcset}" sizes="${sizes}" alt="${alt}"${dims} ${eager ? App.h`fetchpriority="high"` : App.h`loading="lazy"`} decoding="async" style="background-image:url('${unsplash(src, 24, '&q=20&blur=30')}')">`;
+};
+// Demo listings use sample photos; owner uploads are data URLs until object storage is connected
+App.samplePhotos = (van) => (van.photos || []).every(p => p.startsWith('photo-'));
+App.realPhotosBadge = (van) => van.photosVerifiedAt ? App.h`<span class="real-photos" title="Our team checked these photos show this van">${App.icon('camera')} Real photos verified</span>` : '';
+
 App.photo = (src, w = 800) => !src ? '' : src.startsWith('photo-') ? `https://images.unsplash.com/${src}?auto=format&fit=crop&w=${w}&q=70` : src;
 App.initials = (name) => App.fmt.initial(name);
 
@@ -82,7 +98,7 @@ App.vanCard = (van, opts = {}) => {
   return App.h`
   <article class="van-card" data-van="${van.id}">
     <a href="${link}" class="van-card-media">
-      <img src="${App.photo(van.photos[0], 640)}" alt="${van.name} — ${van.type}" loading="lazy" width="640" height="440">
+      ${App.img(van.photos[0], { w: 640, alt: `${van.name} — ${van.type}`, width: 640, height: 440, sizes: '(min-width: 1100px) 360px, (min-width: 700px) 50vw, 100vw' })}
       ${van.instantBook ? App.h`<span class="tag tag-instant">${App.icon('zap')} Instant book</span>` : ''}
       ${van.familyFriendly ? App.h`<span class="tag tag-family">Family friendly</span>` : ''}
     </a>
@@ -93,7 +109,7 @@ App.vanCard = (van, opts = {}) => {
       <div class="row-between"><span class="eyebrow">${van.type} · ${van.pickup.city}</span>${App.vanRating(van)}</div>
       <h3><a href="${link}">${van.name}</a></h3>
       <p class="meta">Sleeps ${van.sleeps} · ${van.seats} seats · ${van.transmission} · ${dest ? dest.name : ''}</p>
-      ${App.verifiedBadge(van.ownerId)}
+      <div class="card-badges">${App.verifiedBadge(van.ownerId)}${App.realPhotosBadge(van)}</div>
       <div class="van-card-price">
         ${q ? App.h`<span><strong>${App.money(q.total)}</strong> total</span><span class="muted">${App.fmt.nights(q.nights)} · incl. fees &amp; GST</span><button type="button" class="link small price-link" data-price-van="${van.id}" data-start="${opts.start}" data-end="${opts.end}">Price details</button>`
             : App.h`<span><strong>${App.money(van.pricePerNight)}</strong> <span class="muted">/ night</span></span>`}

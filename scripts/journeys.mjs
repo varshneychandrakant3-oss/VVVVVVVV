@@ -245,6 +245,19 @@ const JOURNEYS = {
     const vanId = T.$('#cal-van').value;
     T.assert(App.get.van(vanId).blocked.some(b => b.start === s), 'Blocked dates not saved');
     T.assert(!App.isAvailable(vanId, s, e), 'Blocked dates still bookable');
+    // Photo guide: slots for each shot, 5 photos with an outside shot needed
+    await T.go('#/owner/onboarding?van=' + vanId + '&step=8');
+    await T.until(() => T.$('.shot-grid'), 6000, 'photo guide');
+    T.assert(T.$$('.shot').length === 6, 'Photo guide should list 6 shots');
+    T.$$('[data-del-shot]').forEach(b => b.click()); await T.wait(150);
+    while (T.$('[data-del]')) { T.$('[data-del]').click(); await T.wait(60); }
+    T.$('#ph-save').click(); await T.wait(300);
+    T.assert(/outside of the van/i.test(T.$$('.toast').map(t => t.innerText).join(' ')), 'Saving with no photos was not refused');
+    T.$('#sample').click(); await T.wait(200);
+    T.assert(T.$('.photo-progress.ok'), 'Progress not complete with 5 photos incl. outside');
+    T.$('#ph-save').click();
+    await T.until(() => /step=9/.test(location.hash), 6000, 'photos step save');
+    T.assert(App.get.van(vanId).photoLabels[0] === 'exterior' && App.get.van(vanId).photos.length === 5, 'Photo tags not saved');
     await T.go('#/owner/onboarding?van=' + vanId + '&step=9');
     await T.until(() => T.$('#ls-save'), 6000, 'listing step'); T.$('#ls-save').click();
     await T.until(() => /step=10/.test(location.hash), 6000, 'listing step save');

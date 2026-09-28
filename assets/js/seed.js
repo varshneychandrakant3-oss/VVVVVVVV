@@ -345,6 +345,8 @@ App.buildSeed = function () {
       rules: ['No smoking inside the van', amenities.includes('pets') ? 'Pets welcome (max 2), cleaning fee applies' : 'No pets', 'Minimum driver age ' + App.C.minDriverAge + ' with 2+ years of licence', 'Return with the same fuel level', 'No off-road driving unless 4x4', 'Quiet hours at campsites 10 pm – 7 am'],
       description: descs[type],
       photos,
+      // Demo listings use sample photos; the first is the outside of the van
+      photoLabels: photos.map((_, i) => (i === 0 ? 'exterior' : 'other')),
       blocked: [{ start: d(35 + i * 9), end: d(37 + i * 9), note: 'Service' }],
       status: published ? 'published' : 'in_review',
       verification: published

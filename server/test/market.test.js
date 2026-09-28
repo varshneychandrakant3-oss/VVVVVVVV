@@ -77,7 +77,15 @@ test('a van can only go live after the server has verified every step', async ()
   // Content
   const photos = ['photo-1584198775168-cd76729ac207', 'photo-1773123441753-e87f821ec76d', 'photo-1645099815537-cea03d831528', 'photo-1558724065-2f80d1ae6002'];
   assert.equal((await owner.patch(`/api/owner/vans/${van.id}`, { photos: ['<script>'] })).status, 400);
+  // Four photos, or five without the outside of the van, aren't enough
+  const four = await owner.patch(`/api/owner/vans/${van.id}`, { photos, photoLabels: ['exterior', 'bed', 'kitchen', 'dashboard'], beds: '1 double' });
+  assert.notEqual(four.json.van.verification.photos, 'verified');
+  photos.push('photo-1773762159864-59966f6f82c7');
+  const noOutside = await owner.patch(`/api/owner/vans/${van.id}`, { photos, photoLabels: ['bed', 'kitchen', 'dashboard', 'storage', 'other'] });
+  assert.notEqual(noOutside.json.van.verification.photos, 'verified');
+  assert.deepEqual(noOutside.json.van.photoLabels, ['bed', 'kitchen', 'dashboard', 'storage', 'other']);
   const upd = await owner.patch(`/api/owner/vans/${van.id}`, {
+    photoLabels: ['exterior', 'bed', 'kitchen', 'dashboard', 'nonsense'],
     name: 'Kangra Camper', description: 'A comfortable camper for the Kangra valley with a full kitchen, solar power and a proper bed.',
     destinationId: 'himachal', photos, beds: '1 double + 2 bunks', pricePerNight: 6000, deposit: 15000,
     pickup: { city: 'Dharamshala', address: 'Van base, McLeod Ganj', time: '11:00', returnTime: '10:00', lat: 32.2, lng: 76.3 }

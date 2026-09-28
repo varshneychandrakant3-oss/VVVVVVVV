@@ -20,6 +20,11 @@
   const OWNER_STEPS = ['account', 'kyc', 'business', 'payout'];
   const VAN_TYPES = ['Campervan', 'Motorhome', 'Pop-top', '4x4 Overlander', 'Caravan'];
   const AMENITY_IDS = new Set(['kitchen', 'fridge', 'shower', 'toilet', 'ac', 'heater', 'solar', 'inverter', 'wifi', 'awning', 'bikerack', 'childseat', 'pets', 'gps', 'campingchairs', 'watertank']);
+  // Shots owners are guided to take (see the photo guide in onboarding)
+  const PHOTO_SHOTS = ['exterior', 'bed', 'kitchen', 'bathroom', 'dashboard', 'storage', 'other'];
+  core.PHOTO_SHOTS = PHOTO_SHOTS;
+  // Photos are complete when there are enough, including the outside of the van
+  core.photosComplete = (van, C) => (van.photos || []).length >= (C.minPhotos || 5) && (van.photoLabels || []).includes('exterior');
   const PHOTO_RE = /^(photo-[0-9]{10,16}-[0-9a-f]{6,16}|data:image\/jpeg;base64,[A-Za-z0-9+/=]+)$/;
   const DOC_TYPES = {
     rent_cab_licence: 'Rent-a-Motor-Cab / self-drive rental licence', fitness: 'Fitness certificate (commercial vehicle)',
@@ -347,11 +352,15 @@
         if (photos.length > 12) throw bad(400, 'Up to 12 photos.');
         if (!photos.every(p => typeof p === 'string' && p.length < 600000 && PHOTO_RE.test(p))) throw bad(400, 'Photos must be JPEG images.');
         set.photos = photos;
+        const labels = [].concat(body.photoLabels || []).slice(0, photos.length);
+        set.photoLabels = photos.map((_, i) => (PHOTO_SHOTS.includes(labels[i]) ? labels[i] : 'other'));
+        // New photos need a fresh check by the team
+        if (JSON.stringify(photos) !== JSON.stringify(van.photos)) delete van.photosVerifiedAt;
       }
       Object.assign(van, set);
       van.petFriendly = (van.amenities || []).includes('pets');
       // Content steps are complete when the required fields are filled in
-      if (van.photos.length >= 4 && van.beds && van.sleeps && van.seats) van.verification.photos = 'verified';
+      if (core.photosComplete(van, C) && van.beds && van.sleeps && van.seats) van.verification.photos = 'verified';
       else if ('photos' in body) van.verification.photos = 'action_required';
       if (van.name && van.description.length >= 60 && van.destinationId && van.pickup.city && van.pickup.address && van.pricePerNight) van.verification.listing = 'verified';
       io.persist();
@@ -431,6 +440,8 @@
         const notVerified = STEP_IDS.slice(0, 10).filter(k => steps[k] !== 'verified');
         if (notVerified.length) throw bad(400, 'Verify these steps before approving: ' + notVerified.join(', '));
         van.verification.review = 'verified'; van.status = 'draft'; van.approvedAt = io.now();
+        // Approving a listing includes checking its photos show this vehicle (owner uploads only)
+        if ((van.photos || []).some(p => p.startsWith('data:'))) van.photosVerifiedAt = io.now();
         notify(van.ownerId, `${van.name} is approved! Publish it from your dashboard to go live.`, `#/owner/onboarding?van=${van.id}&step=12`);
       } else {
         if (!str(note)) throw bad(400, 'Tell the owner what to change.');

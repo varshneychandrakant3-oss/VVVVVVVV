@@ -924,3 +924,29 @@ button, a, label, select { touch-action: manipulation; }
 .dash-nav a .ic { color: currentColor; opacity: .85; }
 .map-pin .ic { width: 14px; height: 14px; vertical-align: -2px; }
 .tag .ic { width: 13px; height: 13px; vertical-align: -2px; }
+
+/* Photos: guide, badges, blur-up */
+.blur-up { background-size: cover; background-position: center; background-color: var(--surface-2); }
+.card-badges { display: flex; flex-wrap: wrap; gap: 4px 12px; align-items: center; }
+.real-photos { display: inline-flex; align-items: center; gap: 4px; font-size: .82rem; font-weight: 650; color: var(--good); }
+.g-note { position: absolute; left: 12px; top: 12px; padding: 4px 10px; border-radius: 999px; background: rgba(255, 255, 255, .92); color: #1d2a24; font-size: .75rem; font-weight: 650; display: inline-flex; align-items: center; gap: 4px; }
+.g-note.ok { color: #1a7348; }
+.photo-progress { display: grid; gap: 6px; padding: 12px 14px; border-radius: var(--radius-sm); background: var(--warn-bg); margin: 12px 0 16px; }
+.photo-progress.ok { background: var(--good-bg); }
+.photo-progress .bar-track { display: block; height: 6px; border-radius: 3px; background: rgba(0, 0, 0, .08); overflow: hidden; }
+.photo-progress .bar-track span { display: block; height: 100%; background: var(--primary); }
+.shot-grid { display: grid; gap: 12px; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); margin-bottom: 20px; }
+.shot { border: 1.5px dashed var(--line); border-radius: var(--radius-sm); overflow: hidden; display: flex; flex-direction: column; background: var(--surface); }
+.shot.done { border-style: solid; }
+.shot-media { position: relative; aspect-ratio: 4 / 3; background: var(--surface-2); display: grid; place-items: center; }
+.shot-media img { width: 100%; height: 100%; object-fit: cover; }
+.shot-ph { color: var(--muted); }
+.shot-del { position: absolute; right: 6px; top: 6px; width: 32px; height: 32px; background: rgba(255, 255, 255, .92); color: #1d2a24; }
+.shot-body { padding: 10px 12px 12px; display: flex; flex-direction: column; gap: 6px; align-items: flex-start; }
+.shot-body p { margin: 0; }
+.pm-tag { position: absolute; left: 4px; right: 4px; bottom: 4px; }
+.pm-tag select { width: 100%; font-size: .8rem; padding: 4px 6px; border-radius: 8px; border: 0; background: rgba(255, 255, 255, .94); color: #1d2a24; }
+.review-photos { display: grid; gap: 6px; grid-template-columns: repeat(auto-fill, minmax(96px, 1fr)); margin: 12px 0 4px; }
+.review-photos figure { margin: 0; }
+.review-photos img { width: 100%; aspect-ratio: 4 / 3; object-fit: cover; border-radius: 8px; }
+.review-photos figcaption { font-size: .72rem; color: var(--muted); }

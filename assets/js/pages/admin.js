@@ -116,6 +116,8 @@ const listings = (m) => {
       return h`<article class="card review-item">
         <div class="ri-head"><img src="${photo(v.photos[0], 300)}" alt=""><div><h3>${v.name}</h3><p class="small muted">${v.type} · ${v.pickup.city} · ${money(v.pricePerNight)}/night · by ${owner.name}${v.submittedAt ? ' · submitted ' + App.timeAgo(v.submittedAt) : ''}</p><a class="link" href="#/vans/${v.id}" target="_blank">Preview listing ${App.icon('share')}</a></div></div>
         <ul class="check-grid">${steps.map(([s, st]) => h`<li>${App.statusBadge(st)} ${s.title}</li>`)}</ul>
+        <div class="review-photos" aria-label="Listing photos">${v.photos.map((p, i) => h`<figure><img src="${photo(p, 240)}" alt="" loading="lazy"><figcaption>${App.PHOTO_GUIDE.find(g => g.id === v.photoLabels?.[i])?.label || 'Other'}</figcaption></figure>`)}</div>
+        <p class="small muted">Check the photos show this vehicle (compare with the registration number and the inspection report) and aren’t stock or brochure images. Approving marks them as <strong>real photos verified</strong>.</p>
         <div class="row gap wrap">
           <button class="btn btn-primary" data-approve="${v.id}" ${ready ? '' : 'disabled'} title="${ready ? '' : 'All steps must be verified first'}">Approve listing</button>
           <button class="btn btn-ghost" data-changes="${v.id}">Request changes</button>
@@ -134,7 +136,7 @@ const listings = (m) => {
     catch (e) { App.toast(e.message, 'bad'); }
   };
   m.querySelectorAll('[data-approve]').forEach(b => b.onclick = async () => {
-    if (!(await App.confirm('Approve listing?', 'The owner will be notified and can publish immediately.', 'Approve'))) return;
+    if (!(await App.confirm('Approve listing?', 'You’ve checked the documents and that the photos show this van. The owner will be notified and can publish immediately.', 'Approve'))) return;
     act(`/api/admin/vans/${b.dataset.approve}/review`, { approve: true }, 'Listing approved');
   });
   m.querySelectorAll('[data-changes]').forEach(b => b.onclick = async () => {

@@ -27,6 +27,8 @@ App.COUNTRY_PROFILES = {
     minDriverAge: 21,
     // Below this many reviews a van shows "New on VanYatra" and its host's rating instead
     minReviewsForRating: 3,
+    // Listing photos: at least this many, and one must be the outside of the van
+    minPhotos: 5,
     depositReleaseDays: 7,
     expiryWarningDays: 30,
     supportPhone: '1800-120-4455',
@@ -108,6 +110,16 @@ App.CANCELLATION_POLICIES = {
 };
 
 App.VAN_TYPES = ['Campervan', 'Motorhome', 'Pop-top', '4x4 Overlander', 'Caravan'];
+
+// Photo guide for owners (ids match App.core.PHOTO_SHOTS)
+App.PHOTO_GUIDE = [
+  { id: 'exterior', label: 'Outside of the van', icon: 'caravan', required: true, tip: 'Full side view in daylight, like a showroom photo. This is your cover photo.' },
+  { id: 'bed', label: 'Bed made up', icon: 'bed-double', tip: 'Beds made with the sheets guests get, so families can see how everyone sleeps.' },
+  { id: 'kitchen', label: 'Kitchen', icon: 'cooking-pot', tip: 'Stove, sink and fridge, with the cookware and utensils you provide.' },
+  { id: 'bathroom', label: 'Toilet or shower', icon: 'shower-head', optional: true, tip: 'Show it clean and lit. Skip this if your van has none.' },
+  { id: 'dashboard', label: 'Driver’s seat & dashboard', icon: 'gauge', tip: 'Shows the gearbox, screen and reversing camera, which nervous drivers look for.' },
+  { id: 'storage', label: 'Storage', icon: 'luggage', tip: 'Cupboards and boot space open, so travellers can plan their luggage.' }
+];
 
 App.AMENITIES = [
   { id: 'kitchen', label: 'Kitchenette', icon: '🍳' },

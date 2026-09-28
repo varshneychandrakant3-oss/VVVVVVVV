@@ -4,6 +4,9 @@
 (() => {
 const { h, money, photo, fmtDate } = App;
 
+// What a van photo shows, from the owner's tags (photo guide)
+const photoCaption = (van, i) => App.PHOTO_GUIDE.find(g => g.id === van.photoLabels?.[i])?.label || `Photo ${i + 1}`;
+
 const publishedVans = () => App.db.vans.filter(v => v.status === 'published');
 
 /* Shared search form used on home and destination pages */
@@ -393,9 +396,10 @@ App.pages.van = (el, { id }, q) => {
     </div>
     <div class="gallery-wrap">
       <div class="gallery" id="gallery">
-        ${van.photos.map((p, i) => h`<button class="g-item g-${i} ${i > 4 ? 'g-extra' : ''}" data-photo="${i}" aria-label="Open photo ${i + 1} of ${van.photos.length}"><img src="${photo(p, i === 0 ? 1200 : 700)}" alt="${van.name} photo ${i + 1}" ${i ? h`loading="lazy"` : ''}></button>`)}
+        ${van.photos.map((p, i) => h`<button class="g-item g-${i} ${i > 4 ? 'g-extra' : ''}" data-photo="${i}" aria-label="Open photo ${i + 1} of ${van.photos.length}: ${photoCaption(van, i)}">${App.img(p, { w: i === 0 ? 1200 : 700, alt: `${van.name}: ${photoCaption(van, i)}`, eager: i === 0, sizes: i === 0 ? '(min-width: 900px) 50vw, 100vw' : '(min-width: 900px) 25vw, 100vw' })}</button>`)}
       </div>
       <span class="g-count only-mobile" id="g-count" aria-hidden="true">1 / ${van.photos.length}</span>
+      ${App.samplePhotos(van) ? h`<span class="g-note">Sample photos · demo listing</span>` : App.realPhotosBadge(van) ? h`<span class="g-note ok">${App.icon('camera')} Real photos verified</span>` : ''}
       <button class="btn btn-sm g-all" data-photo="0">▦ Show all ${van.photos.length} photos</button>
     </div>
 
@@ -531,7 +535,7 @@ const openLightbox = (van, start) => {
     title: `${van.name} · photos`, wide: true,
     body: h`<div class="lightbox"><img id="lb-img" src="${photo(van.photos[i], 1400)}" alt=""><div class="lb-nav"><button class="btn" id="lb-prev" aria-label="Previous photo">‹ Prev</button><span id="lb-count"></span><button class="btn" id="lb-next" aria-label="Next photo">Next ›</button></div></div>`,
     onMount: (m) => {
-      const show = () => { m.querySelector('#lb-img').src = photo(van.photos[i], 1400); m.querySelector('#lb-img').alt = `${van.name} photo ${i + 1}`; m.querySelector('#lb-count').textContent = `${i + 1} / ${van.photos.length}`; };
+      const show = () => { m.querySelector('#lb-img').src = photo(van.photos[i], 1400); m.querySelector('#lb-img').alt = `${van.name}: ${photoCaption(van, i)}`; m.querySelector('#lb-count').textContent = `${i + 1} / ${van.photos.length} · ${photoCaption(van, i)}`; };
       m.querySelector('#lb-prev').onclick = () => { i = (i - 1 + van.photos.length) % van.photos.length; show(); };
       m.querySelector('#lb-next').onclick = () => { i = (i + 1) % van.photos.length; show(); };
       m.addEventListener('keydown', (e) => { if (e.key === 'ArrowLeft') m.querySelector('#lb-prev').click(); if (e.key === 'ArrowRight') m.querySelector('#lb-next').click(); });

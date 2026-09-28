@@ -374,11 +374,42 @@ const STEPS = {
   photos(c, ctx) {
     if (needVan(c, ctx)) return;
     const { van, next } = ctx;
-    const photos = [...van.photos];
+    // Each photo carries the shot it shows; untagged older photos count as "other"
+    let items = van.photos.map((src, i) => ({ src, label: van.photoLabels?.[i] || (i === 0 ? 'exterior' : 'other') }));
+    const order = (x) => { const i = App.PHOTO_GUIDE.findIndex(g => g.id === x.label); return i < 0 ? 99 : i; };
+    const sorted = () => [...items].sort((x, y) => order(x) - order(y));
+    const shot = (id) => items.find(x => x.label === id);
+    const add = async (files, label) => {
+      for (const file of files) {
+        if (items.length >= 12 && !(label !== 'other' && shot(label))) { App.toast('Up to 12 photos.', 'bad'); break; }
+        try {
+          const src = await App.readPhoto(file);
+          if (label !== 'other' && shot(label)) shot(label).src = src; else items.push({ src, label });
+        } catch (err) { App.toast(err.message, 'bad'); }
+        if (label !== 'other') break;
+      }
+      draw();
+    };
     const draw = () => {
-      c.innerHTML = String(h`<p>Add at least 4 bright, horizontal photos: outside, bed, kitchen and a view from the driver’s seat. First photo is the cover.</p>
-        <div class="photo-manager">${photos.map((p, i) => h`<figure><img src="${photo(p, 300)}" alt="Van photo ${i + 1}">${i === 0 ? h`<span class="tag tag-instant">Cover</span>` : ''}<div class="pm-actions">${i ? h`<button type="button" class="icon-btn" data-cover="${i}" aria-label="Make cover">★</button>` : ''}<button type="button" class="icon-btn" data-del="${i}" aria-label="Remove photo">✕</button></div></figure>`)}
-          <label class="pm-add"><input type="file" accept="image/jpeg,image/png,image/webp" multiple id="ph-in" class="sr-only"><span>＋ Add photos</span></label></div>
+      const min = App.C.minPhotos, have = items.length, hasOutside = !!shot('exterior');
+      c.innerHTML = String(h`
+        <p>Travellers book what they can see. Add at least <strong>${min} bright, landscape photos of this van</strong> — no stock or brochure images. The outside shot is your cover photo. Our team checks photos before the listing goes live.</p>
+        <div class="photo-progress ${have >= min && hasOutside ? 'ok' : ''}" role="status">
+          <div><strong>${Math.min(have, min)} of ${min} photos</strong> · ${hasOutside ? h`${App.icon('check')} outside shot added` : 'outside shot still needed'}</div>
+          <span class="bar-track"><span style="width:${Math.min(100, have / min * 100)}%"></span></span>
+        </div>
+        <div class="shot-grid">${App.PHOTO_GUIDE.map(g => { const x = shot(g.id); return h`
+          <div class="shot ${x ? 'done' : ''}">
+            <div class="shot-media">${x ? h`<img src="${photo(x.src, 400)}" alt="${g.label}">${g.id === 'exterior' ? h`<span class="tag tag-instant">Cover</span>` : ''}<button type="button" class="icon-btn shot-del" data-del-shot="${g.id}" aria-label="Remove ${g.label} photo">${App.icon('x')}</button>` : h`<span class="shot-ph">${App.icon(g.icon, { size: 28 })}</span>`}</div>
+            <div class="shot-body"><strong>${g.label}</strong>${g.required ? h` <span class="badge badge-warn">Required</span>` : g.optional ? h` <span class="muted small">if you have one</span>` : ''}
+              <p class="small muted">${g.tip}</p>
+              <label class="btn btn-sm ${x ? 'btn-ghost' : ''}"><input type="file" accept="image/jpeg,image/png,image/webp" class="sr-only" data-shot="${g.id}" aria-label="${x ? 'Replace' : 'Add'} ${g.label} photo">${x ? 'Replace' : h`${App.icon('camera')} Add photo`}</label>
+            </div>
+          </div>`; })}</div>
+        <h3>More photos <span class="muted small">(optional)</span></h3>
+        <div class="photo-manager">${items.map((x, i) => x.label === 'other' ? h`<figure><img src="${photo(x.src, 300)}" alt="Van photo"><div class="pm-actions"><button type="button" class="icon-btn" data-del="${i}" aria-label="Remove photo">${App.icon('x')}</button></div>
+            <label class="pm-tag"><span class="sr-only">What does this photo show?</span><select data-tag="${i}"><option value="other">Other view</option>${App.PHOTO_GUIDE.map(g => h`<option value="${g.id}">${g.label}</option>`)}</select></label></figure>` : '')}
+          <label class="pm-add"><input type="file" accept="image/jpeg,image/png,image/webp" multiple id="ph-in" class="sr-only"><span>${App.icon('plus')} Add photos</span></label></div>
         <button type="button" class="link small" id="sample">Use sample photos (demo)</button>
         <form id="f" novalidate><h3>Specifications</h3>
           <div class="grid-3">
@@ -393,24 +424,30 @@ const STEPS = {
           </div>
           <label class="field"><span>Sleeping arrangement</span><input name="beds" value="${van.beds}" placeholder="1 double + 2 bunks" required></label>
           <div class="form-actions"><button class="btn btn-primary" id="ph-save">Save & continue</button></div></form>`);
-      c.querySelector('#ph-in').onchange = async (e) => {
-        for (const file of e.target.files) {
-          if (photos.length >= 12) { App.toast('Up to 12 photos.', 'bad'); break; }
-          try { photos.push(await App.readPhoto(file)); } catch (err) { App.toast(err.message, 'bad'); }
-        }
+      c.querySelectorAll('[data-shot]').forEach(inp => inp.onchange = (e) => add(e.target.files, inp.dataset.shot));
+      c.querySelector('#ph-in').onchange = (e) => add(e.target.files, 'other');
+      c.querySelectorAll('[data-del-shot]').forEach(b => b.onclick = () => { items = items.filter(x => x.label !== b.dataset.delShot); draw(); });
+      c.querySelectorAll('[data-del]').forEach(b => b.onclick = () => { items.splice(+b.dataset.del, 1); draw(); });
+      // Re-tagging an extra photo as a guided shot replaces any photo already in that slot
+      c.querySelectorAll('[data-tag]').forEach(sel => sel.onchange = () => {
+        const x = items[+sel.dataset.tag];
+        if (sel.value !== 'other') items = items.filter(y => y === x || y.label !== sel.value);
+        x.label = sel.value; draw();
+      });
+      c.querySelector('#sample').onclick = () => {
+        items = [['photo-1584198775168-cd76729ac207', 'exterior'], ['photo-1773123441753-e87f821ec76d', 'bed'], ['photo-1645099815537-cea03d831528', 'kitchen'], ['photo-1558724065-2f80d1ae6002', 'dashboard'], ['photo-1773762159864-59966f6f82c7', 'storage']].map(([src, label]) => ({ src, label }));
         draw();
       };
-      c.querySelector('#sample').onclick = () => { photos.splice(0, photos.length, 'photo-1584198775168-cd76729ac207', 'photo-1773123441753-e87f821ec76d', 'photo-1645099815537-cea03d831528', 'photo-1558724065-2f80d1ae6002'); draw(); };
-      c.querySelectorAll('[data-del]').forEach(b => b.onclick = () => { photos.splice(+b.dataset.del, 1); draw(); });
-      c.querySelectorAll('[data-cover]').forEach(b => b.onclick = () => { const [p] = photos.splice(+b.dataset.cover, 1); photos.unshift(p); draw(); });
       const f = c.querySelector('#f');
       f.onsubmit = (e) => {
         e.preventDefault();
         if (!f.checkValidity()) return f.reportValidity();
-        if (photos.length < 4) return App.toast('Please add at least 4 photos.', 'bad');
+        if (!shot('exterior')) return App.toast('Add a photo of the outside of the van — it’s your cover photo.', 'bad');
+        if (items.length < App.C.minPhotos) return App.toast(`Please add at least ${App.C.minPhotos} photos (you have ${items.length}).`, 'bad');
         const d = App.formData(f);
+        const list = sorted();
         busy(c.querySelector('#ph-save'), async () => {
-          await patchVan(van, { photos, type: d.type, sleeps: +d.sleeps, seats: +d.seats, transmission: d.transmission, fuel: d.fuel, mileage: d.mileage, length: d.length, licence: d.licence, beds: d.beds });
+          await patchVan(van, { photos: list.map(x => x.src), photoLabels: list.map(x => x.label), type: d.type, sleeps: +d.sleeps, seats: +d.seats, transmission: d.transmission, fuel: d.fuel, mileage: d.mileage, length: d.length, licence: d.licence, beds: d.beds });
           App.toast('Photos & specs saved', 'good'); next();
         });
       };
