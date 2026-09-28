@@ -23,7 +23,8 @@ const DEMO = [
   ['u_cust2', 'Arjun Rao', 'arjun@example.com', 'customer'],
   ['u_cust3', 'Neha & Vikram Joshi', 'joshis@example.com', 'customer'],
   ['u_cust4', 'Sam Fernandes', 'sam@example.com', 'customer'],
-  ['u_cust5', 'Ananya Iyer', 'ananya@example.com', 'customer']
+  ['u_cust5', 'Ananya Iyer', 'ananya@example.com', 'customer'],
+  ['u_cust6', 'Emma Clarke', 'tourist@vanyatra.in', 'customer']
 ];
 
 export function hashPassword(pw, salt = crypto.randomBytes(16)) {

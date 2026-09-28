@@ -836,3 +836,13 @@ button, a, label, select { touch-action: manipulation; }
 
 @media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation: none !important; transition: none !important; scroll-behavior: auto !important; } }
 @media print { #site-header, #site-footer, .dash-nav, .modal-actions, .mobile-book-bar { display: none !important; } .modal-back { position: static; background: none; } }
+
+/* Traveller verification */
+.verify-hero { display: flex; gap: 12px 16px; align-items: center; justify-content: space-between; flex-wrap: wrap; }
+.verify-hero p { margin: 4px 0 0; }
+.verify-hero.verify-verified { background: var(--good-bg); }
+.verify-hero.verify-none { background: var(--warn-bg); }
+.verify-card h2 { margin: 0; }
+.verify-card > .row-between { margin-bottom: 12px; gap: 8px; }
+.verify-card .tabs { margin: 4px 0 12px; }
+.trav-ok { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-bottom: 8px; }

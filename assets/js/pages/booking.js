@@ -26,6 +26,8 @@ App.pages.book = (el, { id }, q) => {
     driver: { name: me.name, age: '', licence: '', phone: me.phone || '' }, specialRequests: '', payMethod: 'upi', agree: false, paid: null
   };
   const steps = ['Trip & extras', 'Driver details', 'Payment'];
+  // Instant book needs a fully verified traveller; anything under review becomes a request
+  const instantNow = () => van.instantBook && App.core.travellerEligibility(App.travellerRecord(me), s.end).instant;
   const draw = () => {
     const addOns = App.ADD_ONS.filter(a => s.addOns.includes(a.id));
     const qte = App.quote(van, s.start, s.end, { addOns });
@@ -33,7 +35,7 @@ App.pages.book = (el, { id }, q) => {
     el.innerHTML = String(h`
     <div class="container book-page">
       <a href="#/vans/${van.id}?start=${s.start}&end=${s.end}" class="back-link">← Back to van</a>
-      <h1>${van.instantBook ? 'Confirm and pay' : 'Request to book'}</h1>
+      <h1>${instantNow() ? 'Confirm and pay' : 'Request to book'}</h1>
       <ol class="stepper" aria-label="Booking steps">${steps.map((t, i) => h`<li class="${i + 1 < s.step ? 'done' : i + 1 === s.step ? 'current' : ''}" ${i + 1 === s.step ? h`aria-current="step"` : ''}><span>${i + 1 < s.step ? '✓' : i + 1}</span>${t}</li>`)}</ol>
       ${!available ? h`<div class="alert alert-bad">These dates are no longer available. <a href="#/vans/${van.id}">Choose new dates</a></div>` : ''}
       <div class="book-layout">
@@ -65,20 +67,41 @@ App.pages.book = (el, { id }, q) => {
       <h2>Add extras</h2>
       <div class="addon-list">${App.ADD_ONS.map(a => h`<label class="addon ${s.addOns.includes(a.id) ? 'on' : ''}"><input type="checkbox" name="addOns" value="${a.id}" ${s.addOns.includes(a.id) ? 'checked' : ''}><span><strong>${a.label}</strong><span class="muted small">${money(a.price)}${a.perNight ? ' / night' : ' per trip'}</span></span></label>`)}</div>
       <div class="form-actions"><button class="btn btn-primary btn-lg" type="submit">Continue</button></div>`;
-    if (s.step === 2) return h`
+    if (s.step === 2) {
+      const trav = App.travellerRecord(me), elig = App.core.travellerEligibility(trav, s.end);
+      const verifyLink = '#/account/verification?next=' + encodeURIComponent(location.hash);
+      // Identity is needed before anyone can take a van away
+      if (!elig.ok) return h`
+        <h2>${['verified', 'pending'].includes(trav.identity.status) ? 'Your documents need attention' : 'Verify it’s you'}</h2>
+        <div class="alert alert-warn" role="alert">${elig.blockers.map(b => h`<div>${b}</div>`)}</div>
+        <p class="muted">Every renter confirms their identity once — Aadhaar through DigiLocker, or a passport and visa for visitors from abroad — and their driving licence. It takes about 2 minutes, and your trip details are kept.</p>
+        <div class="form-actions"><button type="button" class="btn btn-ghost" data-back>Back</button><a class="btn btn-primary btn-lg" href="${verifyLink}">Verify now</a></div>`;
+      const lic = trav.licence, profileLic = elig.useProfileLicence || (lic.kind === 'idp' && lic.status === 'pending');
+      const selfDrive = s.selfDriver !== false && profileLic;
+      return h`
+      <div class="trav-ok">${App.travellerBadge(trav)} <span class="small">${trav.identity.method === 'aadhaar' ? 'ID verified with DigiLocker' : trav.identity.method === 'passport' ? (trav.identity.status === 'verified' ? 'Passport & visa verified' : 'Passport & visa under review') : 'ID verified'}</span></div>
+      ${elig.notes.map(n => h`<p class="small muted">ℹ️ ${n}</p>`)}
       <h2>Main driver</h2>
       <p class="muted small">The main driver must be at least ${App.C.minDriverAge}, hold a valid licence and present it at pickup. ${App.serverOnline ? 'We check the licence with the government SARATHI registry. ' : ''}Only the last 4 characters of the licence are stored.</p>
+      ${profileLic ? h`<fieldset class="field"><legend>Who’s driving?</legend>
+        <label class="check"><input type="radio" name="who" value="me" ${selfDrive ? 'checked' : ''}> I am — use the licence on my profile <span class="small muted">(${lic.data?.dlMasked || lic.data?.licenceMasked}, valid until ${fmtDate(lic.validUpto)}${lic.status === 'pending' ? ', under review' : ''})</span></label>
+        <label class="check"><input type="radio" name="who" value="other" ${selfDrive ? '' : 'checked'}> Someone else</label></fieldset>`
+      : lic.status === 'verified' ? h`<p class="small alert alert-warn">The licence on your profile expires on ${fmtDate(lic.validUpto)}, before this trip ends. Enter a renewed licence below.</p>`
+      : trav.identity.method === 'aadhaar' ? h`<p class="small muted">Tip: <a href="${verifyLink}">save your licence to your profile</a> so you don’t have to enter it again.</p>` : ''}
       <div class="grid-2">
+        ${selfDrive ? '' : h`
         <label class="field"><span>Full name (as on licence)</span><input name="name" autocomplete="name" value="${s.driver.name}" required></label>
         <label class="field"><span>Date of birth</span><input type="date" name="dob" max="${App.addDays(App.today(), -365 * 18)}" value="${s.driver.dob || ''}" required></label>
-        <label class="field"><span>Driving licence number</span><input name="licence" autocomplete="off" title="Your licence number as printed, e.g. DL-0420110012345" value="${s.driver.licence}" placeholder="e.g. DL-0420110012345" required pattern="[A-Za-z0-9 \\-]{8,20}"></label>
-        <label class="field"><span>Mobile number</span><input type="tel" name="phone" autocomplete="tel" value="${s.driver.phone}" required pattern="(\\+?91[ \\-]?)?[6-9][0-9]{4}[ \\-]?[0-9]{5}" title="A 10-digit Indian mobile number, e.g. 98765 43210"></label>
+        <label class="field"><span>Driving licence number</span><input name="licence" autocomplete="off" title="Your licence number as printed, e.g. DL-0420110012345" value="${s.driver.licence}" placeholder="e.g. DL-0420110012345" required pattern="[A-Za-z0-9 \\-]{8,20}"></label>`}
+        <label class="field"><span>Mobile number</span><input type="tel" name="phone" autocomplete="tel" value="${s.driver.phone}" required pattern="(\\+[1-9][0-9 \\-]{7,16})|((\\+?91[ \\-]?)?[6-9][0-9]{4}[ \\-]?[0-9]{5})" title="A 10-digit Indian mobile number, or your number with its country code (e.g. +44 7700 900123)"></label>
       </div>
+      ${selfDrive ? '' : h`
       ${App.serverOnline && App.verifyConfig?.testMode ? h`<p class="test-hint">🧪 <strong>Test mode</strong> — licences ending 0000 are “not found”, ending 1111 are expired.</p>` : ''}
       ${App.serverOnline ? h`<label class="check consent"><input type="checkbox" name="dlConsent" required ${s.dlConsent ? "checked" : ""}> I consent to VanYatra verifying this driving licence with the SARATHI registry.</label>` : ''}
-      <div id="dl-result">${s.dlCheck ? App.checkResultBox(s.dlCheck) : ''}</div>
+      <div id="dl-result">${s.dlCheck ? App.checkResultBox(s.dlCheck) : ''}</div>`}
       <label class="field"><span>Message to the owner (optional)</span><textarea name="specialRequests" rows="3" placeholder="Who's coming, your route, any questions…">${s.specialRequests}</textarea></label>
       <div class="form-actions"><button type="button" class="btn btn-ghost" data-back>Back</button><button class="btn btn-primary btn-lg" type="submit">Continue to payment</button></div>`;
+    }
     return h`
       <h2>Payment</h2>
       ${s.payError ? h`<div class="alert alert-bad" role="alert"><strong>Payment didn’t go through.</strong> ${s.payError}</div>` : ''}
@@ -86,11 +109,11 @@ App.pages.book = (el, { id }, q) => {
         ${[['upi', 'UPI', 'GPay, PhonePe, Paytm, BHIM'], ['card', 'Credit / debit card', 'Visa, Mastercard, RuPay, Amex'], ['netbanking', 'Net banking', 'All major Indian banks']].map(([v, l, d]) => h`<label class="pay-opt ${s.payMethod === v ? 'on' : ''}"><input type="radio" name="payMethod" value="${v}" ${s.payMethod === v ? 'checked' : ''}><span><strong>${l}</strong><span class="small muted">${d}</span></span></label>`)}
       </div>
       <div class="callout">
-        ${van.instantBook ? h`You’ll pay <strong>${money(qte.total)}</strong> now. The ${money(qte.deposit)} deposit is authorised (held) at pickup and released within ${App.C.depositReleaseDays} days of return.`
+        ${instantNow() ? h`You’ll pay <strong>${money(qte.total)}</strong> now. The ${money(qte.deposit)} deposit is authorised (held) at pickup and released within ${App.C.depositReleaseDays} days of return.`
           : h`We’ll <strong>authorise ${money(qte.total)}</strong> now but only charge it if ${App.get.user(van.ownerId).name.split(' ')[0]} accepts within 24 hours.`}
       </div>
       <label class="check"><input type="checkbox" name="agree" ${s.agree ? 'checked' : ''} required> I agree to the <a href="#/help/terms" target="_blank">rental terms</a>, <a href="#/help/cancellation" target="_blank">cancellation policy</a> and the owner’s house rules.</label>
-      <div class="form-actions"><button type="button" class="btn btn-ghost" data-back>Back</button><button class="btn btn-accent btn-lg" type="submit">🔒 ${van.instantBook ? 'Pay ' + money(qte.total) : 'Send request'}</button></div>`;
+      <div class="form-actions"><button type="button" class="btn btn-ghost" data-back>Back</button><button class="btn btn-accent btn-lg" type="submit">🔒 ${instantNow() ? 'Pay ' + money(qte.total) : 'Send request'}</button></div>`;
   };
 
   const bind = (qte) => {
@@ -115,9 +138,22 @@ App.pages.book = (el, { id }, q) => {
       if (s.step === 2) {
         if (!f.checkValidity()) { f.reportValidity(); return; }
         const d = App.formData(f);
-        const age = Math.floor((new Date(s.start) - new Date(d.dob)) / (365.25 * 86400000));
-        s.driver = { name: d.name.trim(), dob: d.dob, age, licence: d.licence.trim(), phone: d.phone.trim() };
+        const ageOn = (dob) => Math.floor((new Date(s.start) - new Date(dob)) / (365.25 * 86400000));
         s.specialRequests = d.specialRequests.trim();
+        const trav = App.travellerRecord(me);
+        if (f.querySelector('[name=who]:checked')?.value === 'me') {
+          // The verified licence on the traveller's profile covers this trip
+          const lic = trav.licence, dob = trav.identity.data?.dob;
+          s.driver = {
+            name: trav.identity.data?.name || me.name, dob, age: dob ? ageOn(dob) : App.C.minDriverAge, phone: d.phone.trim(),
+            licence: lic.data?.dlMasked || lic.data?.licenceMasked || '',
+            check: { status: lic.status === 'verified' ? 'verified' : 'review', validUpto: lic.validUpto, source: lic.check?.source || 'International Driving Permit (reviewed by VanYatra)', checkedAt: lic.check?.checkedAt || lic.reviewedAt || lic.submittedAt, note: lic.status === 'verified' ? 'Verified on the traveller’s profile' : 'International Driving Permit under review', fromProfile: true }
+          };
+          if (s.driver.age < App.C.minDriverAge) return App.toast(`The main driver must be at least ${App.C.minDriverAge} on the pickup date.`, 'bad');
+          s.step = 3; return draw();
+        }
+        const age = ageOn(d.dob);
+        s.driver = { name: d.name.trim(), dob: d.dob, age, licence: d.licence.trim(), phone: d.phone.trim() };
         s.dlConsent = !!f.dlConsent?.checked;
         if (age < App.C.minDriverAge) return App.toast(`The main driver must be at least ${App.C.minDriverAge} on the pickup date.`, 'bad');
         if (App.serverOnline) {
@@ -144,7 +180,7 @@ App.pages.book = (el, { id }, q) => {
       btn.disabled = true; btn.innerHTML = '<span class="spinner" aria-hidden="true"></span> Starting secure checkout…';
       try {
         const order = await App.payments.createOrder({ amount: qte.total, receipt: `${van.id}:${s.start}:${s.end}`, notes: { van: van.name } });
-        const pay = await App.payments.checkout(order, { method: s.payMethod, description: van.instantBook ? 'Pay now' : 'Authorise (charged if accepted)' });
+        const pay = await App.payments.checkout(order, { method: s.payMethod, description: instantNow() ? 'Pay now' : 'Authorise (charged if accepted)' });
         if (pay.status === 'cancelled') { btn.disabled = false; btn.innerHTML = label; return App.toast('Payment cancelled — you haven’t been charged.'); }
         if (pay.status === 'failed') { s.payError = pay.reason + ' You haven’t been charged. Try again or choose another payment method.'; return draw(); }
         btn.innerHTML = '<span class="spinner" aria-hidden="true"></span> Confirming payment…';
@@ -155,6 +191,7 @@ App.pages.book = (el, { id }, q) => {
         s.payError = err.message; draw();
       }
     });
+    if (s.step === 2) f.querySelectorAll('[name=who]').forEach(r => r.onchange = () => { s.selfDriver = r.value === 'me'; s.specialRequests = f.specialRequests.value; if (f.phone) s.driver.phone = f.phone.value; draw(); });
     if (s.step === 3) f.querySelectorAll('[name=payMethod]').forEach(r => r.onchange = () => { s.payMethod = r.value; s.agree = f.agree.checked; s.payError = null; draw(); });
   };
 

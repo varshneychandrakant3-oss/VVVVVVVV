@@ -194,7 +194,8 @@ App.buildSeed = function () {
     { id: 'u_cust2', name: 'Arjun Rao', email: 'arjun@example.com', phone: '+91 98200 20002', role: 'customer', city: 'Bengaluru' },
     { id: 'u_cust3', name: 'Neha & Vikram Joshi', email: 'joshis@example.com', phone: '+91 98200 20003', role: 'customer', city: 'Pune' },
     { id: 'u_cust4', name: 'Sam Fernandes', email: 'sam@example.com', phone: '+91 98200 20004', role: 'customer', city: 'Mumbai' },
-    { id: 'u_cust5', name: 'Ananya Iyer', email: 'ananya@example.com', phone: '+91 98200 20005', role: 'customer', city: 'Chennai' }
+    { id: 'u_cust5', name: 'Ananya Iyer', email: 'ananya@example.com', phone: '+91 98200 20005', role: 'customer', city: 'Chennai' },
+    { id: 'u_cust6', name: 'Emma Clarke', email: 'tourist@vanyatra.in', phone: '+44 7700 900123', role: 'customer', city: 'London' }
   ].map((u, i) => ({
     password: App.hashPassword('demo1234'),
     emailVerified: true, phoneVerified: true, status: 'active',
@@ -511,8 +512,34 @@ App.buildSeed = function () {
     { id: 'a4', actorId: 'u_admin', action: 'user.login', target: 'admin@vanyatra.in', at: ts(0, 8) }
   ];
 
+  // Traveller verification (identity + driving licence), decided by the shared rules
+  const dg = (checkedAt) => ({ source: 'UIDAI e-Aadhaar via DigiLocker', checkedAt, outcome: 'verified' });
+  const sr = (checkedAt) => ({ source: 'MoRTH SARATHI licence registry', checkedAt, outcome: 'verified' });
+  const indian = (name, dob, last4, dlLast4, validUpto, at) => ({
+    residency: 'india',
+    identity: { status: 'verified', method: 'aadhaar', note: '', check: dg(at), data: { name, dob, aadhaarLast4: last4 } },
+    licence: validUpto ? { status: 'verified', kind: 'indian', note: '', check: sr(at), validUpto, data: { dlMasked: 'XXXXXXXXXXX' + dlLast4, classes: ['LMV', 'MCWG'] } } : { status: 'not_started' }
+  });
+  const travellers = {
+    u_cust1: indian('Priya Sharma', '1991-03-14', '4821', '2345', d(365 * 8), ts(-120)),
+    u_cust2: indian('Arjun Rao', '1988-11-02', '7310', null, null, ts(-60)),
+    u_cust3: indian('Neha Joshi', '1986-07-21', '1942', '8812', d(365 * 5), ts(-200)),
+    u_cust5: indian('Ananya Iyer', '1995-01-30', '5561', '0457', d(20), ts(-300)),
+    u_cust6: {
+      residency: 'foreign',
+      identity: { status: 'pending', method: 'passport', note: '', submittedAt: ts(-1, 15), expiry: d(180), data: { nationality: 'United Kingdom', dob: '1993-05-09', passportMasked: 'XXXX4417', passportExpiry: d(365 * 6), visaType: 'e-Tourist Visa', visaExpiry: d(180) }, files: { passport: 'passport-photo-page.jpg', visa: 'e-visa.pdf' } },
+      licence: { status: 'pending', kind: 'idp', note: '', submittedAt: ts(-1, 15), validUpto: d(300), data: { homeCountry: 'United Kingdom', licenceMasked: 'XXXX9AB1' }, files: { licence: 'uk-licence.jpg', idp: 'idp-1968.jpg' } }
+    }
+  };
+
+  // What owners see about each booking's traveller (a snapshot taken at booking time)
+  for (const b of bookings) {
+    const t = travellers[b.customerId] || { identity: { status: 'not_started' }, licence: { status: 'not_started' } };
+    b.traveller = { level: App.core.travellerLevel(t), identity: t.identity.status, idMethod: t.identity.method || null, licence: t.licence.status, licenceKind: t.licence.kind || null };
+  }
+
   return {
-    version: 3, destinations, users, owners, vans, documents, bookings, reviews, threads, transactions,
+    version: 3, travellers, destinations, users, owners, vans, documents, bookings, reviews, threads, transactions,
     disputes, notifications, audit, outbox: [], session: null, recentSearches: []
   };
 };

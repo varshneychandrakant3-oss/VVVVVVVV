@@ -1,5 +1,5 @@
 /*
- * Customer account: trips, itinerary, saved vans, messages, payments, reviews, profile.
+ * Customer account: trips, itinerary, saved vans, messages, payments, reviews, verification, profile.
  * Also exports App.messagesView, shared with the owner dashboard.
  */
 (() => {
@@ -18,10 +18,11 @@ App.pages.account = (el, { tab = 'bookings', id }) => {
       { id: 'messages', icon: '💬', label: 'Messages', count: unreadThreads },
       { id: 'payments', icon: '💳', label: 'Payments' },
       { id: 'reviews', icon: '★', label: 'Reviews', count: toReview },
+      { id: 'verification', icon: '🛡️', label: 'Verification', count: App.core.travellerLevel(App.travellerRecord(me)) === 'verified' ? 0 : '!' },
       { id: 'profile', icon: '⚙', label: 'Profile & privacy' }
     ]
   });
-  const views = { bookings: tripsTab, saved: savedTab, messages: (m) => App.messagesView(m, 'customer', id), payments: paymentsTab, reviews: reviewsTab, profile: profileTab, trips: (m) => itineraryTab(m, id) };
+  const views = { bookings: tripsTab, saved: savedTab, messages: (m) => App.messagesView(m, 'customer', id), payments: paymentsTab, reviews: reviewsTab, verification: App.travellerVerificationView, profile: profileTab, trips: (m) => itineraryTab(m, id) };
   (views[tab] || tripsTab)(main, me, mine);
 };
 
@@ -62,8 +63,10 @@ const tripsTab = (m, me, mine) => {
     ['Past trips', mine.filter(b => b.status === 'completed').sort((a, b) => b.start.localeCompare(a.start))],
     ['Cancelled & declined', mine.filter(b => ['cancelled', 'declined'].includes(b.status))]
   ];
+  const level = App.core.travellerLevel(App.travellerRecord(me));
   m.innerHTML = String(h`<h1>My trips</h1>
-    ${!me.phoneVerified || !me.emailVerified ? h`<div class="alert alert-warn">Verify your email and mobile to speed up bookings. <a href="#/account/profile">Verify now</a></div>` : ''}
+    ${level !== 'verified' ? h`<div class="alert alert-warn">${level === 'none' ? 'Verify your ID and driving licence once to book faster — and to use instant book.' : 'Add your driving licence to your profile so you don’t have to enter it for every booking.'} <a href="#/account/verification">Get verified</a></div>` : ''}
+    ${!me.phoneVerified || !me.emailVerified ? h`<div class="alert alert-warn">Verify your email and mobile to get booking updates. <a href="#/account/verification">Verify now</a></div>` : ''}
     ${mine.length ? groups.filter(g => g[1].length).map(([t, list]) => h`<h2 class="section-sub">${t}</h2><div class="trip-list">${list.map(tripCard)}</div>`)
       : App.emptyState('🧭', 'No trips yet', 'Find a van and start planning your first road trip.', h`<a class="btn btn-primary" href="#/search">Find a van</a>`)}`);
   bindTripActions(m);
@@ -237,7 +240,7 @@ const profileTab = (m, me) => {
       <div class="grid-2"><label class="field"><span>Full name</span><input name="name" value="${me.name}" required></label>
       <label class="field"><span>City</span><input name="city" value="${me.city || ''}"></label></div>
       <button class="btn btn-primary">Save changes</button></form>
-    <div class="card"><h2>Verification</h2><div id="otp"></div></div>
+    <div class="card"><div class="row-between"><h2>Verification</h2>${App.travellerBadge(App.travellerRecord(me))}</div><p class="small muted">Email, mobile, ID and driving licence.</p><a class="btn" href="#/account/verification">Manage verification</a></div>
     <form class="card" id="pw-form"><h2>Change password</h2>
       <div class="grid-2"><label class="field"><span>Current password</span><input type="password" name="old" autocomplete="current-password" required></label>
       <label class="field"><span>New password</span><input type="password" name="new" autocomplete="new-password" minlength="8" required></label></div>
@@ -261,7 +264,6 @@ const profileTab = (m, me) => {
     App.audit('user.password_change', me.email); App.save(); e.target.reset(); App.toast('Password updated. Other devices were signed out.', 'good');
   };
   m.querySelectorAll('[data-pref]').forEach(c => c.onchange = () => { me.prefs = { ...(me.prefs || {}), [c.dataset.pref]: c.checked }; App.save(); App.toast('Preferences saved', 'good'); });
-  App.otpWidget(m.querySelector('#otp'), me);
   m.querySelector('#export').onclick = () => {
     const { password, ...profile } = me;
     const data = { profile, bookings: App.db.bookings.filter(b => b.customerId === me.id), reviews: App.db.reviews.filter(r => r.authorId === me.id), messages: App.db.threads.filter(t => t.customerId === me.id || t.ownerId === me.id), exportedAt: new Date().toISOString() };

@@ -37,6 +37,34 @@
   };
   core.fromOutcome = (o) => (o === 'verified' ? 'verified' : o === 'review' ? 'pending' : 'action_required');
 
+  /* Traveller verification: can this traveller book a trip ending on tripEnd?
+   *   ok        — may book at all
+   *   instant   — may use instant book (anything still under review makes it a request)
+   *   useProfileLicence — a verified licence on file covers the trip, so no check at booking
+   *   blockers / notes — what to tell the traveller */
+  core.TRAVELLER_VISAS = ['e-Tourist Visa', 'Tourist Visa', 'OCI card', 'Nepal / Bhutan citizen'];
+  const fmt = (iso) => new Date(iso + 'T00:00:00Z').toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric', timeZone: 'UTC' });
+  core.travellerEligibility = (t, tripEnd) => {
+    const id = t?.identity || { status: 'not_started' }, lic = t?.licence || { status: 'not_started' };
+    const blockers = [], notes = [];
+    let instant = true;
+    if (id.status === 'verified' || id.status === 'pending') {
+      if (id.expiry && tripEnd && id.expiry < tripEnd) blockers.push(`Your ${id.method === 'passport' ? 'passport or visa' : 'ID'} expires on ${fmt(id.expiry)}, before this trip ends.`);
+      if (id.status === 'pending') { instant = false; notes.push('Your ID is being reviewed, so this will be sent as a request.'); }
+    } else blockers.push(id.status === 'not_started' ? 'Verify your identity before booking.' : 'Your identity check needs attention: ' + (id.note || 'see your verification page.'));
+    const licValid = lic.validUpto && (!tripEnd || lic.validUpto >= tripEnd);
+    const useProfileLicence = lic.status === 'verified' && !!licValid;
+    if (lic.kind === 'idp') {
+      if (lic.status === 'pending' && licValid) { instant = false; notes.push('Your International Driving Permit is being reviewed.'); }
+      else if (!useProfileLicence) blockers.push(lic.validUpto && !licValid ? 'Your International Driving Permit expires before the trip ends.' : 'Your International Driving Permit needs attention: ' + (lic.note || 'see your verification page.'));
+    }
+    return { ok: !blockers.length, instant: !blockers.length && instant, useProfileLicence, blockers, notes };
+  };
+  core.travellerLevel = (t) => {
+    const a = t?.identity?.status, b = t?.licence?.status;
+    return a === 'verified' && b === 'verified' ? 'verified' : a === 'verified' || a === 'pending' ? 'partial' : 'none';
+  };
+
   core.createMarket = (io) => {
     const bad = core.fail, C = io.C, rollup = core.rollup, fromOutcome = core.fromOutcome;
     const S = () => io.state();
@@ -143,10 +171,90 @@
       recomputeVan(van);
     };
 
+    /* ---------- Traveller verification ---------- */
+    const accountOf = (id) => io.accounts().find(a => a.id === id);
+    const traveller = (id) => {
+      const s = S();
+      s.travellers = s.travellers || {};
+      return s.travellers[id] || (s.travellers[id] = { identity: { status: 'not_started' }, licence: { status: 'not_started' } });
+    };
+    const travellerCheck = (t, rec, check) => {
+      if (rec.type === 'aadhaar') {
+        t.residency = 'india';
+        t.identity = { status: fromOutcome(rec.status), method: 'aadhaar', note: noteOf(rec), check, data: { name: rec.data.name, dob: rec.data.dob || null, aadhaarLast4: rec.data.aadhaarLast4 } };
+      } else if (rec.type === 'dl') {
+        t.licence = { status: fromOutcome(rec.status), kind: 'indian', note: noteOf(rec), check, validUpto: rec.data.validUpto || null, data: { dlMasked: rec.data.dlMasked, classes: rec.data.classes } };
+      }
+    };
+    const PASSPORT_RE = /^[A-Z0-9]{6,12}$/;
+    // Visitors from abroad: passport + visa and an International Driving Permit, checked by a person
+    const submitTravellerDocs = (user, body) => {
+      const t = traveller(user.id);
+      const future = (d) => isDate(d) && daysUntil(d) > 0;
+      if (body.part === 'identity') {
+        const nationality = str(body.nationality, 60);
+        const passport = str(body.passportNumber, 20).toUpperCase().replace(/[\s-]/g, '');
+        const visaType = core.TRAVELLER_VISAS.includes(body.visaType) ? body.visaType : null;
+        const needsVisa = visaType && !['OCI card', 'Nepal / Bhutan citizen'].includes(visaType);
+        if (!nationality || /^india(n)?$/i.test(nationality)) throw bad(400, 'Indian residents verify with DigiLocker instead.');
+        if (!PASSPORT_RE.test(passport)) throw bad(400, 'Enter your passport number as printed.');
+        if (!isDate(body.dob) || daysUntil(body.dob) > -365 * 18) throw bad(400, 'Enter your date of birth (you must be 18 or over).');
+        if (!future(body.passportExpiry)) throw bad(400, 'Your passport must be valid.');
+        if (!visaType) throw bad(400, 'Choose your visa type.');
+        if (needsVisa && !future(body.visaExpiry)) throw bad(400, 'Your visa must be valid.');
+        if (!str(body.passportFile) || (needsVisa && !str(body.visaFile))) throw bad(400, needsVisa ? 'Attach your passport photo page and visa.' : 'Attach your passport photo page.');
+        const expiry = needsVisa && body.visaExpiry < body.passportExpiry ? body.visaExpiry : body.passportExpiry;
+        t.residency = 'foreign';
+        t.identity = {
+          status: 'pending', method: 'passport', note: '', submittedAt: io.now(), expiry,
+          data: { nationality, dob: body.dob, passportMasked: 'XXXX' + passport.slice(-4), passportExpiry: body.passportExpiry, visaType, visaExpiry: needsVisa ? body.visaExpiry : null },
+          files: { passport: str(body.passportFile, 120), ...(needsVisa ? { visa: str(body.visaFile, 120) } : {}) }
+        };
+        notifyAdmins(`${user.name} submitted a passport${needsVisa ? ' and visa' : ''} for traveller verification.`, '#/admin/verifications?filter=travellers');
+      } else if (body.part === 'licence') {
+        const country = str(body.homeCountry, 60);
+        const number = str(body.licenceNumber, 30).toUpperCase().replace(/\s/g, '');
+        if (!country) throw bad(400, 'Which country issued your driving licence?');
+        if (number.length < 5) throw bad(400, 'Enter your home driving licence number.');
+        if (!future(body.idpExpiry)) throw bad(400, 'Your International Driving Permit must be valid.');
+        if (!str(body.licenceFile) || !str(body.idpFile)) throw bad(400, 'Attach your home licence and your International Driving Permit.');
+        t.licence = {
+          status: 'pending', kind: 'idp', note: '', submittedAt: io.now(), validUpto: body.idpExpiry,
+          data: { homeCountry: country, licenceMasked: 'XXXX' + number.slice(-4) },
+          files: { licence: str(body.licenceFile, 120), idp: str(body.idpFile, 120) }
+        };
+        notifyAdmins(`${user.name} submitted an International Driving Permit for review.`, '#/admin/verifications?filter=travellers');
+      } else throw bad(400, 'Unknown document.');
+      delete t.reminded;
+      io.audit(user.id, 'traveller.submit', `${user.id} ${body.part}`);
+      io.persist();
+      return t;
+    };
+    const decideTraveller = (admin, userId, part, status, note) => {
+      if (!['identity', 'licence'].includes(part)) throw bad(400, 'Unknown document.');
+      if (!['verified', 'action_required', 'rejected'].includes(status)) throw bad(400, 'Invalid decision.');
+      if (status !== 'verified' && !str(note)) throw bad(400, 'Add a note for the traveller.');
+      const acct = accountOf(userId);
+      if (!acct) throw bad(404, 'User not found.');
+      const t = traveller(userId);
+      if (!t[part] || t[part].status === 'not_started') throw bad(409, 'Nothing has been submitted yet.');
+      Object.assign(t[part], { status, note: str(note, 500), reviewedAt: io.now(), reviewedBy: admin.id });
+      const label = part === 'identity' ? 'Your ID' : 'Your driving licence';
+      notify(userId, status === 'verified' ? `${label} is verified. You’re all set to book.` : `${label} needs attention: ${note}`, '#/account/verification');
+      io.audit(admin.id, 'traveller.' + status, `${acct.email} ${part}${note ? ' — ' + str(note, 200) : ''}`);
+      io.persist();
+    };
+
     // Results of government checks update the records
-    const onVerification = (rec) => {
+    const onVerification = (rec, _actor, opts = {}) => {
       const s = S();
       const check = { source: rec.source, checkedAt: rec.checkedAt, outcome: rec.status, recordId: rec.id };
+      // Travellers keep their own record. A licence checked while booking may belong
+      // to another driver, so only a check made from the profile updates it.
+      if (accountOf(rec.subjectId)?.role === 'customer') {
+        if (rec.type === 'aadhaar' || (rec.type === 'dl' && opts.purpose === 'profile')) { travellerCheck(traveller(rec.subjectId), rec, check); io.persist(); }
+        return;
+      }
       const owner = s.owners[rec.subjectId] || (s.owners[rec.subjectId] = {});
       if (rec.type === 'aadhaar') {
         upsertDoc(rec.subjectId, undefined, 'aadhaar', 'Aadhaar (via DigiLocker)', { number: rec.ref, status: fromOutcome(rec.status), note: noteOf(rec), check });
@@ -384,6 +492,22 @@
           changed = true;
         }
       }
+      // Travellers: licence, passport and visa validity
+      for (const [id, t] of Object.entries(S().travellers || {})) {
+        for (const [part, date, label] of [['licence', t.licence?.validUpto, t.licence?.kind === 'idp' ? 'International Driving Permit' : 'Driving licence'], ['identity', t.identity?.expiry, 'Passport / visa']]) {
+          if (!date || t[part].status !== 'verified') continue;
+          const days = daysUntil(date);
+          if (days < 0) {
+            Object.assign(t[part], { status: 'action_required', note: `Expired on ${date}.` });
+            notify(id, `${label} on your VanYatra profile has expired. Update it before your next trip.`, '#/account/verification');
+            changed = true;
+          } else if (days <= C.expiryWarningDays && !t.reminded?.[part]) {
+            t.reminded = { ...(t.reminded || {}), [part]: true };
+            notify(id, `${label} on your VanYatra profile expires in ${days} days.`, '#/account/verification');
+            changed = true;
+          }
+        }
+      }
       if (changed) io.persist();
     };
 
@@ -414,7 +538,7 @@
       };
       if (!user) {
         const vans = s.vans.filter(v => v.status === 'published').map(publicVan);
-        return { vans, documents: [], owners: verifiedFlags(), notifications: [], people: people(vans) };
+        return { vans, documents: [], owners: verifiedFlags(), notifications: [], people: people(vans), traveller: null };
       }
       const mine = (v) => v.ownerId === user.id;
       const isAdmin = user.role === 'admin';
@@ -424,7 +548,9 @@
         documents: s.documents.filter(d => isAdmin || d.ownerId === user.id),
         owners: isAdmin ? s.owners : { ...verifiedFlags(), ...(s.owners[user.id] ? { [user.id]: s.owners[user.id] } : {}) },
         notifications: s.notifications.filter(n => n.userId === user.id).slice(0, 50),
-        people: people(vans)
+        people: people(vans),
+        traveller: (s.travellers || {})[user.id] || null,
+        ...(isAdmin ? { travellers: s.travellers || {} } : {})
       };
     };
 
@@ -436,7 +562,7 @@
     return {
       getVan, ownVan, rollup, recomputeOwner, recomputeVan, stepStatuses, onVerification, updateOwnerProfile, addSelfie, createVan, updateVan,
       addDocument, setBlocked, submitForReview, setOwnerStatus, decideDocument, reviewListing, adminSetVanStatus, remind, suspendOwnerVans,
-      runExpiryJob, viewFor, markNotificationsRead, notify
+      runExpiryJob, viewFor, markNotificationsRead, notify, traveller, submitTravellerDocs, decideTraveller
     };
   };
 })(typeof window !== 'undefined' ? window : globalThis);

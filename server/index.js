@@ -105,15 +105,23 @@ async function handleApi(req, res, url) {
     limit(`verify:${actor.id}:${m[1]}`, actor.role === 'admin' ? 200 : 10, 3600e3);
     limit(`verify-day:${actor.id}`, actor.role === 'admin' ? 1000 : 40, 24 * 3600e3);
     const subject = subjectFor(actor, body);
+    // A licence saved to a traveller's profile must be in their own verified name
+    if (m[1] === 'dl' && body.purpose === 'profile') body.name = verify.kycName(subject);
     if (m[1] === 'vehicle' && body.vanId && market.ownVan(actor, body.vanId).ownerId !== subject.id) throw new HttpError(400, 'That van belongs to a different owner.');
     const result = await route.fn(subject, actor, body);
-    market.onVerification(result, actor);
+    market.onVerification(result, actor, { purpose: body.purpose });
     return sendJson(res, 200, { result });
   }
 
   /* ----- Marketplace (trust-critical state lives on the server) ----- */
   if (p === '/api/market' && req.method === 'GET') return sendJson(res, 200, market.viewFor(auth.currentUser(req)));
   if (p === '/api/notifications/read' && req.method === 'POST') { market.markNotificationsRead(auth.requireUser(req)); return sendJson(res, 200, { ok: true }); }
+  if (p === '/api/traveller/documents' && req.method === 'POST') {
+    const u = auth.requireUser(req, ['customer']);
+    limit('traveller-docs:' + u.id, 10, 3600e3);
+    market.submitTravellerDocs(u, await readJson(req));
+    return sendJson(res, 200, { ok: true });
+  }
   if (p === '/api/owner/profile' && req.method === 'POST') {
     const u = auth.requireUser(req, ['owner']);
     market.updateOwnerProfile(u, await readJson(req));
@@ -140,13 +148,14 @@ async function handleApi(req, res, url) {
     if (action === 'submit' && req.method === 'POST') { market.submitForReview(u, van); return sendJson(res, 200, { ok: true }); }
     if (action === 'status' && req.method === 'POST') { market.setOwnerStatus(u, van, (await readJson(req)).status); return sendJson(res, 200, { ok: true }); }
   }
-  const ad = p.match(/^\/api\/admin\/(documents|vans|users)\/([\w-]{1,40})\/(decision|remind|review|status|recheck)$/);
+  const ad = p.match(/^\/api\/admin\/(documents|vans|users|travellers)\/([\w-]{1,40})\/(decision|remind|review|status|recheck)$/);
   if (ad && req.method === 'POST') {
     const admin = auth.requireUser(req, ['admin']);
     const [, kind, id, action] = ad;
     const body = await readJson(req);
     if (kind === 'documents' && action === 'decision') market.decideDocument(admin, id, body.status, body.note);
     else if (kind === 'documents' && action === 'remind') market.remind(admin, id);
+    else if (kind === 'travellers' && action === 'decision') market.decideTraveller(admin, id, body.part, body.status, body.note);
     else if (kind === 'vans' && action === 'review') market.reviewListing(admin, market.ownVan(admin, id), body.approve === true, body.note);
     else if (kind === 'vans' && action === 'status') market.adminSetVanStatus(admin, market.ownVan(admin, id), body.status, body.note);
     else if (kind === 'vans' && action === 'recheck') {
@@ -186,7 +195,7 @@ async function handleApi(req, res, url) {
 
   /* ----- DigiLocker ----- */
   if (p === '/api/digilocker/start' && req.method === 'GET') {
-    const u = auth.requireUser(req, ['owner', 'admin']);
+    const u = auth.requireUser(req, ['customer', 'owner', 'admin']);
     limit('dl-start:' + u.id, 10, 3600e3);
     return sendJson(res, 200, { url: digilocker.startAuth(u, { returnTo: url.searchParams.get('returnTo') || undefined }) });
   }

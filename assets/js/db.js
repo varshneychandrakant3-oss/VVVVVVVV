@@ -145,6 +145,26 @@ App.refundFor = (booking, when = new Date()) => {
   return { pct, daysBefore, amount, policy, withinGrace };
 };
 
+/* ---------------- Traveller verification ----------------
+ * The server keeps each traveller's identity and licence status (decided by
+ * App.core rules). Owners who book use their owner KYC as their identity. */
+App.travellerRecord = (user = App.me()) => {
+  if (!user) return null;
+  if (user.role === 'owner') {
+    const kyc = App.db.owners[user.id]?.kyc?.status || 'not_started';
+    return { identity: { status: kyc === 'verified' ? 'verified' : kyc === 'pending' ? 'pending' : 'not_started', method: 'owner_kyc', data: {} }, licence: { status: 'not_started' } };
+  }
+  if (user.id === App.me()?.id) return App.db.traveller || { identity: { status: 'not_started' }, licence: { status: 'not_started' } };
+  return App.db.travellers?.[user.id] || null;
+};
+App.travellerBadge = (snap) => {
+  if (!snap) return '';
+  const lvl = snap.level || App.core.travellerLevel(snap);
+  return lvl === 'verified' ? App.h`<span class="badge badge-good" title="ID and driving licence verified">✓ Verified traveller</span>`
+    : lvl === 'partial' ? App.h`<span class="badge badge-warn" title="Driving licence checked per booking">ID verified</span>`
+    : App.h`<span class="badge badge-muted">Not verified</span>`;
+};
+
 /* ---------------- Fraud & safety checks ---------------- */
 App.riskCheck = (user, van, quote, driver) => {
   const flags = [];
@@ -157,6 +177,8 @@ App.riskCheck = (user, van, quote, driver) => {
   if (driver && driver.age < App.C.minDriverAge) { flags.push('Driver below minimum age'); score += 50; }
   if (driver && driver.check?.status === 'review') { flags.push('Driving licence needs manual review: ' + driver.check.note); score += 30; }
   if (driver && App.serverOnline && !driver.check) { flags.push('Driving licence not verified with SARATHI'); score += 30; }
+  const t = App.travellerRecord(user);
+  if (t && t.identity?.status !== 'verified') { flags.push(t.identity?.status === 'pending' ? 'Traveller ID still under review' : 'Traveller identity not verified'); score += t.identity?.status === 'pending' ? 15 : 40; }
   if (quote.nights > 21) { flags.push('Long rental (21+ nights)'); score += 10; }
   return { score: Math.min(100, score), flags };
 };
@@ -279,6 +301,8 @@ App.syncMarket = async () => {
   ];
   App.db.documents = m.documents;
   App.db.owners = m.owners;
+  App.db.traveller = m.traveller || null;
+  App.db.travellers = m.travellers || {};
   // People this browser hasn't seen yet (e.g. an owner who signed up elsewhere)
   for (const p of m.people || []) {
     const u = App.get.user(p.id);
@@ -366,7 +390,10 @@ App.api = {
     const addOns = App.ADD_ONS.filter(a => addOnIds.includes(a.id));
     const pricing = App.quote(van, start, end, { addOns });
     const risk = App.riskCheck(me, van, pricing, driver);
-    const status = van.instantBook && risk.score < 50 ? 'confirmed' : 'requested';
+    const trav = App.travellerRecord(me);
+    const elig = App.core.travellerEligibility(trav, end);
+    if (!elig.ok) throw new Error(elig.blockers[0]);
+    const status = van.instantBook && elig.instant && risk.score < 50 ? 'confirmed' : 'requested';
     let id;
     do { id = 'VY' + (1000 + Math.floor(Math.random() * 9000)); } while (App.get.booking(id));
     const b = {
@@ -375,7 +402,8 @@ App.api = {
       paymentStatus: status === 'confirmed' ? 'paid' : 'authorised', depositStatus: status === 'confirmed' ? 'held' : 'none',
       driver: { name: driver.name, age: driver.age, licenceMasked: 'XXXXXXXX' + driver.licence.slice(-4), check: driver.check || null },
       payment: { method: payment.method, label: payment.label, orderId: payment.orderId || null, paymentId: payment.paymentId || null }, specialRequests,
-      createdAt: new Date().toISOString(), risk, itinerary: []
+      createdAt: new Date().toISOString(), risk, itinerary: [],
+      traveller: { level: App.core.travellerLevel(trav), identity: trav.identity.status, idMethod: trav.identity.method || null, licence: trav.licence.status, licenceKind: trav.licence.kind || null }
     };
     App.db.bookings.push(b);
     App.db.transactions.unshift({ id: App.uid('tx'), type: 'payment', bookingId: b.id, customerId: me.id, ownerId: van.ownerId, amount: pricing.total, at: b.createdAt, status: status === 'confirmed' ? 'captured' : 'authorised', method: payment.label });

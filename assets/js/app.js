@@ -21,7 +21,7 @@ const ROUTES = [
   ['/account/:tab/:id', 'account', ['customer', 'owner', 'admin']],
   ['/list-your-van', 'ownerLanding'],
   ['/owner/onboarding', 'onboarding', ['owner']],
-  ['/digilocker-demo', 'digilockerDemo', ['owner', 'admin']],
+  ['/digilocker-demo', 'digilockerDemo', ['customer', 'owner', 'admin']],
   ['/owner', 'owner', ['owner']],
   ['/owner/:tab', 'owner', ['owner']],
   ['/owner/:tab/:id', 'owner', ['owner']],

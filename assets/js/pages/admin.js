@@ -7,7 +7,7 @@ const compact = (v) => v >= 100000 ? '₹' + (v / 100000).toFixed(1) + 'L' : v >
 
 App.pages.admin = (el, { tab = 'overview', id }) => {
   const db = App.db;
-  const pendingDocs = db.documents.filter(d => d.status === 'pending').length;
+  const pendingDocs = db.documents.filter(d => d.status === 'pending').length + pendingTravellerParts().length;
   const inReview = db.vans.filter(v => v.status === 'in_review').length;
   const openDisputes = db.disputes.filter(d => d.status === 'open').length;
   const flagged = db.reviews.filter(r => r.status === 'flagged').length;
@@ -33,6 +33,8 @@ App.pages.admin = (el, { tab = 'overview', id }) => {
 };
 
 const userName = (id) => id === 'system' ? 'System' : App.get.user(id)?.name || id;
+// Traveller documents waiting for a person (passport / visa / International Driving Permit)
+const pendingTravellerParts = () => Object.entries(App.db.travellers || {}).flatMap(([id, t]) => ['identity', 'licence'].filter(p => t[p]?.status === 'pending').map(p => [id, p]));
 
 /* ---------- Overview ---------- */
 const overview = (m) => {
@@ -44,6 +46,7 @@ const overview = (m) => {
   const expiring = db.documents.filter(d => { const e = App.docExpiryState(d); return e && e.tone !== 'muted'; });
   const queue = [
     ['Documents to verify', db.documents.filter(d => d.status === 'pending').length, '#/admin/verifications'],
+    ['Traveller IDs to review', pendingTravellerParts().length, '#/admin/verifications?filter=travellers'],
     ['Listings awaiting approval', db.vans.filter(v => v.status === 'in_review').length, '#/admin/listings'],
     ['Open disputes', db.disputes.filter(d => d.status === 'open').length, '#/admin/disputes'],
     ['Flagged reviews', db.reviews.filter(r => r.status === 'flagged').length, '#/admin/reviews'],
@@ -72,7 +75,7 @@ const users = (m) => {
     m.querySelector('#u-body').innerHTML = String(h`${list.map(u => h`<tr>
       <td><div class="row gap">${App.avatar(u, 30)}<div><strong>${u.name}</strong><div class="small muted">${u.email}</div></div></div></td>
       <td>${u.role}</td>
-      <td>${u.emailVerified ? '✓' : '✕'} email · ${u.phoneVerified ? '✓' : '✕'} phone${u.role === 'owner' ? h`<br>KYC ${App.statusBadge(App.db.owners[u.id]?.kyc?.status || 'not_started')}` : ''}</td>
+      <td>${u.emailVerified ? '✓' : '✕'} email · ${u.phoneVerified ? '✓' : '✕'} phone${u.role === 'owner' ? h`<br>KYC ${App.statusBadge(App.db.owners[u.id]?.kyc?.status || 'not_started')}` : u.role === 'customer' ? h`<br>${App.travellerBadge(App.db.travellers?.[u.id] || { identity: { status: 'not_started' }, licence: { status: 'not_started' } })}` : ''}</td>
       <td>${u.role === 'owner' ? App.db.vans.filter(v => v.ownerId === u.id).length + ' vans' : App.db.bookings.filter(b => b.customerId === u.id).length + ' bookings'}</td>
       <td>${App.pill(u.status)}</td>
       <td class="actions">${u.role !== 'admin' ? (u.status === 'active' ? h`<button class="btn btn-sm btn-ghost danger-text" data-suspend="${u.id}">Suspend</button>` : h`<button class="btn btn-sm btn-ghost" data-restore="${u.id}">Reactivate</button>`) : ''}</td></tr>`)}`);
@@ -157,6 +160,7 @@ const verifications = (m) => {
   let filter = q.filter || 'pending';
   const draw = async () => {
     if (filter === 'checks') return drawChecks();
+    if (filter === 'travellers') return drawTravellers();
     let list = App.db.documents;
     if (q.owner) list = list.filter(d => d.ownerId === q.owner);
     if (filter === 'pending') list = list.filter(d => d.status === 'pending');
@@ -218,8 +222,41 @@ const verifications = (m) => {
 
   const header = () => h`<h1>KYC & document verification</h1>
     ${q.owner ? h`<p>Showing documents for <strong>${userName(q.owner)}</strong> · <a href="#/admin/verifications">show all</a></p>` : ''}
-    <div class="tabs" role="tablist">${[['pending', 'Pending review'], ['attention', 'Action required / rejected'], ['expiring', 'Expiring & expired'], ['all', 'All documents'], ['checks', 'Government checks log']].map(([k, l]) => h`<button role="tab" aria-selected="${k === filter}" class="${k === filter ? 'on' : ''}" data-f="${k}">${l}</button>`)}</div>`;
+    <div class="tabs" role="tablist">${[['pending', 'Pending review'], ['travellers', `Travellers (${pendingTravellerParts().length})`], ['attention', 'Action required / rejected'], ['expiring', 'Expiring & expired'], ['all', 'All documents'], ['checks', 'Government checks log']].map(([k, l]) => h`<button role="tab" aria-selected="${k === filter}" class="${k === filter ? 'on' : ''}" data-f="${k}">${l}</button>`)}</div>`;
   const bindTabs = () => m.querySelectorAll('[data-f]').forEach(t => t.onclick = () => { filter = t.dataset.f; draw(); });
+
+  // Traveller identity and licences. Aadhaar and Indian licences are checked automatically;
+  // passports, visas and International Driving Permits need a person.
+  const drawTravellers = () => {
+    const rows = Object.entries(App.db.travellers || {}).flatMap(([id, t]) => ['identity', 'licence'].filter(p => t[p] && t[p].status !== 'not_started').map(p => ({ id, part: p, x: t[p] })))
+      .sort((a, b) => (b.x.status === 'pending') - (a.x.status === 'pending') || String(b.x.submittedAt || b.x.check?.checkedAt || '').localeCompare(String(a.x.submittedAt || a.x.check?.checkedAt || '')));
+    const describe = ({ part, x }) => part === 'identity'
+      ? (x.method === 'passport' ? h`Passport ${x.data.passportMasked} · ${x.data.nationality}<br><span class="small muted">${x.data.visaType}${x.data.visaExpiry ? ' until ' + fmtDate(x.data.visaExpiry) : ''} · passport until ${fmtDate(x.data.passportExpiry)} · born ${fmtDate(x.data.dob)}</span>` : h`Aadhaar XXXX-XXXX-${x.data?.aadhaarLast4 || '????'} · ${x.data?.name || ''}`)
+      : (x.kind === 'idp' ? h`${x.data.homeCountry} licence ${x.data.licenceMasked} + IDP<br><span class="small muted">IDP valid until ${fmtDate(x.validUpto)}</span>` : h`Licence ${x.data?.dlMasked || ''}<br><span class="small muted">valid until ${fmtDate(x.validUpto)}</span>`);
+    m.innerHTML = String(h`${header()}
+      <p class="small muted">Aadhaar (DigiLocker) and Indian licences (SARATHI) are verified automatically. Passports, visas and International Driving Permits from visitors need a person: check the photo page matches the name and date of birth, the visa type allows tourism, and the IDP matches the home licence.</p>
+      ${rows.length ? h`<div class="table-wrap"><table class="table"><thead><tr><th>Traveller</th><th>Document</th><th>Details</th><th>Status</th><th>Decision</th></tr></thead><tbody>
+        ${rows.map(r => h`<tr>
+          <td><strong>${userName(r.id)}</strong><br><span class="small muted">${App.get.user(r.id)?.email || ''}</span></td>
+          <td>${r.part === 'identity' ? 'Identity' : 'Driving licence'}<br>${Object.values(r.x.files || {}).map(f => h`<span class="small muted">📎 ${f}</span><br>`)}${r.x.check ? h`<span class="source-tag">✓ ${r.x.check.source}</span>` : r.x.submittedAt ? h`<span class="small muted">submitted ${App.timeAgo(r.x.submittedAt)}</span>` : ''}</td>
+          <td>${describe(r)}</td>
+          <td>${App.statusBadge(r.x.status)}${r.x.note ? h`<div class="small muted">${r.x.note}</div>` : ''}</td>
+          <td class="actions">${r.x.check ? h`<span class="small muted">Automatic</span>` : h`
+            ${r.x.status !== 'verified' ? h`<button class="btn btn-sm btn-primary" data-tdec="verified" data-uid="${r.id}" data-part="${r.part}">Verify</button>` : ''}
+            <button class="btn btn-sm btn-ghost" data-tdec="action_required" data-uid="${r.id}" data-part="${r.part}">Needs action</button>
+            ${r.x.status !== 'rejected' ? h`<button class="btn btn-sm btn-ghost danger-text" data-tdec="rejected" data-uid="${r.id}" data-part="${r.part}">Reject</button>` : ''}`}</td></tr>`)}
+      </tbody></table></div>` : App.emptyState('🧳', 'No traveller documents yet', 'They appear here as travellers get verified.')}`);
+    bindTabs();
+    m.querySelectorAll('[data-tdec]').forEach(b => b.onclick = async () => {
+      const status = b.dataset.tdec;
+      let note = '';
+      if (status !== 'verified') { note = await App.prompt(status === 'rejected' ? 'Reject document' : 'Request action', 'Explain what the traveller needs to do'); if (!note) return; }
+      b.disabled = true;
+      try { await App.market('POST', `/api/admin/travellers/${b.dataset.uid}/decision`, { part: b.dataset.part, status, note }); App.toast('Decision recorded — traveller notified', 'good'); }
+      catch (e) { App.toast(e.message, 'bad'); }
+      drawTravellers();
+    });
+  };
 
   // Server-side record of every government check (the source of truth)
   const drawChecks = async () => {

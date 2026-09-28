@@ -152,3 +152,43 @@ test('suspending a user ends their sessions and pauses their listings', async ()
   assert.equal((await client().post('/api/auth/login', { email: 'tenzin@vanyatra.in', password: 'demo1234' })).status, 403);
   await admin.post('/api/admin/users/u_owner3/status', { status: 'active' });
 });
+
+test('traveller verification: profile licence check, bookings checks stay per-trip, visitors reviewed by admin', async () => {
+  const arjun = await login('arjun@example.com');
+  const view = async (c) => (await c.get('/api/market')).json;
+  assert.equal((await view(arjun)).traveller.identity.status, 'verified');
+  assert.equal((await view(arjun)).traveller.licence.status, 'not_started');
+  // A licence checked while booking may be someone else's, so it doesn't touch the profile
+  await arjun.post('/api/verify/dl', { dlNumber: 'KA0320150012345', dob: '1988-11-02', name: 'Someone Else', consent: true });
+  assert.equal((await view(arjun)).traveller.licence.status, 'not_started');
+  // From the profile it's checked in the traveller's own verified name
+  const r = await arjun.post('/api/verify/dl', { dlNumber: 'KA0320150012345', dob: '1988-11-02', name: 'Ignored Name', purpose: 'profile', consent: true });
+  assert.equal(r.json.result.status, 'verified');
+  const lic = (await view(arjun)).traveller.licence;
+  assert.equal(lic.status, 'verified');
+  assert.equal(lic.check.source, 'MoRTH SARATHI licence registry');
+  assert.ok(lic.data.dlMasked.endsWith('2345') && !JSON.stringify(lic).includes('KA0320150012345'));
+  // Customers see only their own record; no customer created owner documents
+  assert.equal((await view(arjun)).travellers, undefined);
+  assert.ok(!market.state().documents.some(d => d.ownerId === 'u_cust2'));
+
+  // Visitor from abroad: passport + visa, then an admin decides
+  const emma = await login('tourist@vanyatra.in');
+  assert.equal((await view(emma)).traveller.identity.status, 'pending');
+  const bad = await emma.post('/api/traveller/documents', { part: 'identity', nationality: 'India', passportNumber: 'Z1234567' });
+  assert.equal(bad.status, 400);
+  assert.equal((await emma.post('/api/admin/travellers/u_cust6/decision', { part: 'identity', status: 'verified' })).status, 403);
+  const admin = await login('admin@vanyatra.in');
+  assert.ok((await view(admin)).travellers.u_cust6);
+  assert.equal((await admin.post('/api/admin/travellers/u_cust6/decision', { part: 'licence', status: 'rejected' })).status, 400); // note required
+  assert.equal((await admin.post('/api/admin/travellers/u_cust6/decision', { part: 'identity', status: 'verified' })).status, 200);
+  const t = (await view(emma)).traveller;
+  assert.equal(t.identity.status, 'verified');
+  assert.ok((await view(emma)).notifications.some(n => /ID is verified/.test(n.text)));
+  // Resubmitting puts it back in the queue
+  const ok = await emma.post('/api/traveller/documents', { part: 'licence', homeCountry: 'United Kingdom', licenceNumber: 'CLARK905093EJ9AB', idpExpiry: '2099-01-01', licenceFile: 'uk.jpg', idpFile: 'idp.jpg' });
+  assert.equal(ok.status, 200);
+  assert.equal((await view(emma)).traveller.licence.status, 'pending');
+  // Owners can't use the traveller endpoint
+  assert.equal((await (await login('owner@vanyatra.in')).post('/api/traveller/documents', { part: 'licence' })).status, 403);
+});

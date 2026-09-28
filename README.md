@@ -31,7 +31,9 @@ All passwords are `demo1234`. The sign-in page has one-click buttons for each.
 
 | Role | Email | What to try |
 |---|---|---|
-| Traveller | traveller@vanyatra.in | Upcoming Ladakh trip, itinerary planner, cancel with refund preview, messages, reviews. The driving licence is checked at booking. |
+| Traveller | traveller@vanyatra.in | Verified traveller. Upcoming Ladakh trip, itinerary planner, cancel with refund preview, messages, reviews. Books without re-entering a licence. |
+| Unverified traveller | sam@example.com | Has to verify (DigiLocker + licence) before booking |
+| Visitor from abroad | tourist@vanyatra.in | Passport, visa and International Driving Permit waiting for admin review; can only send booking requests |
 | Van owner | owner@vanyatra.in | 5 vans, booking requests, calendar blocking, earnings, expiring document alerts |
 | New owner | karan@vanyatra.in | Onboarding with KYC still pending. Try "Verify with DigiLocker". |
 | Admin | admin@vanyatra.in | Verification queue, the **Government checks log**, VAHAN re-checks, listing approval, disputes, audit log |
@@ -51,12 +53,15 @@ If `/api/config` doesn't answer, the site switches to an **in-browser demo backe
 | GSTIN | GST Network | The check digit is validated locally first. Then status (must be Active), legal name, and whether the PAN inside the GSTIN matches the owner's PAN. |
 | Vehicle RC | MoRTH **VAHAN** | Registered owner vs verified identity, RC status and validity, blacklist, and commercial vs private registration |
 | Insurance, PUC, permit | VAHAN (same lookup) | Expiry dates come straight from the registry. Insurance also needs a person to confirm the policy schedule covers self-drive rental, because the registry can't show that. |
-| Driving licence (travellers) | MoRTH **SARATHI** | Must be valid through the end of the trip, and the name must match the driver. This happens before payment. |
+| Traveller identity | Aadhaar via **DigiLocker**, or passport + visa for visitors (checked by a person) | Needed before any booking. Passport or visa must be valid until the trip ends. |
+| Driving licence (travellers) | MoRTH **SARATHI**, or a foreign licence + International Driving Permit (checked by a person) | Saved once on the traveller's profile, in their verified name, and reused while it's valid for the whole trip. Anyone else driving is checked at booking. The name must match and the licence must be valid until the trip ends. |
 | Bank account | Penny drop (₹1) | The account must exist and the name at the bank must match the owner's verified name. Only the last 4 digits are kept. |
 
 Names are matched across all documents, allowing for initials, titles, word order and small spelling differences. Each check ends as **Verified** (approved automatically), **Needs review** (goes to the admin queue) or **Failed** (the owner is told why). If a government source is down, the check falls back to manual review instead of blocking the owner.
 
-**What still needs a person:** the selfie-to-Aadhaar photo match, rent-a-cab licence, fitness certificate, NOCs, the insurance rental-cover check and the safety inspection. No government API covers these.
+**Traveller verification** lives under **My account → Verification**. A traveller whose identity or licence is still under review can only send booking requests (no instant book), and owners see a *Verified traveller* or *ID verified* badge on each request, never the documents. Admins review visitors' documents under **KYC & documents → Travellers**. Licence, passport and visa expiry get the same 30-day reminders as owner documents.
+
+**What still needs a person:** visitors' passports, visas and International Driving Permits, the selfie-to-Aadhaar photo match, rent-a-cab licence, fitness certificate, NOCs, the insurance rental-cover check and the safety inspection. No government API covers these.
 
 **Safeguards:**
 - Every check needs a signed-in user with the right role and an explicit consent tick. Consent is enforced by the server.

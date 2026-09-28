@@ -185,7 +185,7 @@ const bookingsTab = (m, { bookings }) => {
       ${list.length ? h`<div class="table-wrap"><table class="table"><thead><tr><th>Booking</th><th>Traveller</th><th>Van</th><th>Dates</th><th class="num">Your payout</th><th>Status</th><th></th></tr></thead><tbody>
         ${list.slice(0, 60).map(b => { const c = App.get.user(b.customerId); return h`<tr>
           <td>${b.id}${b.risk?.score >= 50 ? h`<br><span class="badge badge-serious" title="${b.risk.flags.join('; ')}">⚠ Risk ${b.risk.score}</span>` : ''}</td>
-          <td>${c.name}<br><span class="small muted">${c.phoneVerified ? '✓ phone verified' : 'phone unverified'} · ${b.travelers} guests</span></td>
+          <td>${c.name}<br>${b.traveller ? App.travellerBadge(b.traveller) : h`<span class="small muted">${c.phoneVerified ? '✓ phone verified' : 'phone unverified'}</span>`}<span class="small muted"> · ${b.travelers} guests${b.driver?.check?.status === 'verified' ? (b.traveller?.level === 'verified' ? '' : ' · licence ✓') : b.driver?.check?.status === 'review' ? ' · licence under review' : ''}</span></td>
           <td>${App.get.van(b.vanId).name}</td>
           <td>${fmtDate(b.start)} → ${fmtDate(b.end)}<br><span class="small muted">${App.plural(b.nights, 'night')}</span></td>
           <td class="num">${money(b.pricing.ownerPayout)}</td>
