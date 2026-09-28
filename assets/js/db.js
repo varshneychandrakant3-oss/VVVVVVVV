@@ -429,7 +429,7 @@ App.api = {
     t.bookingId = b.id;
     if (specialRequests) t.messages.push({ from: me.id, text: status === 'confirmed' ? specialRequests : App.filterContact(specialRequests).text, at: b.createdAt });
     if (status === 'confirmed') {
-      App.notify(me.id, `Booking ${b.id} confirmed: ${van.name}, ${App.fmtDate(start)} – ${App.fmtDate(end)}.`, '#/account/bookings');
+      App.notify(me.id, `Booking ${b.id} confirmed: ${van.name}, ${App.fmt.dateRange(start, end)}.`, '#/account/bookings');
       App.notify(van.ownerId, `New confirmed booking ${b.id} for ${van.name} (${App.fmtDate(start)}).`, '#/owner/bookings');
     } else {
       App.notify(me.id, `Request ${b.id} sent to the owner of ${van.name}. You won't be charged unless they accept (within 24 h).`, '#/account/bookings');

@@ -84,7 +84,7 @@ const overview = (m, { me, vans, vanIds, bookings, docAlerts, requests }) => {
         </ul>
       </section>
       <section class="card"><h2>Upcoming trips</h2>
-        ${upcoming.length ? h`<ul class="plain list-rows">${upcoming.slice(0, 5).map(b => h`<li><div><strong>${App.get.user(b.customerId).name}</strong><div class="small muted">${App.get.van(b.vanId).name} · ${fmtDate(b.start)} → ${fmtDate(b.end)}</div></div><span>${money(b.pricing.ownerPayout)}</span></li>`)}</ul>` : h`<p class="muted">No upcoming trips.</p>`}
+        ${upcoming.length ? h`<ul class="plain list-rows">${upcoming.slice(0, 5).map(b => h`<li><div><strong>${App.get.user(b.customerId).name}</strong><div class="small muted">${App.get.van(b.vanId).name} · ${App.fmt.dateRange(b.start, b.end)}</div></div><span>${money(b.pricing.ownerPayout)}</span></li>`)}</ul>` : h`<p class="muted">No upcoming trips.</p>`}
         <a class="link-arrow" href="#/owner/bookings">All bookings →</a>
       </section>
     </div>
@@ -187,7 +187,7 @@ const bookingsTab = (m, { bookings }) => {
           <td>${b.id}${b.risk?.score >= 50 ? h`<br><span class="badge badge-serious" title="${b.risk.flags.join('; ')}">⚠ Risk ${b.risk.score}</span>` : ''}</td>
           <td>${c.name}<br>${b.traveller ? App.travellerBadge(b.traveller) : h`<span class="small muted">${c.phoneVerified ? '✓ phone verified' : 'phone unverified'}</span>`}<span class="small muted"> · ${b.travelers} guests${b.driver?.check?.status === 'verified' ? (b.traveller?.level === 'verified' ? '' : ' · licence ✓') : b.driver?.check?.status === 'review' ? ' · licence under review' : ''}</span></td>
           <td>${App.get.van(b.vanId).name}</td>
-          <td>${fmtDate(b.start)} → ${fmtDate(b.end)}<br><span class="small muted">${App.plural(b.nights, 'night')}</span></td>
+          <td>${App.fmt.dateRange(b.start, b.end)}<br><span class="small muted">${App.plural(b.nights, 'night')}</span></td>
           <td class="num">${money(b.pricing.ownerPayout)}</td>
           <td>${App.pill(b.status)}</td>
           <td class="actions">${b.status === 'requested' ? h`<button class="btn btn-sm btn-primary" data-accept="${b.id}">Accept</button><button class="btn btn-sm btn-ghost" data-decline="${b.id}">Decline</button>`
@@ -240,7 +240,7 @@ const calendarTab = (m, { vans }) => {
     catch (e) { van.blocked = before; App.save(); drawList(); cal.redraw(); App.toast(e.message, 'bad'); }
   };
   const drawList = () => {
-    m.querySelector('#blocked-list').innerHTML = String(van.blocked.length ? h`${van.blocked.map((r, i) => h`<li><span>${fmtDate(r.start)} → ${fmtDate(r.end)} <span class="small muted">${r.note || ''}</span></span><button class="link" data-unblock="${i}">Remove</button></li>`)}` : h`<li class="muted">No blocked dates.</li>`);
+    m.querySelector('#blocked-list').innerHTML = String(van.blocked.length ? h`${van.blocked.map((r, i) => h`<li><span>${App.fmt.dateRange(r.start, r.end)} <span class="small muted">${r.note || ''}</span></span><button class="link" data-unblock="${i}">Remove</button></li>`)}` : h`<li class="muted">No blocked dates.</li>`);
     m.querySelectorAll('[data-unblock]').forEach(b => b.onclick = () => { const before = [...van.blocked]; van.blocked.splice(+b.dataset.unblock, 1); saveBlocked(before); });
   };
   const cal = App.calendar(m.querySelector('#cal'), {

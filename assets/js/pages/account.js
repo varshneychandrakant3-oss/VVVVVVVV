@@ -39,7 +39,7 @@ const tripCard = (b) => {
     <div class="trip-body">
       <div class="row-between"><span class="eyebrow">${b.id}</span>${App.pill(b.status)}</div>
       <h3><a href="#/vans/${van.id}">${van.name}</a></h3>
-      <p class="meta">${fmtDate(b.start)} → ${fmtDate(b.end)} · ${App.plural(b.nights, 'night')} · ${b.travelers} travellers · hosted by ${owner.name}</p>
+      <p class="meta">${App.fmt.dateRange(b.start, b.end)} · ${App.plural(b.nights, 'night')} · ${b.travelers} travellers · hosted by ${owner.name}</p>
       ${b.status === 'confirmed' && days >= 0 ? h`<p class="small"><strong>${days === 0 ? 'Pickup is today!' : `Pickup in ${App.plural(days, 'day')}`}</strong> · ${van.pickup.address}, from ${van.pickup.time}</p>` : ''}
       ${b.status === 'requested' ? h`<p class="small muted">Waiting for the owner to respond. You haven’t been charged.</p>` : ''}
       ${b.status === 'cancelled' ? h`<p class="small muted">Cancelled by ${b.cancelledBy || 'you'}${b.refund !== undefined ? ` · refund ${money(b.refund)}` : ''}</p>` : ''}
@@ -84,7 +84,7 @@ const cancelFlow = async (id) => {
   const r = App.refundFor(b);
   const ok = await App.modal({
     title: 'Cancel booking ' + b.id + '?',
-    body: h`<p>${App.get.van(b.vanId).name}, ${fmtDate(b.start)} → ${fmtDate(b.end)}</p>
+    body: h`<p>${App.get.van(b.vanId).name}, ${App.fmt.dateRange(b.start, b.end)}</p>
       <div class="callout"><strong>Refund: ${money(r.amount)}</strong> of ${money(b.pricing.total)} (${Math.round(r.pct * 100)}%)<br><span class="small">${b.status === 'requested' ? 'Request not yet accepted — nothing has been charged.' : r.withinGrace ? 'You’re within the 24-hour grace period.' : `${r.policy.label} policy · ${App.plural(Math.max(0, r.daysBefore), 'day')} before pickup.`}</span></div>
       <label class="field"><span>Reason (optional)</span><select id="c-reason"><option>Change of plans</option><option>Found another option</option><option>Travel restrictions / weather</option><option>Health reasons</option><option>Other</option></select></label>`,
     actions: [{ label: 'Keep booking', value: false }, { label: 'Cancel booking', danger: true, value: (mm) => mm.querySelector('#c-reason').value }]
@@ -140,7 +140,7 @@ App.receipt = (id) => {
   App.modal({
     title: 'Receipt · ' + b.id,
     body: h`<div class="receipt"><p><strong>VanYatra Marketplace Pvt. Ltd.</strong> (demo)<br><span class="small muted">Tax invoice · ${App.C.taxLabel} registered</span></p>
-      <p>${van.name} · ${fmtDate(b.start)} → ${fmtDate(b.end)}<br>Booked ${fmtDate(b.createdAt)} · Status: ${b.status} · Payment: ${b.paymentStatus}</p>
+      <p>${van.name} · ${App.fmt.dateRange(b.start, b.end)}<br>Booked ${fmtDate(b.createdAt)} · Status: ${b.status} · Payment: ${b.paymentStatus}</p>
       ${App.priceLines(b.pricing)}${b.refund ? h`<p class="good">Refunded: ${money(b.refund)}</p>` : ''}</div>`,
     actions: [{ label: 'Print', value: 'print' }, { label: 'Close', primary: true, value: null }]
   }).then(v => { if (v === 'print') window.print(); });
@@ -162,7 +162,7 @@ const itineraryTab = (m, id) => {
     <div class="trip-summary card">
       <img src="${photo(dest?.hero || van.photos[0], 600)}" alt="">
       <div><span class="eyebrow">${b.id} · ${b.status}</span><h2>${dest ? dest.name : ''} with ${van.name}</h2>
-        <p>${fmtDate(b.start)} → ${fmtDate(b.end)} · ${App.plural(b.nights, 'night')}</p>
+        <p>${App.fmt.dateRange(b.start, b.end)} · ${App.plural(b.nights, 'night')}</p>
         <p class="small">📍 Pickup: ${b.status === 'confirmed' ? van.pickup.address : van.pickup.city + ' (address after confirmation)'} · ${van.pickup.time}</p>
         <div class="row gap wrap"><button class="btn btn-sm" id="ics">📅 Add to calendar</button>${dest ? h`<button class="btn btn-sm btn-ghost" id="suggest">✨ Fill from suggested route</button>` : ''}</div></div>
     </div>

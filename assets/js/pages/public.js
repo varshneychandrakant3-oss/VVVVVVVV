@@ -14,8 +14,7 @@ const searchForm = (q = {}, compact = false) => h`
         <option value="">Anywhere in India</option>
         ${App.db.destinations.map(d => h`<option value="${d.id}" ${q.dest === d.id ? 'selected' : ''}>${d.name}</option>`)}
       </select></label>
-    <label class="sf-field"><span>Pickup</span><input type="date" name="start" min="${App.today()}" value="${q.start || ''}"></label>
-    <label class="sf-field"><span>Return</span><input type="date" name="end" min="${App.today()}" value="${q.end || ''}"></label>
+    <div class="sf-field sf-dates" data-start="${q.start || ''}" data-end="${q.end || ''}"></div>
     <label class="sf-field sf-small"><span>Travellers</span>
       <select name="guests">${[1, 2, 3, 4, 5, 6].map(n => h`<option value="${n}" ${+q.guests === n || (!q.guests && n === 2) ? 'selected' : ''}>${n}${n === 6 ? '+' : ''}</option>`)}</select></label>
     <label class="sf-field"><span>Van type</span>
@@ -26,7 +25,8 @@ const searchForm = (q = {}, compact = false) => h`
 const bindSearchForm = (el) => {
   const f = el.querySelector('#search-form');
   if (!f) return;
-  f.start.addEventListener('change', () => { f.end.min = f.start.value ? App.addDays(f.start.value, 1) : App.today(); if (f.end.value && f.end.value <= f.start.value) f.end.value = App.addDays(f.start.value, 3); });
+  const dates = f.querySelector('.sf-dates');
+  App.dateRangeField(dates, { start: dates.dataset.start, end: dates.dataset.end });
   f.addEventListener('submit', (e) => {
     e.preventDefault();
     const q = App.formData(f);
@@ -222,10 +222,7 @@ App.pages.search = (el, _p, q) => {
       <div class="sheet-head only-mobile"><strong>Filters</strong><button type="button" class="icon-btn" id="filters-close" aria-label="Close filters">✕</button></div>
       <form id="filter-form">
         <label class="field"><span>Destination</span><select name="dest"><option value="">Anywhere</option>${App.db.destinations.map(d => h`<option value="${d.id}" ${state.dest === d.id ? 'selected' : ''}>${d.name}</option>`)}</select></label>
-        <div class="grid-2">
-          <label class="field"><span>Pickup</span><input type="date" name="start" min="${App.today()}" value="${state.start}"></label>
-          <label class="field"><span>Return</span><input type="date" name="end" min="${App.today()}" value="${state.end}"></label>
-        </div>
+        <div class="field"><span id="f-dates-l">Dates</span><div id="f-dates" role="group" aria-labelledby="f-dates-l"></div></div>
         <label class="field"><span>Travellers</span><input type="number" name="guests" min="1" max="8" value="${state.guests}"></label>
         <fieldset class="field"><legend>Price per night</legend>
           <div class="grid-2"><label class="small">Min<input type="number" name="min" step="500" min="0" value="${state.min}"></label><label class="small">Max<input type="number" name="max" step="500" min="0" value="${state.max}"></label></div>
@@ -284,7 +281,7 @@ App.pages.search = (el, _p, q) => {
     };
     avail.sort(sorters[state.sort]);
     const unavailable = list.filter(v => !avail.includes(v));
-    el.querySelector('#result-count').textContent = `${App.plural(avail.length, 'van')} available${validDates ? ` · ${fmtDate(state.start)} – ${fmtDate(state.end)}` : ''}`;
+    el.querySelector('#result-count').textContent = `${App.plural(avail.length, 'van')} available${validDates ? ` · ${App.fmt.dateRange(state.start, state.end)}` : ''}`;
     el.querySelector('#filters-apply').textContent = `Show ${App.plural(avail.length, 'van')}`;
     const active = [state.dest, validDates, state.guests > 1, state.min > 0, state.max < maxP, state.types.length, state.amen.length, state.family, state.pets, state.instant, state.auto].filter(Boolean).length;
     const fc = el.querySelector('#filter-count'); fc.hidden = !active; fc.textContent = active;
@@ -309,9 +306,9 @@ App.pages.search = (el, _p, q) => {
   form.addEventListener('input', (e) => {
     if (e.target.name === 'maxRange') form.max.value = e.target.value;
     if (e.target.name === 'max') form.maxRange.value = e.target.value;
-    if (e.target.name === 'start' && form.start.value) { form.end.min = App.addDays(form.start.value, 1); if (form.end.value && form.end.value <= form.start.value) form.end.value = ''; }
     read(); draw();
   });
+  App.dateRangeField(el.querySelector('#f-dates'), { start: state.start, end: state.end });
   el.querySelector('#clear-filters').onclick = clear;
   el.querySelector('#sort').onchange = (e) => { state.sort = e.target.value; draw(); };
   el.querySelectorAll('[data-view]').forEach(b => b.onclick = () => {
@@ -459,12 +456,11 @@ App.pages.van = (el, { id }, q) => {
     const ok = valid && App.isAvailable(van.id, state.start, state.end);
     const tooShort = valid && nights < van.minNights;
     const guests = state.adults + state.children;
+    const refocus = document.activeElement?.closest?.('#bc-dates');
     card.innerHTML = String(h`
       <div class="bc-price"><strong>${money(van.pricePerNight)}</strong> <span class="muted">/ night</span>${van.weekendPrice > van.pricePerNight ? h`<span class="small muted"> · ${money(van.weekendPrice)} Fri–Sat</span>` : ''}</div>
-      <div class="bc-dates">
-        <label><span>Pickup</span><input type="date" id="bc-start" min="${App.today()}" value="${state.start}"></label>
-        <label><span>Return</span><input type="date" id="bc-end" min="${state.start ? App.addDays(state.start, 1) : App.today()}" value="${state.end}"></label>
-      </div>
+      <div class="bc-range" id="bc-dates"></div>
+      ${van.minNights > 1 ? h`<p class="small muted bc-min">Minimum stay ${App.fmt.nights(van.minNights)}</p>` : ''}
       <div class="bc-guests">
         <label><span>Adults</span><input type="number" id="bc-adults" min="1" max="${van.sleeps}" value="${state.adults}"></label>
         <label><span>Children</span><input type="number" id="bc-children" min="0" max="${van.sleeps - 1}" value="${state.children}"></label>
@@ -483,11 +479,11 @@ App.pages.van = (el, { id }, q) => {
         <div class="total"><dt>Total</dt><dd>${money(qte.total)}</dd></div>
         <div class="muted"><dt>Refundable security deposit (held)</dt><dd>${money(qte.deposit)}</dd></div>
       </dl>` : ''}`);
-    el.querySelector('#mobile-bar').innerHTML = String(h`<div><strong>${qte ? money(qte.total) : money(van.pricePerNight) + ' / night'}</strong><div class="small muted">${valid ? `${fmtDate(state.start)} – ${fmtDate(state.end)}` : 'Add dates'}</div></div><a class="btn btn-accent" href="#booking-card" id="mb-go">${valid ? 'Reserve' : 'Check dates'}</a>`);
-    el.querySelector('#mb-go').onclick = (e) => { e.preventDefault(); card.scrollIntoView({ behavior: 'smooth', block: 'center' }); };
-    const sync = () => { state.start = card.querySelector('#bc-start').value; state.end = card.querySelector('#bc-end').value; if (state.end && state.end <= state.start) state.end = ''; cal.set(state.start, state.end); drawCard(); };
-    card.querySelector('#bc-start').onchange = sync;
-    card.querySelector('#bc-end').onchange = sync;
+    el.querySelector('#mobile-bar').innerHTML = String(h`<div><strong>${qte ? money(qte.total) : money(van.pricePerNight) + ' / night'}</strong><div class="small muted">${valid ? `${App.fmt.dateRange(state.start, state.end)}` : 'Add dates'}</div></div><a class="btn btn-accent" href="#booking-card" id="mb-go">${valid && ok && !tooShort ? 'Reserve · ' + money(qte.total) : 'Check dates'}</a>`);
+    const range = App.dateRangeField(card.querySelector('#bc-dates'), { start: state.start, end: state.end, vanId: van.id, minNights: van.minNights, onChange: (s, e) => { state.start = s; state.end = e; cal.set(s, e); drawCard(); } });
+    if (refocus) card.querySelector('#bc-dates .drf-btn').focus();
+    // Phone bar: pick dates first, then go straight to checkout
+    el.querySelector('#mb-go').onclick = (e) => { e.preventDefault(); if (valid && ok && !tooShort) card.querySelector('#book-btn').click(); else { card.scrollIntoView({ behavior: 'instant', block: 'center' }); range.open(); } };
     card.querySelector('#bc-adults').onchange = (e) => { state.adults = Math.max(1, +e.target.value); drawCard(); };
     card.querySelector('#bc-children').onchange = (e) => { state.children = Math.max(0, +e.target.value); drawCard(); };
     card.querySelector('#book-btn').onclick = () => App.go(`#/book/${van.id}?start=${state.start}&end=${state.end}&adults=${state.adults}&children=${state.children}`);

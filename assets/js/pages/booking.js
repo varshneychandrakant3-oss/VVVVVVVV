@@ -43,7 +43,7 @@ App.pages.book = (el, { id }, q) => {
         <aside class="book-summary card">
           <div class="bs-van"><img src="${photo(van.photos[0], 400)}" alt=""><div><strong>${van.name}</strong><div class="small muted">${van.type} · ${van.pickup.city}</div>${App.vanRating(van)}</div></div>
           <dl class="trip-lines">
-            <div><dt>Dates</dt><dd>${fmtDate(s.start)} → ${fmtDate(s.end)}<br><span class="small muted">Pickup ${van.pickup.time} · return by ${van.pickup.returnTime}</span></dd></div>
+            <div><dt>Dates</dt><dd>${App.fmt.dateRange(s.start, s.end)}<br><span class="small muted">Pickup ${van.pickup.time} · return by ${van.pickup.returnTime}</span></dd></div>
             <div><dt>Travellers</dt><dd>${App.plural(s.adults, 'adult')}${s.children ? ', ' + App.plural(s.children, 'child').replace('childs', 'children') : ''}</dd></div>
             <div><dt>Cancellation</dt><dd>${App.CANCELLATION_POLICIES[van.cancellation].label}: ${App.CANCELLATION_POLICIES[van.cancellation].summary}</dd></div>
           </dl>
@@ -59,8 +59,7 @@ App.pages.book = (el, { id }, q) => {
     if (s.step === 1) return h`
       <h2>Your trip</h2>
       <div class="grid-2">
-        <label class="field"><span>Pickup</span><input type="date" name="start" value="${s.start}" min="${App.today()}" required></label>
-        <label class="field"><span>Return</span><input type="date" name="end" value="${s.end}" min="${App.addDays(s.start, 1)}" required></label>
+        <div class="field span-2"><span id="bk-dates-l">Dates</span><div id="bk-dates" role="group" aria-labelledby="bk-dates-l"></div>${van.minNights > 1 ? h`<small class="muted">Minimum stay ${App.fmt.nights(van.minNights)}</small>` : ''}</div>
         <label class="field"><span>Adults</span><input type="number" name="adults" min="1" max="${van.sleeps}" value="${s.adults}"></label>
         <label class="field"><span>Children (under 12)</span><input type="number" name="children" min="0" max="${van.sleeps - 1}" value="${s.children}"></label>
       </div>
@@ -120,6 +119,7 @@ App.pages.book = (el, { id }, q) => {
     const f = el.querySelector('#book-form');
     const back = f.querySelector('[data-back]');
     if (back) back.onclick = () => { s.step--; draw(); };
+    if (s.step === 1) App.dateRangeField(f.querySelector('#bk-dates'), { start: s.start, end: s.end, vanId: van.id, minNights: van.minNights, clearable: false });
     if (s.step === 1) f.addEventListener('change', () => {
       const d = App.formData(f);
       s.start = d.start; s.end = d.end > d.start ? d.end : App.addDays(d.start, van.minNights);

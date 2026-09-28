@@ -154,6 +154,62 @@ const JOURNEYS = {
     return b.id + ' ' + b.status + ' ' + App.fmt.money(quote);
   },
 
+  // Date-range picker: DD MMM YYYY, nights, past/booked/too-short dates blocked, keyboard, carried to search
+  async dates() {
+    const dayBtn = (d) => T.$(`.drp [data-d="${d}"]`);
+    await T.go('#/');
+    const field = T.$('#search-form .drf-btn'); T.assert(field, 'No date field on home');
+    T.assert(!T.$('#search-form input[type=date]'), 'Native date inputs still on home');
+    field.click(); await T.until(() => T.$('.drp'), 3000, 'picker to open');
+    T.assert(T.$('.drp').classList.contains('sheet'), 'Picker should be a bottom sheet on phones');
+    const yesterday = App.addDays(App.today(), -1);
+    if (dayBtn(yesterday)) T.assert(dayBtn(yesterday).hasAttribute('aria-disabled'), 'Past date is pickable');
+    // Keyboard: focus is on a day; ArrowRight moves one day, Enter picks
+    const focused = document.activeElement; T.assert(focused.classList.contains('drp-day'), 'Focus not on a day when the picker opens');
+    focused.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowDown', bubbles: true }));
+    T.assert(document.activeElement.dataset.d === App.addDays(focused.dataset.d, 7), 'ArrowDown did not move a week');
+    // Pick a start in next month, then an end 4 nights later (navigate months if needed)
+    const start = App.addDays(App.today(), 20), end = App.addDays(start, 4);
+    const pickDay = async (d) => { for (let i = 0; i < 3 && !dayBtn(d); i++) { T.$('.drp [data-nav="1"]').click(); await T.wait(80); } dayBtn(d).click(); await T.wait(120); };
+    await pickDay(start);
+    T.assert(/Choose your return date/.test(T.text('.drp')), 'Picker did not ask for the return date');
+    await pickDay(end);
+    T.assert(!T.$('.drp'), 'Picker did not close after choosing the return date');
+    const label = T.text('#search-form .drf-btn');
+    T.assert(label.includes(App.fmt.date(start)) && label.includes(App.fmt.date(end)) && /4 nights/.test(label), 'Field shows "' + label + '"');
+    T.assert(/^\d{1,2} [A-Z][a-z]{2} \d{4}$/.test(App.fmt.date(start)), 'Not DD MMM YYYY: ' + App.fmt.date(start));
+    T.$('#search-form').requestSubmit(); await T.wait(700);
+    T.assert(location.hash.includes('start=' + start) && location.hash.includes('end=' + end), 'Dates not carried to search: ' + location.hash);
+    T.assert(T.text('#result-count').includes(App.fmt.dateRange(start, end)), 'Search page lost the dates: ' + T.text('#result-count'));
+    T.assert(T.$('#filter-form').start.value === start && T.$('#filter-form').end.value === end, 'Search filters lost the dates');
+    // Van page: a booked night can't be picked, and a return can't jump over it
+    const b = App.db.bookings.find(x => ['confirmed', 'requested'].includes(x.status) && x.start > App.addDays(App.today(), 3) && App.get.van(x.vanId)?.status === 'published');
+    await T.go('#/vans/' + b.vanId);
+    T.$('#bc-dates .drf-btn').click(); await T.until(() => T.$('.drp'), 3000, 'van picker');
+    for (let i = 0; i < 20 && !dayBtn(b.start); i++) { T.$('.drp [data-nav="1"]').click(); await T.wait(60); }
+    T.assert(dayBtn(b.start).hasAttribute('aria-disabled') && dayBtn(b.start).classList.contains('unavail'), 'Booked night is pickable');
+    const before = App.addDays(b.start, -3);
+    if (before > App.today() && !App.unavailableDates(b.vanId).has(before)) {
+      await pickDay(before);
+      T.assert(dayBtn(App.addDays(b.start, 2))?.hasAttribute('aria-disabled'), 'Return date can cross a booked night');
+    }
+    T.$('.drp .drp-close').click(); await T.wait(100);
+    // Minimum stay: a van with minNights > 1 disables shorter returns
+    const van = App.db.vans.find(v => v.status === 'published' && v.minNights >= 2);
+    await T.go('#/vans/' + van.id);
+    T.assert(/Minimum stay/.test(T.text('#booking-card')), 'Min-night rule not shown on the van page');
+    T.$('#bc-dates .drf-btn').click(); await T.until(() => T.$('.drp'), 3000, 'van picker');
+    let s = App.addDays(App.today(), 40); while (!App.isAvailable(van.id, s, App.addDays(s, van.minNights + 2))) s = App.addDays(s, 5);
+    await pickDay(s);
+    T.assert(dayBtn(App.addDays(s, 1)).classList.contains('too-short'), 'Too-short return not disabled');
+    await pickDay(App.addDays(s, van.minNights));
+    const total = T.rupees((T.text('#booking-card').match(/Total\s*₹[\d,]+/) || [''])[0]);
+    T.assert(total === App.quote(van, s, App.addDays(s, van.minNights)).total, 'Van page total wrong after picking dates');
+    T.assert(/Reserve · ₹/.test(T.text('#mobile-bar')), 'Phone bar did not switch to "Reserve · ₹X"');
+    T.noOverflow();
+    return 'range ' + App.fmt.dateRange(start, end);
+  },
+
   // An unverified traveller can't pay until identity is verified
   async gate() {
     await T.login('sam@example.com', '/');
@@ -245,7 +301,8 @@ async function run(mode) {
 
 // Screenshots for visual review (demo mode):
 //   node scripts/journeys.mjs --screens out/ "#/vans/v1" "traveller@vanyatra.in#/account/verification" ...
-// A route may be prefixed with an email to sign in first, and suffixed with @selector to scroll to it.
+// A route may be prefixed with an email to sign in first, suffixed with @selector to scroll
+// to it, and then with !selector to click it (e.g. to open a picker).
 async function screens(dir, routes) {
   fs.mkdirSync(dir, { recursive: true });
   const host = await startStatic(), chrome = await launchChrome();
@@ -254,8 +311,8 @@ async function screens(dir, routes) {
   await chrome.send('Page.addScriptToEvaluateOnNewDocument', { source: HELPERS });
   await chrome.send('Page.navigate', { url: host.url }); await sleep(1500);
   for (const [i, spec] of routes.entries()) {
-    const [, email, hash, sel] = spec.match(/^([^#]*)(#[^@]*)(?:@(.+))?$/) || [];
-    const js = `(async () => { await T.until(() => window.App && App.backend, 10000); ${email ? `await T.login(${JSON.stringify(email)}, '/');` : ''} await T.go(${JSON.stringify(hash)}); await T.wait(900); ${sel ? `document.querySelector(${JSON.stringify(sel)})?.scrollIntoView({ block: 'start', behavior: 'instant' }); scrollBy(0, -70); await T.wait(300);` : 'scrollTo(0, 0);'} })()`;
+    const [, email, hash, sel, click] = spec.match(/^([^#]*)(#[^@!]*)(?:@([^!]+))?(?:!(.+))?$/) || [];
+    const js = `(async () => { await T.until(() => window.App && App.backend, 10000); ${email ? `await T.login(${JSON.stringify(email)}, '/');` : ''} await T.go(${JSON.stringify(hash)}); await T.wait(900); ${sel ? `document.querySelector(${JSON.stringify(sel)})?.scrollIntoView({ block: 'start', behavior: 'instant' }); scrollBy(0, -70); await T.wait(300);` : 'scrollTo(0, 0);'} ${click ? `document.querySelector(${JSON.stringify(click)})?.click(); await T.wait(500);` : ''} })()`;
     const r = await chrome.send('Runtime.evaluate', { expression: js, awaitPromise: true });
     if (r.exceptionDetails) console.log('✗', spec, r.exceptionDetails.exception?.description?.split('\n')[0]);
     const shot = await chrome.send('Page.captureScreenshot', { format: 'png' });

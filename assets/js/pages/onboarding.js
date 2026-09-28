@@ -465,7 +465,7 @@ const STEPS = {
     const blocked = (van.blocked || []).map(r => ({ ...r }));
     const drawBlocked = () => {
       c.querySelector('#blocked-list').innerHTML = String(blocked.length
-        ? h`${blocked.map((r, i) => h`<li><span>${App.fmtDate(r.start)} → ${App.fmtDate(r.end)} <span class="small muted">${r.note || ''}</span></span><button type="button" class="link" data-unblock="${i}">Remove</button></li>`)}`
+        ? h`${blocked.map((r, i) => h`<li><span>${App.fmt.dateRange(r.start, r.end)} <span class="small muted">${r.note || ''}</span></span><button type="button" class="link" data-unblock="${i}">Remove</button></li>`)}`
         : h`<li class="muted small">No blocked dates — available every day.</li>`);
       c.querySelectorAll('[data-unblock]').forEach(b => b.onclick = () => { blocked.splice(+b.dataset.unblock, 1); drawBlocked(); });
     };
