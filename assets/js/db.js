@@ -71,6 +71,22 @@ App.get = {
   // For ranking: the average pulled towards 4.2 until there are enough reviews,
   // so one 5-star review doesn't outrank twenty 4.8s
   ratingScore: (vanId) => { const r = App.get.rating(vanId), m = App.C.minReviewsForRating; return (r.avg * r.count + 4.2 * m) / (r.count + m); },
+  // How quickly a host replies: median minutes and share of conversations answered
+  ownerResponse: (ownerId) => {
+    const delays = [], threads = App.db.threads.filter(t => t.ownerId === ownerId);
+    let asked = 0, answered = 0;
+    for (const t of threads) {
+      const firstQ = t.messages.find(m => m.from === t.customerId);
+      if (!firstQ) continue;
+      asked++;
+      const reply = t.messages.find(m => m.from === ownerId && m.at > firstQ.at);
+      if (reply) { answered++; delays.push((new Date(reply.at) - new Date(firstQ.at)) / 60000); }
+    }
+    if (asked < 3) return null;
+    delays.sort((a, b) => a - b);
+    const median = delays.length ? delays[Math.floor(delays.length / 2)] : null;
+    return { rate: Math.round(answered / asked * 100), minutes: median, asked };
+  },
   // Across every van a host has listed
   hostRating: (ownerId) => {
     const rs = App.db.reviews.filter(r => r.ownerId === ownerId && r.status === 'published');
@@ -217,6 +233,14 @@ App.notify = (userId, text, link = '', email = true) => {
   const u = App.get.user(userId);
   if (email && u) App.db.outbox.unshift({ id: App.uid('m'), to: u.email, subject: text.slice(0, 70), body: text, at: new Date().toISOString() });
 };
+// WhatsApp (opt-in). The demo queues messages in the outbox; live, this calls the
+// WhatsApp Business API with pre-approved templates (see README → Notifications).
+App.sendWhatsApp = (userId, template, text) => {
+  const u = App.get.user(userId);
+  if (!u || !u.prefs?.whatsapp) return false;
+  App.db.outbox.unshift({ id: App.uid('m'), channel: 'whatsapp', to: u.phone || u.email, template, subject: text.slice(0, 70), body: text, at: new Date().toISOString() });
+  return true;
+};
 App.audit = (action, target) => {
   const me = App.me();
   App.db.audit.unshift({ id: App.uid('a'), actorId: me ? me.id : 'system', action, target, at: new Date().toISOString() });
@@ -244,6 +268,22 @@ App.runExpiryChecks = () => {
         b.paymentStatus = 'paid';
         App.notify(b.customerId, `We've charged the balance of ${App.money(charge.amount)} for ${b.id}. Your trip is fully paid.`, '#/account/payments');
         changed = true;
+      }
+    }
+    // The day before pickup: reminder with a map pin; on the day: trip tips
+    if (b.status === 'confirmed') {
+      const van = App.get.van(b.vanId);
+      b.sent = b.sent || {};
+      if (van && today >= App.addDays(b.start, -1) && today <= b.start && !b.sent.pickup) {
+        const pin = `https://maps.google.com/?q=${van.pickup.lat},${van.pickup.lng}`;
+        App.notify(b.customerId, `Pickup ${today === b.start ? 'today' : 'tomorrow'} from ${van.pickup.time}: ${van.name}, ${van.pickup.address}. Bring your original driving licence and ID.`, '#/account/trips/' + b.id);
+        App.sendWhatsApp(b.customerId, 'pickup_reminder', `VanYatra: pickup ${today === b.start ? 'today' : 'tomorrow'} from ${van.pickup.time} at ${van.pickup.address}. Map: ${pin}. Bring your original licence and ID.`);
+        b.sent.pickup = true; changed = true;
+      }
+      if (van && today === b.start && !b.sent.tips) {
+        const tip = App.HIMALAYAN.includes(van.destinationId) ? 'Drive only in daylight on mountain roads, fill up the tank at every town, and take it slow for the first day at altitude.' : 'Do the walkaround with the owner, check the fuel level and gas, and save the 24×7 roadside number.';
+        App.sendWhatsApp(b.customerId, 'trip_tips', `VanYatra trip tip: ${tip} Roadside help 24×7: ${App.C.supportPhone}.`);
+        b.sent.tips = true; changed = true;
       }
     }
     // Finished trips: deposits paid by UPI come back automatically; card holds are released
@@ -481,6 +521,7 @@ App.api = {
     if (specialRequests) t.messages.push({ from: me.id, text: status === 'confirmed' ? specialRequests : App.filterContact(specialRequests).text, at: b.createdAt });
     if (status === 'confirmed') {
       App.notify(me.id, `Booking ${b.id} confirmed: ${van.name}, ${App.fmt.dateRange(start, end)}.`, '#/account/bookings');
+      App.sendWhatsApp(me.id, 'booking_confirmed', `VanYatra: booking ${b.id} is confirmed — ${van.name}, ${App.fmt.dateRange(start, end)}. Pickup ${van.pickup.time} in ${van.pickup.city}.`);
       App.notify(van.ownerId, `New confirmed booking ${b.id} for ${van.name} (${App.fmtDate(start)}).`, '#/owner/bookings');
     } else {
       App.notify(me.id, `Request ${b.id} sent to the owner of ${van.name}. You won't be charged unless they accept (within 24 h).`, '#/account/bookings');
@@ -500,6 +541,7 @@ App.api = {
       else if (!b.depositMethod) b.depositStatus = 'held';
       App.db.transactions.filter(t => t.bookingId === b.id && ['payment', 'deposit'].includes(t.type)).forEach(t => { t.status = 'captured'; });
       App.notify(b.customerId, `Great news! ${van.name} is confirmed for ${App.fmtDate(b.start)}. Booking ${b.id}.`, '#/account/bookings');
+      App.sendWhatsApp(b.customerId, 'booking_confirmed', `VanYatra: ${van.name} is confirmed for ${App.fmt.dateRange(b.start, b.end)} (booking ${b.id}).`);
     } else {
       b.status = 'declined'; b.paymentStatus = 'voided'; b.declineReason = reason;
       App.notify(b.customerId, `The owner couldn't accept request ${b.id}. Your card authorisation was released.`, '#/search');

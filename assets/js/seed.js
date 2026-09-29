@@ -362,6 +362,7 @@ App.buildSeed = function () {
       kmPackages: { plus: price >= 9000 ? 600 : 450, unlimited: price >= 9000 ? 1200 : 900 },
       driver: driverFor(type, destinationId, i), delivery: deliveryFor(destinationId, i),
       beds: sleepText[sleeps], length: type === 'Motorhome' ? '7.2 m' : type === 'Pop-top' ? '4.5 m' : '5.9 m',
+      height: type === 'Motorhome' ? '3.2 m' : type === 'Pop-top' ? '2.1 m (roof down)' : type === '4x4 Overlander' ? '2.5 m' : '2.7 m',
       licence: type === 'Motorhome' ? 'LMV (Transport) licence' : 'Standard LMV car licence',
       mileage: fuel === 'Diesel' ? '11 km/l' : '15 km/l',
       pickup: { city, address: `${name.split(' ')[0]} Van Base, ${city}`, lat, lng, time: '11:00', returnTime: '10:00' },
@@ -517,6 +518,22 @@ App.buildSeed = function () {
       { from: 'u_cust1', text: 'Hi Rohan, I have driven the Manali–Leh highway twice. Happy to share my licence details if needed.', at: ts(-1, 16) }
     ] }
   ];
+  // Earlier conversations with every host (their response time is computed from these)
+  const QUESTIONS = ['Is the kitchen gas included, or do we bring our own cylinder?', 'Can we pick up an hour earlier than 11 am?', 'Is there space for two suitcases and a stroller?', 'Do you allow a short detour on gravel roads?'];
+  const REPLIES = ['Yes, a full cylinder is included. Happy travels!', 'Sure, 10 am works. I’ll be there to walk you through the van.', 'Yes, the rear boot takes two large bags and a folded stroller.', 'Short gravel stretches are fine; just take it slow.'];
+  const DELAYS = { u_owner1: [25, 50, 95], u_owner2: [10, 20, 40], u_owner3: [60, 140, 240], u_owner4: [180, 300, 600], u_owner5: [30, 45, 120], u_owner6: [15, 35, 90], u_owner7: [120, 200, 420], u_owner8: [45, 90, 150] };
+  for (const [ownerId, delays] of Object.entries(DELAYS)) {
+    const ov = vans.filter(v => v.ownerId === ownerId);
+    delays.forEach((mins, i) => {
+      const v = ov[i % ov.length]; if (!v) return;
+      const cust = ['u_cust2', 'u_cust3', 'u_cust5'][i];
+      const at = new Date(today.getTime() - (70 + i * 13) * day + 9 * 3600000);
+      threads.push({ id: `t_${ownerId}_${i}`, vanId: v.id, customerId: cust, ownerId, messages: [
+        { from: cust, text: QUESTIONS[i], at: at.toISOString() },
+        { from: ownerId, text: REPLIES[i], at: new Date(at.getTime() + mins * 60000).toISOString() }
+      ] });
+    });
+  }
 
   // Transactions and payouts
   const transactions = [];

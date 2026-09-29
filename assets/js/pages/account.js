@@ -259,7 +259,7 @@ const profileTab = (m, me) => {
       <label class="field"><span>New password</span><input type="password" name="new" autocomplete="new-password" minlength="8" required></label></div>
       <button class="btn">Update password</button></form>
     <div class="card"><h2>Notifications</h2>
-      ${[['email', 'Booking updates by email', true], ['sms', 'Trip reminders by SMS', true], ['marketing', 'Trip ideas & offers', false]].map(([k, l, d]) => h`<label class="check"><input type="checkbox" data-pref="${k}" ${(me.prefs?.[k] ?? d) ? 'checked' : ''}> ${l}</label>`)}</div>
+      ${[['email', 'Booking updates by email', true], ['whatsapp', 'WhatsApp: booking confirmation, pickup reminder with map pin, trip-day tips', false], ['sms', 'Trip reminders by SMS', true], ['marketing', 'Trip ideas & offers', false]].map(([k, l, d]) => h`<label class="check"><input type="checkbox" data-pref="${k}" ${(me.prefs?.[k] ?? d) ? 'checked' : ''}> ${l}</label>`)}</div>
     <div class="card"><h2>Your data</h2><p class="small muted">Download a copy of everything we hold about you, or ask us to delete your account.</p>
       <div class="row gap wrap"><button class="btn" id="export">${App.icon('download')} Download my data</button><button class="btn btn-danger" id="delete">Request account deletion</button></div></div>`);
   m.querySelector('#profile-form').onsubmit = (e) => { e.preventDefault(); const d = App.formData(e.target); me.name = d.name.trim() || me.name; me.city = d.city.trim(); App.save(); App.renderHeader(); App.toast('Profile updated', 'good'); };
@@ -294,6 +294,14 @@ const profileTab = (m, me) => {
 };
 
 /* ---------- Messaging (shared by customer + owner) ---------- */
+// Pre-written messages so questions are one tap away
+const quickMessages = (role, t) => {
+  const van = App.get.van(t.vanId), dest = van && App.get.dest(van.destinationId);
+  return role === 'customer'
+    ? ['Is the van free on my dates?', 'Can we pick up earlier?', `Is this van OK for ${dest ? dest.name : 'mountain'} roads?`, 'What’s in the kitchen?', 'Is there space for luggage and a stroller?', van?.petFriendly ? 'Can we bring our dog?' : 'Where can we park overnight?']
+    : ['Yes, that works!', 'Let me check and get back to you shortly.', 'Please book through VanYatra so you’re covered by insurance.', 'I’ll share the exact pickup address once the booking is confirmed.'];
+};
+
 App.messagesView = (m, role, activeId) => {
   const me = App.me();
   const threads = App.db.threads.filter(t => (role === 'customer' ? t.customerId : t.ownerId) === me.id)
@@ -312,6 +320,7 @@ App.messagesView = (m, role, activeId) => {
           <header class="chat-head"><a href="${base}" class="back-link only-sm">←</a>${App.avatar(o, 36)}<div><strong>${o.name}</strong><div class="small muted">${App.get.van(active.vanId).name}${b ? h` · ${b.id} ${App.pill(b.status)}` : ''}</div></div></header>
           <div class="chat-body" id="chat-body">${active.messages.length ? active.messages.map(msg => h`<div class="msg ${msg.from === me.id ? 'me' : ''}"><p>${msg.text}</p><time class="small muted">${App.fmtDateTime(msg.at)}</time></div>`) : h`<p class="muted center">Say hello and ask anything about the van or route.</p>`}</div>
           ${!confirmed ? h`<p class="chat-note small">${App.icon('lock')} For your safety, phone numbers, emails and links are hidden until a booking is confirmed. Always pay through VanYatra.</p>` : ''}
+          <div class="quick-msgs" role="group" aria-label="${role === 'customer' ? 'Quick questions' : 'Quick replies'}">${quickMessages(role, active).map(q => h`<button type="button" class="fchip" data-quick="${q}">${q}</button>`)}</div>
           <form class="chat-form" id="chat-form"><label class="sr-only" for="chat-input">Message</label><textarea id="chat-input" rows="2" maxlength="2000" placeholder="Write a message…" required></textarea><button class="btn btn-primary">Send</button></form>
         </section>`;
       })() : ''}
@@ -322,6 +331,7 @@ App.messagesView = (m, role, activeId) => {
   if (form) {
     const input = form.querySelector('#chat-input');
     input.addEventListener('keydown', (e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); form.requestSubmit(); } });
+    m.querySelectorAll('[data-quick]').forEach(b => b.onclick = () => { input.value = b.dataset.quick; input.focus(); });
     form.onsubmit = (e) => {
       e.preventDefault();
       const text = input.value.trim();

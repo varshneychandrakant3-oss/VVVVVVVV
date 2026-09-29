@@ -455,8 +455,8 @@ const notifications = (m) => {
       <label class="field"><span>Message</span><textarea name="msg" rows="3" required maxlength="300"></textarea></label>
       <button class="btn btn-primary">Send</button></form>
     <section class="card"><h2>Admin inbox & support tickets</h2><ul class="plain list-rows small">${mine.map(n => h`<li><span>${n.text}</span><span class="muted">${App.timeAgo(n.at)}</span></li>`)}</ul></section>
-    <section class="card"><h2>Email outbox (last 25)</h2><p class="small muted">Transactional emails queued for the email provider.</p>
-      ${App.db.outbox.length ? h`<div class="table-wrap"><table class="table"><thead><tr><th>To</th><th>Subject</th><th>Queued</th></tr></thead><tbody>${App.db.outbox.slice(0, 25).map(e => h`<tr><td>${e.to}</td><td>${e.subject}</td><td>${App.timeAgo(e.at)}</td></tr>`)}</tbody></table></div>` : h`<p class="muted">No emails queued yet. Make a booking to see one here.</p>`}</section>`);
+    <section class="card"><h2>Outbox (last 25)</h2><p class="small muted">Emails and WhatsApp messages queued for the providers (WhatsApp only for travellers who opted in).</p>
+      ${App.db.outbox.length ? h`<div class="table-wrap"><table class="table"><thead><tr><th>Channel</th><th>To</th><th>Message</th><th>Queued</th></tr></thead><tbody>${App.db.outbox.slice(0, 25).map(e => h`<tr><td>${e.channel === 'whatsapp' ? 'WhatsApp' : 'Email'}</td><td>${e.to}</td><td>${e.subject}</td><td>${App.timeAgo(e.at)}</td></tr>`)}</tbody></table></div>` : h`<p class="muted">No emails queued yet. Make a booking to see one here.</p>`}</section>`);
   m.querySelector('#bc').onsubmit = async (e) => {
     e.preventDefault();
     const d = App.formData(e.target);

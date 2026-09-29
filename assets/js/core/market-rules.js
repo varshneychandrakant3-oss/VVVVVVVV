@@ -40,6 +40,12 @@
     if (statuses.length && statuses.every(s => s === 'verified')) return 'verified';
     return 'not_started';
   };
+  // YouTube or Vimeo link → privacy-friendly embed address (null if it isn't one)
+  core.videoEmbed = (u) => {
+    const yt = String(u || '').match(/(?:youtu\.be\/|youtube\.com\/(?:watch\?v=|shorts\/|embed\/))([\w-]{11})/);
+    const vm = String(u || '').match(/vimeo\.com\/(?:video\/)?(\d{6,12})/);
+    return yt ? 'https://www.youtube-nocookie.com/embed/' + yt[1] : vm ? 'https://player.vimeo.com/video/' + vm[1] : null;
+  };
   core.fromOutcome = (o) => (o === 'verified' ? 'verified' : o === 'review' ? 'pending' : 'action_required');
 
   /* Traveller verification: can this traveller book a trip ending on tripEnd?
@@ -340,7 +346,7 @@
       if ('name' in body) set.name = str(body.name, 40);
       if ('description' in body) set.description = str(body.description, 2000);
       if ('type' in body) { if (!VAN_TYPES.includes(body.type)) throw bad(400, 'Unknown van type.'); set.type = body.type; }
-      for (const k of ['make', 'model', 'beds', 'length', 'licence', 'mileage', 'city', 'rcName', 'chassis']) if (k in body) set[k] = str(body[k], 80);
+      for (const k of ['make', 'model', 'beds', 'length', 'height', 'licence', 'mileage', 'city', 'rcName', 'chassis']) if (k in body) set[k] = str(body[k], 80);
       for (const [k, min, max] of [['year', 1990, 2100], ['sleeps', 1, 10], ['seats', 1, 12], ['pricePerNight', 500, 200000], ['weekendPrice', 500, 200000], ['cleaningFee', 0, 50000], ['deposit', 0, 500000], ['minNights', 1, 30], ['kmPerDay', 0, 2000], ['extraKmFee', 0, 1000]]) if (k in body) set[k] = num(body[k], min, max);
       if ('transmission' in body) set.transmission = body.transmission === 'Automatic' ? 'Automatic' : 'Manual';
       if ('fuel' in body) set.fuel = ['Diesel', 'Petrol', 'CNG', 'Electric'].includes(body.fuel) ? body.fuel : 'Diesel';
@@ -355,6 +361,13 @@
       /* Trip options the owner offers (see assets/js/core/pricing.js) */
       const slug = (x, i, p) => (str(x, 60).toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') || p + i).slice(0, 40);
       const MD = (x) => (/^(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$/.test(x || '') ? x : null);
+      // Video walkthrough: YouTube or Vimeo only, stored as a privacy-friendly embed address
+      if ('video' in body) {
+        const u = str(body.video, 300);
+        const embed = core.videoEmbed(u);
+        if (u && !embed) throw bad(400, 'Use a YouTube or Vimeo link for the video walkthrough.');
+        set.video = embed;
+      }
       if ('addOns' in body) {
         const ids = new Set((App.ADD_ON_CATALOG || []).map(a => a.id));
         set.addOns = [].concat(body.addOns || []).filter(a => a && ids.has(a.id)).slice(0, 20).map(a => ({ id: a.id, price: num(a.price, 0, 20000) }));

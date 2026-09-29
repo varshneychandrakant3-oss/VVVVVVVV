@@ -492,19 +492,21 @@ App.pages.van = (el, { id }, q) => {
         </section>
         <section class="block owner-strip">
           ${App.avatar(owner, 52)}
-          <div><strong>Hosted by ${owner.name}</strong><div class="muted small">${owner.business || ''} · ${App.plural(ownerVans, 'van')} · joined ${new Date(owner.createdAt).getFullYear()}</div></div>
+          <div><strong>Hosted by ${owner.name}</strong><div class="muted small">${owner.business || ''} · ${App.plural(ownerVans, 'van')} · joined ${new Date(owner.createdAt).getFullYear()}</div>${responseLine(van.ownerId)}</div>
           <button class="btn btn-ghost" id="msg-owner">${App.icon('message-circle')} Message owner</button>
         </section>
         ${van.instantBook ? h`<div class="callout">${App.icon('zap')} <strong>Instant book</strong> — your booking is confirmed straight away, no waiting.</div>` : h`<div class="callout">${App.icon('clock')} <strong>Request to book</strong> — the owner responds within 24 hours. You're only charged if they accept.</div>`}
         ${trustPanel(van)}
-        <section class="block"><h2>About this van</h2><p>${van.description}</p></section>
+        <section class="block"><h2>About this van</h2><p>${van.description}</p>${van.video ? h`<button type="button" class="btn btn-ghost" id="video-btn">${App.icon('camera')} Watch the video walkthrough</button>` : ''}</section>
+        ${goodToKnow(van)}
+        ${tripOptions(van)}
         <section class="block"><h2>Sleeping arrangements</h2>
           <div class="sleep-grid"><div class="sleep-card">${App.icon('bed-double')}<strong>Beds</strong><span>${van.beds}</span></div><div class="sleep-card">${App.icon('users')}<strong>Up to ${van.sleeps} people</strong><span>${van.familyFriendly ? 'Family friendly' : 'Best for adults'}</span></div>${van.amenities.includes('childseat') ? h`<div class="sleep-card">${App.icon('baby')}<strong>Child seats</strong><span>ISOFIX anchors fitted</span></div>` : ''}</div></section>
         <section class="block"><h2>What’s included</h2>
           <ul class="amen-list">${App.AMENITIES.map(a => h`<li class="${van.amenities.includes(a.id) ? '' : 'missing'}">${App.icon(a.icon)} ${van.amenities.includes(a.id) ? a.label : h`<s>${a.label}</s><span class="sr-only"> (not included)</span>`}</li>`)}</ul></section>
         <section class="block"><h2>Vehicle specifications</h2>
           <table class="spec-table"><tbody>
-            ${[['Make & model', `${van.make} ${van.model}`], ['Year', van.year], ['Type', van.type], ['Length', van.length], ['Fuel', `${van.fuel} (${van.mileage})`], ['Transmission', van.transmission], ['Licence needed', van.licence], ['Included distance', `${van.kmPerDay} km/day, then ${money(van.extraKmFee)}/km`], ['Minimum rental', App.plural(van.minNights, 'night')]].map(([k, v]) => h`<tr><th scope="row">${k}</th><td>${v}</td></tr>`)}
+            ${[['Make & model', `${van.make} ${van.model}`], ['Year', van.year], ['Type', van.type], ['Length', van.length], ['Height', van.height || '—'], ['Fuel', `${van.fuel} (${van.mileage})`], ['Transmission', van.transmission], ['Licence needed', van.licence], ['Included distance', `${van.kmPerDay} km/day, then ${money(van.extraKmFee)}/km`], ['Minimum rental', App.plural(van.minNights, 'night')]].map(([k, v]) => h`<tr><th scope="row">${k}</th><td>${v}</td></tr>`)}
           </tbody></table></section>
         <section class="block" id="availability"><h2>Availability</h2><p class="muted small">Select your pickup and return dates.</p><div id="van-cal"></div></section>
         <section class="block"><h2>Pickup & return</h2>
@@ -512,7 +514,7 @@ App.pages.van = (el, { id }, q) => {
           <div class="map map-sm" id="van-map"></div></section>
         <section class="block"><h2>House rules</h2><ul class="ticks">${van.rules.map(x => h`<li>${x}</li>`)}</ul></section>
         <section class="block"><h2>Cancellation policy: ${policy.label}</h2><p>${policy.summary}</p><p class="small muted">Plus a 24-hour grace period after booking for a full refund when your trip is at least 7 days away. <a href="#/help/cancellation">Full policy</a></p></section>
-        <section class="block"><h2>Security deposit</h2><p>${money(van.deposit)} is held on your card at pickup and released within ${App.C.depositReleaseDays} days of return if there's no damage. Add Damage Cover at checkout to reduce your liability.</p></section>
+        <section class="block"><h2>Security deposit</h2><p>${money(van.deposit)} refundable with Basic protection — less with Standard (${money(App.quote(van, App.today(), App.addDays(App.today(), 1), { protection: 'standard' }).deposit)}) or Premium (${money(App.quote(van, App.today(), App.addDays(App.today(), 1), { protection: 'premium' }).deposit)}). Pay it by UPI and get it back automatically within ${App.C.depositReleaseDays} days of return, hold it on a credit card at pickup, or choose zero-deposit at checkout.</p></section>
         <section class="block" id="reviews"><h2>${r.count >= App.C.minReviewsForRating ? h`★ ${r.avg.toFixed(1)} · ${App.plural(r.count, 'review')}` : r.count ? `Reviews (${r.count})` : 'Reviews'}</h2>
           ${r.count && r.count < App.C.minReviewsForRating ? h`<p class="small muted">This van is new on VanYatra, so we don’t show an average yet. ${App.get.hostRating(van.ownerId).count >= App.C.minReviewsForRating ? h`Its host is rated ★ ${App.get.hostRating(van.ownerId).avg.toFixed(1)} across ${App.plural(App.get.hostRating(van.ownerId).count, 'review')} of their vans.` : ''}</p>` : ''}
           ${r.count ? h`${r.count >= App.C.minReviewsForRating ? h`<div class="rating-bars">${cats.map(([k, v]) => h`<div><span>${k[0].toUpperCase() + k.slice(1)}</span><span class="bar-track"><span style="width:${v / 5 * 100}%"></span></span><span>${v.toFixed(1)}</span></div>`)}</div>` : ''}
@@ -577,6 +579,9 @@ App.pages.van = (el, { id }, q) => {
     const url = location.href;
     try { if (navigator.share) await navigator.share({ title: van.name, url }); else { await navigator.clipboard.writeText(url); App.toast('Link copied', 'good'); } } catch (e) { /* user cancelled */ }
   };
+  const vb = el.querySelector('#video-btn');
+  // The player is only loaded when asked for (no third-party requests on page load)
+  if (vb) vb.onclick = () => App.modal({ title: `${van.name} · video walkthrough`, wide: true, body: h`<div class="video-frame"><iframe src="${van.video}" title="Video walkthrough of ${van.name}" allow="fullscreen; picture-in-picture" loading="lazy" referrerpolicy="strict-origin-when-cross-origin"></iframe></div>` });
   el.querySelector('#msg-owner').onclick = () => {
     if (!App.me()) return App.go('#/login?next=' + encodeURIComponent('/vans/' + van.id));
     if (App.me().id === van.ownerId) return App.toast('This is your own listing.');
@@ -584,6 +589,42 @@ App.pages.van = (el, { id }, q) => {
     App.go('#/account/messages/' + t.id);
   };
   App.mountMap(el.querySelector('#van-map'), [], { center: [van.pickup.lat, van.pickup.lng], zoom: 12, circle: { lat: van.pickup.lat, lng: van.pickup.lng, radius: 1500 } });
+};
+
+// How quickly the host replies, from their message history
+const responseLine = (ownerId) => {
+  const r = App.get.ownerResponse(ownerId);
+  if (!r) return h`<div class="small muted">Hosts reply to booking requests within 24 hours</div>`;
+  const m = r.minutes, time = m == null ? '' : m < 60 ? 'within an hour' : m < 180 ? 'within a few hours' : m < 1440 ? 'within a day' : 'in a day or more';
+  return h`<div class="small">${App.icon('message-circle')} Usually responds ${time} · ${r.rate}% response rate</div>`;
+};
+// Practical facts for nervous drivers and route planning
+const goodToKnow = (van) => {
+  const fit = App.vanFit(van);
+  const dests = fit.good.map(id => App.get.dest(id)).filter(Boolean);
+  return h`<section class="block"><h2>Good to know</h2>
+    <ul class="gtk">
+      <li>${App.icon('car')}<div><strong>Size: ${van.length || '—'} long${van.height ? ', ' + van.height + ' high' : ''}</strong><span class="small muted">Watch for low bridges, height barriers at car parks and narrow old-town lanes.</span></div></li>
+      <li>${App.icon('fuel')}<div><strong>${van.fuel}${van.mileage ? ' · about ' + van.mileage : ''}</strong><span class="small muted">${van.fuel === 'Diesel' ? 'Fuel up in towns before remote stretches: fuel stations can be 100+ km apart in the mountains.' : 'Plan refuelling in towns before remote stretches.'}</span></div></li>
+      <li>${App.icon('shield-check')}<div><strong>${van.licence}</strong><span class="small muted">The main driver must be ${App.C.minDriverAge}+ and bring the original licence to pickup.${App.driverFor(van) ? ' Or book it with a driver.' : ''}</span></div></li>
+      ${fit.notes.map(n => h`<li>${App.icon('info')}<div><span>${n}</span></div></li>`)}
+    </ul>
+    <p class="small"><strong>Best for:</strong> ${dests.map((d, i) => h`${i ? ', ' : ''}<a href="#/destinations/${d.id}">${d.name}</a>`)}</p>
+  </section>`;
+};
+// What can be added to a trip with this van (chosen at checkout)
+const tripOptions = (van) => {
+  const drv = App.driverFor(van), addOns = App.addOnsFor(van), pk = App.kmPackagesFor(van);
+  return h`<section class="block"><h2>Trip options</h2>
+    <div class="opt-cards">
+      ${drv ? h`<div class="opt-card">${App.icon('user')}<strong>With a driver</strong><span class="small muted">${money(drv.feePerDay + drv.bataPerDay)}/day incl. bata · verified licence${drv.languages?.length ? ' · ' + drv.languages.join(', ') : ''}</span></div>` : ''}
+      ${van.delivery?.points?.length ? h`<div class="opt-card">${App.icon('plane')}<strong>Delivery</strong><span class="small muted">${van.delivery.points.map(p => p.name).join(' · ')}</span></div>` : ''}
+      ${van.delivery?.oneWay?.length ? h`<div class="opt-card">${App.icon('route')}<strong>One-way</strong><span class="small muted">Drop off in ${van.delivery.oneWay.map(o => `${o.name} (${money(o.fee)})`).join(', ')}</span></div>` : ''}
+      <div class="opt-card">${App.icon('gauge')}<strong>Distance</strong><span class="small muted">${pk.map(p => p.perNight ? `${p.label} +${money(p.perNight)}/night` : `${p.label} included`).join(' · ')}</span></div>
+      <div class="opt-card">${App.icon('shield-check')}<strong>Protection</strong><span class="small muted">${App.PROTECTION.map(p => `${p.label} ${p.perNight ? '+' + money(p.perNight) + '/night' : 'included'}`).join(' · ')}</span></div>
+    </div>
+    ${addOns.length ? h`<p class="small"><strong>Extras:</strong> ${addOns.map(a => `${a.label} ${money(a.price)}${a.perNight ? '/night' : ''}`).join(' · ')}</p>` : ''}
+  </section>`;
 };
 
 // What VanYatra has verified for this van (summary computed by the backend rules)

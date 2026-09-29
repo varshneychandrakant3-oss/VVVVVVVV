@@ -423,6 +423,8 @@ const STEPS = {
             <label class="field"><span>Licence required</span><input name="licence" value="${van.licence}"></label>
           </div>
           <label class="field"><span>Sleeping arrangement</span><input name="beds" value="${van.beds}" placeholder="1 double + 2 bunks" required></label>
+          <div class="grid-2"><label class="field"><span>Height</span><input name="height" value="${van.height || ''}" placeholder="2.7 m"></label>
+          <label class="field"><span>Video walkthrough <span class="muted small">(optional)</span></span><input name="video" type="url" value="${van.video ? van.video.replace('https://www.youtube-nocookie.com/embed/', 'https://youtu.be/').replace('https://player.vimeo.com/video/', 'https://vimeo.com/') : ''}" placeholder="YouTube or Vimeo link"></label></div>
           <div class="form-actions"><button class="btn btn-primary" id="ph-save">Save & continue</button></div></form>`);
       c.querySelectorAll('[data-shot]').forEach(inp => inp.onchange = (e) => add(e.target.files, inp.dataset.shot));
       c.querySelector('#ph-in').onchange = (e) => add(e.target.files, 'other');
@@ -444,10 +446,11 @@ const STEPS = {
         if (!f.checkValidity()) return f.reportValidity();
         if (!shot('exterior')) return App.toast('Add a photo of the outside of the van — it’s your cover photo.', 'bad');
         if (items.length < App.C.minPhotos) return App.toast(`Please add at least ${App.C.minPhotos} photos (you have ${items.length}).`, 'bad');
+        if (f.video.value.trim() && !App.core.videoEmbed(f.video.value.trim())) return App.toast('Use a YouTube or Vimeo link for the video walkthrough.', 'bad');
         const d = App.formData(f);
         const list = sorted();
         busy(c.querySelector('#ph-save'), async () => {
-          await patchVan(van, { photos: list.map(x => x.src), photoLabels: list.map(x => x.label), type: d.type, sleeps: +d.sleeps, seats: +d.seats, transmission: d.transmission, fuel: d.fuel, mileage: d.mileage, length: d.length, licence: d.licence, beds: d.beds });
+          await patchVan(van, { photos: list.map(x => x.src), photoLabels: list.map(x => x.label), type: d.type, sleeps: +d.sleeps, seats: +d.seats, transmission: d.transmission, fuel: d.fuel, mileage: d.mileage, length: d.length, height: d.height, video: d.video.trim(), licence: d.licence, beds: d.beds });
           App.toast('Photos & specs saved', 'good'); next();
         });
       };

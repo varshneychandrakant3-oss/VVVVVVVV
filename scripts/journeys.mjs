@@ -336,6 +336,33 @@ const JOURNEYS = {
     return all + ' vans, alerts work';
   },
 
+  // Van page facts, host response time, quick questions and opt-in WhatsApp reminders
+  async vanpage() {
+    const van = App.db.vans.find(v => v.status === 'published' && App.driverFor(v) && v.delivery?.points?.length);
+    await T.go('#/vans/' + van.id);
+    const text = T.text();
+    T.assert(/Good to know/.test(text) && text.includes(van.height) && /Best for:/.test(text), 'Good to know block missing');
+    T.assert(/Trip options/.test(text) && /With a driver/.test(text) && /Delivery/.test(text) && /Protection/.test(text), 'Trip options missing');
+    const resp = T.text('.owner-strip').match(/responds [^·]+/)?.[0];
+    T.assert(/Usually responds .* response rate/.test(T.text('.owner-strip')), 'Host response time missing');
+    T.assert(/Height/.test(T.text('.spec-table')), 'Height missing from specs');
+    T.noOverflow();
+    // Quick questions in chat
+    await T.login('traveller@vanyatra.in', '/');
+    await T.go('#/vans/' + van.id); T.$('#msg-owner').click();
+    await T.until(() => T.$('[data-quick]'), 6000, 'quick questions');
+    T.$('[data-quick]').click(); T.assert(T.$('#chat-input').value.length > 5, 'Quick question did not fill the message');
+    // WhatsApp: opt in, then a confirmed trip starting tomorrow gets a pickup reminder with a map pin
+    await T.go('#/account/profile'); const wa = T.$('[data-pref="whatsapp"]'); wa.checked = true; wa.dispatchEvent(new Event('change', { bubbles: true }));
+    T.assert(App.me().prefs.whatsapp, 'WhatsApp preference not saved');
+    const b = App.db.bookings.find(x => x.customerId === App.me().id && x.status === 'confirmed');
+    b.start = App.addDays(App.today(), 1); b.end = App.addDays(App.today(), 5); b.sent = {}; App.save();
+    App.runExpiryChecks();
+    const wamsg = App.db.outbox.find(m => m.channel === 'whatsapp' && m.template === 'pickup_reminder');
+    T.assert(wamsg && /maps\.google\.com\/\?q=/.test(wamsg.body), 'No WhatsApp pickup reminder with a map pin');
+    return resp;
+  },
+
   // An unverified traveller can't pay until identity is verified
   async gate() {
     await T.login('sam@example.com', '/');
@@ -374,10 +401,14 @@ const JOURNEYS = {
     T.$('#ph-save').click(); await T.wait(300);
     T.assert(/outside of the van/i.test(T.$$('.toast').map(t => t.innerText).join(' ')), 'Saving with no photos was not refused');
     T.$('#sample').click(); await T.wait(200);
+    T.$('#f').video.value = 'https://example.com/tour'; T.$('#ph-save').click(); await T.wait(600);
+    T.assert(/YouTube or Vimeo/.test(T.$$('.toast').map(t => t.innerText).join(' ')), 'Bad video link accepted');
+    T.$('#f').video.value = 'https://youtu.be/AbCdEfGhIjK';
     T.assert(T.$('.photo-progress.ok'), 'Progress not complete with 5 photos incl. outside');
     T.$('#ph-save').click();
     await T.until(() => /step=9/.test(location.hash), 6000, 'photos step save');
     T.assert(App.get.van(vanId).photoLabels[0] === 'exterior' && App.get.van(vanId).photos.length === 5, 'Photo tags not saved');
+    T.assert(App.get.van(vanId).video === 'https://www.youtube-nocookie.com/embed/AbCdEfGhIjK', 'Video link not stored as a privacy-friendly embed');
     await T.go('#/owner/onboarding?van=' + vanId + '&step=9');
     await T.until(() => T.$('#ls-save'), 6000, 'listing step');
     // Owner options: price an extra, add a season, a delivery point and a verified driver

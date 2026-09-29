@@ -96,6 +96,23 @@
     return { type, partAllowed, dueNow, balance: q.total - dueNow, balanceDueOn, depositMethod, depositNow, chargeNow: dueNow + depositNow, emiAllowed: dueNow + depositNow >= App.EMI_MIN };
   };
 
+  /* What a van is good for. Rules of thumb by type, drive and kit. */
+  App.vanFit = (van) => {
+    const hills = ['ladakh', 'spiti'], coast = ['goa', 'kerala', 'coorg'];
+    const t = van.type, has = (a) => (van.amenities || []).includes(a);
+    const good = t === '4x4 Overlander' ? ['ladakh', 'spiti', 'himachal', 'meghalaya']
+      : t === 'Motorhome' ? ['rajasthan', 'goa', 'kerala']
+      : t === 'Pop-top' ? ['goa', 'coorg', 'rishikesh', 'kerala']
+      : ['himachal', 'rishikesh', 'rajasthan', 'goa', 'meghalaya'];
+    const notes = [];
+    if (t === 'Motorhome') notes.push('Big and heavy: best on highways and wide roads. Not recommended for Spiti or Ladakh’s narrow high passes.');
+    if (hills.includes(van.destinationId) && !has('heater')) notes.push('No heater: nights above 3,000 m can drop below freezing — pack warm sleeping bags.');
+    if (hills.includes(van.destinationId) && has('heater')) notes.push('Heater fitted for cold nights at altitude.');
+    if (t === '4x4 Overlander') notes.push('Four-wheel drive and high clearance for broken roads and river crossings.');
+    if (coast.includes(van.destinationId) && has('ac')) notes.push('Air conditioning for humid coastal afternoons.');
+    return { good, notes };
+  };
+
   /* The price of a trip */
   App.quote = (van, start, end, extras = {}) => {
     const C = App.C;
