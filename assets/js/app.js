@@ -30,6 +30,7 @@ const ROUTES = [
   ['/admin/:tab', 'admin', ['admin']],
   ['/admin/:tab/:id', 'admin', ['admin']],
   ['/trip/:id/checkin', 'checkin', ['customer', 'owner', 'admin']],
+  ['/trip/:id/memories', 'memories', ['customer', 'owner', 'admin']],
   ['/trip/:id/inspection/:phase', 'inspection', ['customer', 'owner', 'admin']],
   ['/plan', 'planner'],
   ['/deals', 'deals'],

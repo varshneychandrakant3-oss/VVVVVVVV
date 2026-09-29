@@ -91,6 +91,52 @@ App.pages.checkin = (el, { id }) => {
   };
 };
 
+/* ---------- Trip memories ---------- */
+App.pages.memories = (el, { id }) => {
+  const me = App.me(), b = App.get.booking(id);
+  if (!access(b, me) || me.id !== b.customerId || b.status !== 'completed') return App.pages.notFound(el);
+  const van = App.get.van(b.vanId), dest = App.get.dest(van.destinationId);
+  const review = App.db.reviews.find(r => r.bookingId === b.id);
+  const pick = b.inspections?.pickup, ret = b.inspections?.return;
+  const km = pick?.odometer && ret?.odometer ? +ret.odometer - +pick.odometer : null;
+  const stops = (b.itinerary || []).map(x => x.place || x.title).filter(Boolean);
+  b.memories = b.memories || [];
+  const draw = () => {
+    const photos = [...(review?.photos || []).map(src => ({ src, caption: 'From your review' })), ...b.memories];
+    const text = `Our ${App.fmt.nights(b.nights)} road trip in ${dest?.name || van.pickup.city} with ${van.name}${km ? `, ${App.fmt.km(km)} on the road` : ''}. Booked on VanYatra.`;
+    el.innerHTML = String(h`<div class="container section memories">
+      <a class="back-link" href="#/account/bookings">← My trips</a>
+      <div class="mem-hero">${App.img(van.photos[0], { w: 1200, alt: van.name, eager: true, sizes: '100vw' })}<div class="mem-hero-text"><p class="eyebrow light">Trip memories</p><h1>${dest?.name || van.pickup.city}</h1><p>${App.fmt.dateRange(b.start, b.end)} · ${van.name}</p></div></div>
+      <div class="kpis">
+        <div class="kpi"><span>Nights on the road</span><strong>${b.nights}</strong></div>
+        <div class="kpi"><span>Distance</span><strong>${km ? App.fmt.km(km) : '—'}</strong>${km ? '' : h`<small>from the odometer at pickup and return</small>`}</div>
+        <div class="kpi"><span>Travellers</span><strong>${b.travelers}</strong></div>
+        <div class="kpi"><span>Stops planned</span><strong>${stops.length || '—'}</strong></div>
+      </div>
+      ${stops.length ? h`<section class="block"><h2>Where you went</h2><p>${stops.join(' → ')}</p></section>` : ''}
+      ${review ? h`<section class="block"><h2>Your review</h2><blockquote class="mem-quote">${'★'.repeat(review.rating)} “${review.text}”</blockquote></section>` : h`<p><a class="btn btn-primary" href="#/account/bookings?review=${b.id}">★ Write your review</a></p>`}
+      <section class="block"><h2>Photos</h2>
+        ${photos.length ? h`<div class="mem-grid">${photos.map((p, i) => h`<figure><img src="${p.src}" alt="${p.caption || 'Trip photo ' + (i + 1)}" loading="lazy"><figcaption class="small muted">${p.caption || ''}</figcaption></figure>`)}</div>` : h`<p class="muted">Add your favourite photos to keep them with the trip.</p>`}
+        ${b.memories.length < 12 ? h`<label class="btn btn-ghost"><input type="file" id="mem-add" accept="image/*" multiple class="sr-only">${App.icon('plus')} Add photos</label>` : ''}
+      </section>
+      <div class="row gap wrap">
+        <a class="btn btn-primary" href="https://wa.me/?text=${encodeURIComponent(text)}" target="_blank" rel="noopener">${App.icon('share')} Share on WhatsApp</a>
+        <a class="btn btn-ghost" href="#/vans/${van.id}">${App.icon('refresh-cw')} Book ${van.name} again</a>
+        <a class="btn btn-ghost" href="#/plan?dest=${van.destinationId}">Plan the next trip</a>
+      </div>
+      <p class="small muted">Photos you add here stay private to your account.</p>
+    </div>`);
+    const add = el.querySelector('#mem-add');
+    if (add) add.onchange = async () => {
+      for (const f of [...add.files].slice(0, 12 - b.memories.length)) {
+        try { b.memories.push({ src: await App.readPhoto(f, 960), caption: '', at: new Date().toISOString() }); } catch (e) { App.toast(e.message, 'bad'); }
+      }
+      App.save(); draw();
+    };
+  };
+  draw();
+};
+
 /* ---------- Photo inspection ---------- */
 App.pages.inspection = (el, { id, phase }) => {
   const me = App.me(), b = App.get.booking(id);

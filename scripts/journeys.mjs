@@ -561,6 +561,33 @@ const JOURNEYS = {
     return 'code ' + code;
   },
 
+  // After the trip: review request, review with photos, trip memories, book again
+  async posttrip() {
+    const jpeg = async (label) => { const c = document.createElement('canvas'); c.width = 320; c.height = 240; const g = c.getContext('2d'); g.fillStyle = '#f28c38'; g.fillRect(0, 0, 320, 240); g.fillStyle = '#fff'; g.font = '24px sans-serif'; g.fillText(label, 20, 120); return new File([await new Promise(r => c.toBlob(r, 'image/jpeg', 0.7))], label + '.jpg', { type: 'image/jpeg' }); };
+    await T.login('traveller@vanyatra.in', '/');
+    const id = App.db.bookings.find(x => x.customerId === App.me().id && x.status === 'confirmed').id;
+    const b0 = App.get.booking(id); b0.start = App.addDays(App.today(), -6); b0.end = App.addDays(App.today(), -1); App.save();
+    App.runExpiryChecks();
+    const b = App.get.booking(id);
+    T.assert(b.status === 'completed' && App.db.notifications.some(n => n.link === '#/account/bookings?review=' + id), 'No review request after the trip');
+    await T.go('#/account/bookings?review=' + id);
+    await T.until(() => T.$('#rv-text'), 4000, 'review form from the request');
+    T.$('#rv-text').value = 'Wonderful week in the hills — the heater kept the kids warm and the owner was lovely.';
+    const dt = new DataTransfer(); dt.items.add(await jpeg('view')); T.$('#rv-photos').files = dt.files;
+    await T.clickModal('Post review'); await T.wait(600);
+    const rv = App.db.reviews.find(r => r.bookingId === id);
+    T.assert(rv && rv.photos.length === 1 && rv.categories.cleanliness, 'Review with sub-scores and photo not saved');
+    await T.go('#/vans/' + b.vanId); T.assert(T.$('.review-photos-row img'), 'Review photo not shown on the van page');
+    await T.go('#/account/bookings');
+    T.assert(T.$(`a[href="#/trip/${id}/memories"]`) && T.$(`a[href="#/vans/${b.vanId}"]`), 'Memories or Book again missing');
+    await T.go(`#/trip/${id}/memories`);
+    T.assert(/Trip memories/i.test(T.text()) && T.$$('.mem-grid img').length === 1 && /wa\.me/.test(T.$('a[href*="wa.me"]').href), 'Memories page incomplete');
+    const dt2 = new DataTransfer(); dt2.items.add(await jpeg('sunset')); const add = T.$('#mem-add'); add.files = dt2.files; add.dispatchEvent(new Event('change', { bubbles: true })); await T.wait(500);
+    T.assert(T.$$('.mem-grid img').length === 2, 'Adding a memory photo failed');
+    T.noOverflow();
+    return id;
+  },
+
   // An unverified traveller can't pay until identity is verified
   async gate() {
     await T.login('sam@example.com', '/');

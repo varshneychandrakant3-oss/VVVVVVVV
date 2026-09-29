@@ -300,7 +300,12 @@ App.runExpiryChecks = () => {
       }
     }
     // Finished trips: deposits paid by UPI come back automatically; card holds are released
-    if (b.status === 'confirmed' && b.end < today) { b.status = 'completed'; changed = true; }
+    if (b.status === 'confirmed' && b.end < today) {
+      b.status = 'completed'; changed = true;
+      const van = App.get.van(b.vanId);
+      App.notify(b.customerId, `How was your trip in ${van?.name}? A review with a photo or two helps other families choose.`, '#/account/bookings?review=' + b.id);
+      App.sendWhatsApp(b.customerId, 'review_request', `VanYatra: welcome back! How was ${van?.name}? Leave a review: ${location.href.split('#')[0]}#/account/bookings?review=${b.id}`);
+    }
     // Owners have 48 hours after return to claim; then the deposit goes back (unless a claim is open)
     const claimOpen = App.db.disputes.some(d => d.bookingId === b.id && d.status === 'open');
     if (b.status === 'completed' && today >= App.addDays(b.end, 2) && ['paid', 'held', 'at-pickup'].includes(b.depositStatus) && !claimOpen) {
@@ -679,10 +684,10 @@ App.api = {
     if (!t) { t = { id: App.uid('t'), vanId, customerId: me.id, ownerId: van.ownerId, messages: [] }; App.db.threads.push(t); App.save(); }
     return t;
   },
-  addReview(bookingId, rating, categories, text) {
+  addReview(bookingId, rating, categories, text, photos = []) {
     const b = App.get.booking(bookingId);
     const flagged = App.filterContact(text).hidden;
-    App.db.reviews.unshift({ id: App.uid('r'), vanId: b.vanId, bookingId, authorId: b.customerId, ownerId: b.ownerId, rating, categories, text, createdAt: new Date().toISOString(), status: flagged ? 'flagged' : 'published', flagReason: flagged ? 'Auto-flagged: contains contact details' : '', ownerReply: '' });
+    App.db.reviews.unshift({ id: App.uid('r'), vanId: b.vanId, bookingId, authorId: b.customerId, ownerId: b.ownerId, rating, categories, text, photos: photos.slice(0, 4), createdAt: new Date().toISOString(), status: flagged ? 'flagged' : 'published', flagReason: flagged ? 'Auto-flagged: contains contact details' : '', ownerReply: '' });
     App.notify(b.ownerId, `New ${rating}★ review for ${App.get.van(b.vanId).name}.`, '#/owner/reviews');
     App.save();
     return flagged;

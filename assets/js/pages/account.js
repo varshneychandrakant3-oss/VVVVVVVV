@@ -62,6 +62,7 @@ const tripCard = (b) => {
         <button class="btn btn-sm btn-ghost" data-receipt="${b.id}">${App.icon('receipt')} Receipt</button>
         ${upcoming ? h`<button class="btn btn-sm btn-ghost danger-text" data-cancel="${b.id}">Cancel</button>` : ''}
         ${b.status === 'completed' && !reviewed ? h`<button class="btn btn-sm btn-primary" data-review="${b.id}">★ Leave review</button>` : ''}
+        ${b.status === 'completed' ? h`<a class="btn btn-sm btn-ghost" href="#/trip/${b.id}/memories">${App.icon('camera')} Trip memories</a><a class="btn btn-sm btn-ghost" href="#/vans/${b.vanId}">${App.icon('refresh-cw')} Book again</a>` : ''}
         ${b.status === 'completed' ? h`<button class="btn btn-sm btn-ghost" data-issue="${b.id}">Report an issue</button>` : ''}
       </div>
     </div>
@@ -81,6 +82,9 @@ const tripsTab = (m, me, mine) => {
     ${mine.length ? groups.filter(g => g[1].length).map(([t, list]) => h`<h2 class="section-sub">${t}</h2><div class="trip-list">${list.map(tripCard)}</div>`)
       : App.emptyState('🧭', 'No trips yet', 'Find a van and start planning your first road trip.', h`<a class="btn btn-primary" href="#/search">Find a van</a>`)}`);
   bindTripActions(m);
+  // From the review-request notification
+  const want = App.parseHash().query.review;
+  if (want && mine.some(b => b.id === want && b.status === 'completed') && !App.db.reviews.some(r => r.bookingId === want)) setTimeout(() => reviewFlow(want), 50);
 };
 
 const bindTripActions = (m) => {
@@ -133,15 +137,18 @@ const reviewFlow = async (id) => {
     body: h`<div class="review-form"><div class="row-between"><strong>Overall</strong>${starInput('overall')}</div>
       ${cats.map(c => h`<div class="row-between small"><span>${c[0].toUpperCase() + c.slice(1)}</span>${starInput(c)}</div>`)}
       <label class="field"><span>Tell other travellers about your trip</span><textarea id="rv-text" rows="4" maxlength="1000" placeholder="What did you love? Anything to improve?"></textarea></label>
+      <label class="field"><span>Add photos from your trip <span class="muted small">(up to 4, optional)</span></span><input type="file" id="rv-photos" accept="image/*" multiple></label>
       <p class="small muted">Reviews must be about your own trip and can’t include contact details.</p></div>`,
     actions: [{ label: 'Cancel', value: null }, {
       label: 'Post review', primary: true,
       validate: (mm) => mm.querySelector('#rv-text').value.trim().length >= 20 || (App.toast('Please write at least 20 characters.', 'bad'), false),
-      value: (mm) => ({ rating: +mm.querySelector('[name=overall]:checked').value, categories: Object.fromEntries(cats.map(c => [c, +mm.querySelector(`[name=${c}]:checked`).value])), text: mm.querySelector('#rv-text').value.trim() })
+      value: (mm) => ({ rating: +mm.querySelector('[name=overall]:checked').value, categories: Object.fromEntries(cats.map(c => [c, +mm.querySelector(`[name=${c}]:checked`).value])), text: mm.querySelector('#rv-text').value.trim(), files: [...mm.querySelector('#rv-photos').files].slice(0, 4) })
     }]
   });
   if (!res) return;
-  const flagged = App.api.addReview(id, res.rating, res.categories, res.text);
+  const photos = [];
+  for (const f of res.files) { try { photos.push(await App.readPhoto(f, 800)); } catch (e) { App.toast(e.message, 'bad'); } }
+  const flagged = App.api.addReview(id, res.rating, res.categories, res.text, photos);
   App.toast(flagged ? 'Thanks! Your review is being checked by our team before it appears.' : 'Thanks for your review!', 'good');
   App.render();
 };
