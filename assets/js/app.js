@@ -29,6 +29,8 @@ const ROUTES = [
   ['/admin', 'admin', ['admin']],
   ['/admin/:tab', 'admin', ['admin']],
   ['/admin/:tab/:id', 'admin', ['admin']],
+  ['/trip/:id/checkin', 'checkin', ['customer', 'owner', 'admin']],
+  ['/trip/:id/inspection/:phase', 'inspection', ['customer', 'owner', 'admin']],
   ['/help', 'help'],
   ['/help/:topic', 'help']
 ];

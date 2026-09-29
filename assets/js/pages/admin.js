@@ -325,6 +325,7 @@ const disputes = (m) => {
       <div class="row-between wrap"><h3>${d.id.toUpperCase()} · booking ${d.bookingId}</h3>${App.pill(d.status)}</div>
       <p class="small muted">Raised by ${d.raisedBy} · ${App.timeAgo(d.createdAt)}${b ? h` · ${App.get.van(b.vanId).name} · ${userName(b.customerId)} ↔ ${userName(b.ownerId)} · paid ${money(b.pricing.total)} · deposit ${money(b.pricing.deposit)} (${b.depositStatus})` : ''}</p>
       <p>${d.reason}</p><p><strong>Amount in question: ${money(d.amount)}</strong></p>
+      ${b?.inspections ? h`<p class="small">${App.icon('camera')} Evidence: ${['pickup', 'return'].filter(p => b.inspections[p]).map(p => h`<a href="#/trip/${b.id}/inspection/${p}">${p} inspection</a> (${Object.keys(b.inspections[p].photos).length} photos, ${b.inspections[p].damages.length} damage marks) `)}</p>` : h`<p class="small muted">No inspection photos were recorded for this trip.</p>`}
       ${d.resolution ? h`<div class="reply"><strong>Resolution</strong><p>${d.resolution}</p></div>` : ''}
       ${d.status === 'open' ? h`<div class="row gap wrap"><button class="btn btn-primary btn-sm" data-resolve="${d.id}">Resolve with refund / charge</button><button class="btn btn-ghost btn-sm" data-reject="${d.id}">Close without action</button></div>` : ''}
     </article>`; }) : App.emptyState('⚖️', 'No disputes', '')}`);
@@ -340,6 +341,7 @@ const disputes = (m) => {
     });
     if (!res) return;
     d.status = 'resolved'; d.resolution = `${res.type === 'refund' ? 'Refunded traveller' : 'Deducted from deposit'} ${money(res.amount)}. ${res.note}`;
+    if (b && res.type === 'deposit') b.depositDeducted = Math.min(b.pricing.deposit, (b.depositDeducted || 0) + res.amount);
     if (b) {
       App.db.transactions.unshift({ id: App.uid('tx'), type: res.type === 'refund' ? 'refund' : 'payout', bookingId: b.id, customerId: b.customerId, ownerId: b.ownerId, amount: res.amount, at: new Date().toISOString(), status: res.type === 'refund' ? 'refunded' : 'paid' });
       [b.customerId, b.ownerId].forEach(u => App.notify(u, `Dispute on ${b.id} resolved: ${d.resolution}`));

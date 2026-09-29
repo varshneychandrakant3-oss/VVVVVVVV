@@ -1032,3 +1032,21 @@ button, a, label, select { touch-action: manipulation; }
 .video-frame iframe { position: absolute; inset: 0; width: 100%; height: 100%; border: 0; }
 .quick-msgs { display: flex; gap: 6px; overflow-x: auto; padding: 8px 12px 0; scrollbar-width: none; }
 .quick-msgs .fchip { min-height: 32px; padding: 5px 10px; font-size: .82rem; font-weight: 550; }
+
+/* Check-in and inspections */
+.insp-status { display: flex; gap: 8px 20px; flex-wrap: wrap; font-weight: 600; margin: 8px 0 16px; }
+.insp-grid { display: grid; gap: 10px; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); margin-bottom: 16px; }
+.insp-slot { border: 1.5px dashed var(--line); border-radius: var(--radius-sm); overflow: hidden; background: var(--surface); display: flex; flex-direction: column; }
+.insp-slot.done { border-style: solid; border-color: var(--primary); }
+.insp-media { aspect-ratio: 4 / 3; background: var(--surface-2); display: grid; place-items: center; }
+.insp-media img { width: 100%; height: 100%; object-fit: cover; }
+.insp-body { padding: 8px 10px 10px; display: flex; flex-direction: column; gap: 4px; align-items: flex-start; }
+.damage-list li { display: flex; gap: 12px; align-items: flex-start; padding: 10px 0; border-bottom: 1px solid var(--line); }
+.damage-list img { width: 88px; height: 66px; object-fit: cover; border-radius: 8px; flex: none; }
+.damage-list p { margin: 2px 0; }
+.compare-grid { display: grid; gap: 12px; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); margin-bottom: 16px; }
+.compare-grid figure { margin: 0; }
+.compare-grid figcaption { font-weight: 650; font-size: .88rem; margin-bottom: 4px; }
+.compare-grid figure > div { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
+.compare-grid img { width: 100%; aspect-ratio: 4 / 3; object-fit: cover; border-radius: 8px; }
+.sign-card { display: grid; gap: 10px; justify-items: start; margin-top: 16px; }

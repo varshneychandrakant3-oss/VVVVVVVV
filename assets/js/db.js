@@ -287,14 +287,20 @@ App.runExpiryChecks = () => {
       }
     }
     // Finished trips: deposits paid by UPI come back automatically; card holds are released
-    if (b.status === 'confirmed' && b.end < today) {
-      b.status = 'completed';
-      if (b.depositStatus === 'paid' && !b.dispute) {
-        const r = App.payments.refund({ paymentId: b.payment?.paymentId, amount: b.pricing.deposit, reason: 'Deposit ' + b.id });
-        tx(b, 'refund', r.amount, 'Deposit refunded automatically', 'refunded');
-        b.depositStatus = 'refunded';
-        App.notify(b.customerId, `Your ${App.money(r.amount)} deposit for ${b.id} is on its way back to your UPI account.`, '#/account/payments');
-      } else if (b.depositStatus !== 'none') b.depositStatus = 'released';
+    if (b.status === 'confirmed' && b.end < today) { b.status = 'completed'; changed = true; }
+    // Owners have 48 hours after return to claim; then the deposit goes back (unless a claim is open)
+    const claimOpen = App.db.disputes.some(d => d.bookingId === b.id && d.status === 'open');
+    if (b.status === 'completed' && today >= App.addDays(b.end, 2) && ['paid', 'held', 'at-pickup'].includes(b.depositStatus) && !claimOpen) {
+      if (b.depositStatus === 'paid') {
+        // Less anything our team awarded the owner from a deposit claim
+        const back = Math.max(0, b.pricing.deposit - (b.depositDeducted || 0));
+        if (back) {
+          const r = App.payments.refund({ paymentId: b.payment?.paymentId, amount: back, reason: 'Deposit ' + b.id });
+          tx(b, 'refund', r.amount, b.depositDeducted ? `Deposit refunded less ${App.money(b.depositDeducted)} claim` : 'Deposit refunded automatically', 'refunded');
+          App.notify(b.customerId, `Your ${App.money(r.amount)} deposit for ${b.id} is on its way back to your UPI account.`, '#/account/payments');
+        }
+        b.depositStatus = back ? 'refunded' : 'kept';
+      } else b.depositStatus = 'released';
       changed = true;
     }
   }
@@ -456,6 +462,18 @@ App.api = {
     App.save();
     await App.syncMarket();
     return u;
+  },
+  // A deposit claim or trip issue. Inspections (if any) are attached as evidence.
+  openDispute(bookingId, by, reason, amount) {
+    const b = App.get.booking(bookingId);
+    const d = { id: App.uid('dp'), bookingId, raisedBy: by, reason, amount, status: 'open', createdAt: new Date().toISOString(), messages: [], evidence: Object.keys(b.inspections || {}) };
+    App.db.disputes.unshift(d);
+    b.dispute = d.id;
+    App.notify(by === 'owner' ? b.customerId : b.ownerId, `A ${by === 'owner' ? 'deposit claim' : 'dispute'} of ${App.money(amount)} was opened on ${b.id}. Our team will review the inspection records.`, by === 'owner' ? '#/account/bookings' : '#/owner/bookings');
+    App.db.users.filter(u => u.role === 'admin').forEach(a => App.notify(a.id, `New ${by === 'owner' ? 'deposit claim' : 'dispute'} on ${b.id} (${App.money(amount)}).`, '#/admin/disputes', false));
+    App.audit('dispute.open', `${d.id} ${bookingId} by ${by}`);
+    App.save();
+    return d;
   },
   saveSearch(params, criteria) {
     const me = App.me();

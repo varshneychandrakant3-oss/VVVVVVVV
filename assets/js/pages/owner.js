@@ -191,7 +191,8 @@ const bookingsTab = (m, { bookings }) => {
           <td class="num">${money(b.pricing.ownerPayout)}</td>
           <td>${App.pill(b.status)}</td>
           <td class="actions">${b.status === 'requested' ? h`<button class="btn btn-sm btn-primary" data-accept="${b.id}">Accept</button><button class="btn btn-sm btn-ghost" data-decline="${b.id}">Decline</button>`
-            : b.status === 'confirmed' ? h`<button class="btn btn-sm btn-ghost danger-text" data-ocancel="${b.id}">Cancel</button>` : ''}</td></tr>`; })}
+            : b.status === 'confirmed' ? h`${App.tripSteps(b).pickupOpen ? h`<a class="btn btn-sm btn-ghost" href="#/trip/${b.id}/inspection/${App.tripSteps(b).pickupDone ? 'return' : 'pickup'}">${App.icon('camera')} Inspection</a>` : ''}${b.checkin ? h`<span class="small muted">Checked in · arriving ${b.checkin.arrival}</span>` : ''}<button class="btn btn-sm btn-ghost danger-text" data-ocancel="${b.id}">Cancel</button>`
+            : b.status === 'completed' && b.inspections?.return ? h`<a class="btn btn-sm btn-ghost" href="#/trip/${b.id}/inspection/return">${App.icon('camera')} Return record</a>` : ''}</td></tr>`; })}
       </tbody></table></div>` : App.emptyState('📋', 'Nothing here', 'Bookings will appear here.')}`);
     m.querySelectorAll('[data-tab]').forEach(t => t.onclick = () => { active = t.dataset.tab; draw(); });
     m.querySelectorAll('[data-accept]').forEach(b => b.onclick = async () => {

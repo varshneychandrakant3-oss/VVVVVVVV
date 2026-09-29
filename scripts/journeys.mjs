@@ -279,7 +279,7 @@ const JOURNEYS = {
       b.payment.plan.balanceDueOn = App.addDays(App.today(), -1); App.save();
       App.runExpiryChecks();
       T.assert(b.payment.plan.balance === 0 && b.payment.plan.paid === quote.total && b.paymentStatus === 'paid', 'Balance was not charged');
-      b.start = App.addDays(App.today(), -6); b.end = App.addDays(App.today(), -1); App.save();
+      b.start = App.addDays(App.today(), -7); b.end = App.addDays(App.today(), -2); App.save();
       App.runExpiryChecks();
       T.assert(b.status === 'completed' && b.depositStatus === 'refunded', 'UPI deposit not refunded after the trip');
     }
@@ -361,6 +361,74 @@ const JOURNEYS = {
     const wamsg = App.db.outbox.find(m => m.channel === 'whatsapp' && m.template === 'pickup_reminder');
     T.assert(wamsg && /maps\.google\.com\/\?q=/.test(wamsg.body), 'No WhatsApp pickup reminder with a map pin');
     return resp;
+  },
+
+  // Digital check-in/out: pre-check-in, photo inspections signed by both sides, deposit claim with evidence
+  async inspection() {
+    const photo = async (label) => {
+      const c = document.createElement('canvas'); c.width = 320; c.height = 240;
+      const g = c.getContext('2d'); g.fillStyle = '#1f6f54'; g.fillRect(0, 0, 320, 240); g.fillStyle = '#fff'; g.font = '24px sans-serif'; g.fillText(label, 20, 120);
+      const blob = await new Promise(r => c.toBlob(r, 'image/jpeg', 0.7));
+      return new File([blob], label + '.jpg', { type: 'image/jpeg' });
+    };
+    const upload = async (input, label) => { const dt = new DataTransfer(); dt.items.add(await photo(label)); input.files = dt.files; input.dispatchEvent(new Event('change', { bubbles: true })); await T.wait(250); };
+    const fillInspection = async (odo) => {
+      for (const k of ['front', 'back', 'left', 'right', 'fl', 'fr', 'rl', 'rr', 'fuel', 'odometer']) await upload(T.$(`[data-shot="${k}"]`), k);
+      const fuel = T.$('#fuel'); fuel.value = '3/4'; fuel.dispatchEvent(new Event('change', { bubbles: true })); await T.wait(100);
+      const o = T.$('#odo'); o.value = String(odo); o.dispatchEvent(new Event('change', { bubbles: true })); await T.wait(100);
+    };
+    const sign = async () => { T.$('#agree').checked = true; T.$('#sign').click(); await T.wait(200); };
+    await T.login('traveller@vanyatra.in', '/');
+    // A confirmed trip starting tomorrow, deposit paid by UPI
+    const id = App.db.bookings.find(x => x.customerId === App.me().id && x.status === 'confirmed').id;
+    let b = App.get.booking(id);
+    const fresh = () => { b = App.get.booking(id); return b; };
+    b.start = App.addDays(App.today(), 1); b.end = App.addDays(App.today(), 5); b.depositStatus = 'paid'; b.depositMethod = 'upi'; delete b.inspections; delete b.checkin; App.save();
+    fresh(); await T.go('#/account/bookings');
+    T.assert(T.$(`a[href="#/trip/${b.id}/checkin"]`) && T.$(`a[href="#/trip/${b.id}/inspection/pickup"]`), 'Trip card lacks pre-check-in or inspection');
+    // Pre-check-in
+    fresh(); await T.go(`#/trip/${b.id}/checkin`);
+    const f = T.$('#ci-form'); f.ecName.value = 'Rahul Sharma'; f.ecPhone.value = '9811122233'; f.rules.checked = true; f.inspection.checked = true; f.requestSubmit();
+    await T.until(() => b.checkin, 4000, 'pre-check-in saved');
+    T.noOverflow();
+    // Pickup inspection by the traveller, with a damage mark
+    fresh(); await T.go(`#/trip/${b.id}/inspection/pickup`);
+    T.assert(T.$('#sign').disabled, 'Could sign before all photos were added');
+    await fillInspection(12000);
+    const df = T.$('#dmg-form'); df.note.value = 'Scratch on rear bumper'; df.requestSubmit(); await T.wait(300);
+    T.assert(!T.$('#sign').disabled, 'Sign button still disabled with everything filled in');
+    await sign(); fresh();
+    T.assert(b.inspections.pickup.signed.customer && Object.keys(b.inspections.pickup.photos).length === 10 && b.inspections.pickup.damages.length === 1, 'Pickup inspection not recorded');
+    T.noOverflow();
+    // The owner reviews and signs; the record then locks
+    const ownerEmail = { u_owner1: 'owner@vanyatra.in', u_owner2: 'meera@vanyatra.in', u_owner3: 'tenzin@vanyatra.in' }[b.ownerId];
+    fresh(); await T.login(ownerEmail, '/owner/bookings'); fresh();
+    fresh(); await T.go(`#/trip/${b.id}/inspection/pickup`);
+    await sign(); fresh();
+    T.assert(b.inspections.pickup.signed.owner && !T.$('[data-shot]'), 'Pickup record did not lock after both signed: ' + JSON.stringify({ signed: b.inspections.pickup.signed, me: App.me()?.id, owner: b.ownerId, sign: !!T.$('#sign'), agree: !!T.$('#agree'), toast: T.$$('.toast').map(t => t.innerText).join('|'), h1: T.text('main h1') }));
+    // Return: more km than included → extra km shown; owner signs and claims from the deposit
+    b.start = App.addDays(App.today(), -5); b.end = App.addDays(App.today(), -1); App.save();
+    fresh(); await T.go(`#/trip/${b.id}/inspection/return`);
+    const driven = (b.pricing.kmIncluded || 1000) + 150;
+    await fillInspection(12000 + driven);
+    T.assert(/extra/.test(T.text('.callout')) && T.$$('.compare-grid figure').length === 8, 'Return comparison missing');
+    await sign(); fresh();
+    fresh(); await T.login('traveller@vanyatra.in', '/'); fresh();
+    fresh(); await T.go(`#/trip/${b.id}/inspection/return`); await sign(); fresh();
+    T.assert(b.inspections.return.signed.customer && b.inspections.return.signed.owner, 'Return not signed by both');
+    fresh(); await T.login(ownerEmail, '/owner/bookings'); fresh();
+    fresh(); await T.go(`#/trip/${b.id}/inspection/return`);
+    T.$('#claim').click(); await T.until(() => T.$('#c-note'), 3000, 'claim form');
+    T.$('#c-amt').value = '3000'; T.$('#c-note').value = 'New dent on the passenger door, see return photos';
+    await T.clickModal('Submit claim'); await T.wait(300);
+    const d = App.db.disputes.find(x => x.bookingId === b.id && x.status === 'open');
+    T.assert(d && d.evidence.includes('pickup') && d.evidence.includes('return'), 'Claim did not attach the inspections');
+    // Deposit is held while the claim is open, even after the 48-hour window
+    b.end = App.addDays(App.today(), -3); App.save(); App.runExpiryChecks();
+    T.assert(b.depositStatus === 'paid', 'Deposit refunded while a claim was open');
+    fresh(); await T.login('admin@vanyatra.in', '/admin/disputes'); fresh();
+    T.assert(T.$(`a[href="#/trip/${b.id}/inspection/return"]`), 'Admin does not see the evidence');
+    return b.id + ' · claim ' + App.fmt.money(d.amount);
   },
 
   // An unverified traveller can't pay until identity is verified

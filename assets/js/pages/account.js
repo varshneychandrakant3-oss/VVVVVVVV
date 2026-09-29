@@ -27,6 +27,14 @@ App.pages.account = (el, { tab = 'bookings', id }) => {
 };
 
 /* ---------- Trips ---------- */
+// Pre-check-in and inspections, when they're due
+const tripActions = (b) => {
+  const s = App.tripSteps(b);
+  return h`${s.checkinOpen ? h`<a class="btn btn-sm ${s.checkinDone ? 'btn-ghost' : 'btn-primary'}" href="#/trip/${b.id}/checkin">${s.checkinDone ? App.icon('check') : App.icon('clipboard-list')} Pre-check-in</a>` : ''}
+    ${s.pickupOpen ? h`<a class="btn btn-sm btn-ghost" href="#/trip/${b.id}/inspection/pickup">${s.pickupDone ? App.icon('check') : App.icon('camera')} Pickup inspection</a>` : ''}
+    ${s.returnOpen && s.pickupDone ? h`<a class="btn btn-sm btn-ghost" href="#/trip/${b.id}/inspection/return">${s.returnDone ? App.icon('check') : App.icon('camera')} Return inspection</a>` : ''}`;
+};
+
 const tripCard = (b) => {
   const van = App.get.van(b.vanId);
   const owner = App.get.user(b.ownerId);
@@ -47,6 +55,7 @@ const tripCard = (b) => {
       <div class="trip-actions">
         <strong>${money(b.pricing.total)}</strong>
         ${upcoming ? h`<a class="btn btn-sm" href="#/account/trips/${b.id}">${App.icon('map')} Itinerary</a>` : ''}
+        ${tripActions(b)}
         ${thread ? h`<a class="btn btn-sm btn-ghost" href="#/account/messages/${thread.id}">${App.icon('message-circle')} Message</a>` : ''}
         <button class="btn btn-sm btn-ghost" data-receipt="${b.id}">${App.icon('receipt')} Receipt</button>
         ${upcoming ? h`<button class="btn btn-sm btn-ghost danger-text" data-cancel="${b.id}">Cancel</button>` : ''}
@@ -127,7 +136,7 @@ const issueFlow = async (id) => {
     actions: [{ label: 'Cancel', value: null }, { label: 'Submit to support', primary: true, validate: (mm) => mm.querySelector('#is-text').value.trim().length > 10 || (App.toast('Please describe the issue.', 'bad'), false), value: (mm) => ({ type: mm.querySelector('#is-type').value, text: mm.querySelector('#is-text').value.trim(), amount: +mm.querySelector('#is-amt').value }) }]
   });
   if (!res) return;
-  App.db.disputes.unshift({ id: App.uid('dp'), bookingId: id, raisedBy: 'customer', reason: `${res.type}: ${res.text}`, amount: res.amount, status: 'open', createdAt: new Date().toISOString(), messages: [] });
+  App.api.openDispute(id, 'customer', `${res.type}: ${res.text}`, res.amount);
   App.db.users.filter(u => u.role === 'admin').forEach(a => App.notify(a.id, `New dispute on ${id}: ${res.type}`, '#/admin/disputes', false));
   App.notify(b.ownerId, `A traveller reported an issue on booking ${id}. Our team will be in touch.`, '#/owner/bookings');
   App.save();
