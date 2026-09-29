@@ -13,7 +13,7 @@
  */
 window.App = window.App || {};
 
-const STORAGE_KEY = 'vanyatra.db.v5';
+const STORAGE_KEY = 'vanyatra.db.v6';
 const DAY = 86400000;
 
 App.iso = (date) => {
@@ -177,6 +177,19 @@ App.checkSavedSearches = () => {
     if (now.join() !== s.known.join()) { s.known = now; changed = true; }
   }
   if (changed) App.save();
+};
+
+/* ---------------- Referrals ---------------- */
+// A short, stable invite code: name letters + a few characters from the account id
+App.referralCode = (u) => (String(u.name).toUpperCase().replace(/[^A-Z]/g, '').slice(0, 5) + [...u.id].reduce((a, c) => (a * 31 + c.charCodeAt(0)) >>> 0, 7).toString(36).toUpperCase().slice(-3)).padEnd(6, 'X');
+App.rewardReferral = (b) => {
+  const u = App.get.user(b.customerId);
+  if (!u?.referredBy || u.referralRewarded) return;
+  const inviter = App.get.user(u.referredBy);
+  if (!inviter) return;
+  inviter.credit = (inviter.credit || 0) + App.C.referralCredit;
+  u.referralRewarded = true;
+  App.notify(inviter.id, `${u.name.split(' ')[0]} booked their first trip — ${App.money(App.C.referralCredit)} credit added to your account.`, '#/account/payments');
 };
 
 /* ---------------- Traveller verification ----------------
@@ -446,7 +459,7 @@ App.api = {
     App.db.session = null; App.save();
     await App.syncMarket().catch(() => {});
   },
-  async signup({ name, email, phone, password, role }) {
+  async signup({ name, email, phone, password, role, ref }) {
     if (App.db.users.some(u => u.email.toLowerCase() === email.toLowerCase())) throw new Error('An account with this email already exists.');
     if (password.length < 8 || !/\d/.test(password) || !/[a-z]/i.test(password)) throw new Error('Password needs at least 8 characters including a letter and a number.');
     const server = App.serverOnline ? (await App.server('POST', '/api/auth/signup', { name, email, password, role })).user : null;
@@ -455,6 +468,12 @@ App.api = {
       emailVerified: false, phoneVerified: false, status: 'active', savedVans: [], createdAt: new Date().toISOString(), avatarHue: Math.floor(Math.random() * 360)
     };
     App.db.users.push(u);
+    // Invited by a friend: credit for the first trip; the inviter is credited when it's booked
+    const inviter = ref && App.db.users.find(x => x.id !== u.id && App.referralCode(x) === String(ref).toUpperCase());
+    if (inviter && u.role === 'customer') {
+      u.referredBy = inviter.id; u.credit = (u.credit || 0) + App.C.referralCredit;
+      App.notify(u.id, `${inviter.name.split(' ')[0]} invited you: ${App.money(App.C.referralCredit)} credit is ready for your first trip.`, '#/account/payments');
+    }
     if (u.role === 'owner') App.db.owners[u.id] = { account: { status: 'action_required', note: 'Verify your email and mobile number.' } };
     App.db.session = { userId: u.id, expires: Date.now() + 8 * 3600 * 1000 };
     App.notify(u.id, 'Welcome to VanYatra! Please verify your email and phone.');
@@ -577,6 +596,7 @@ App.api = {
     };
     App.db.bookings.push(b);
     if (b.payment.creditUsed) me.credit -= b.payment.creditUsed;
+    if (b.status === 'confirmed') App.rewardReferral(b);
     App.db.transactions.unshift({ id: App.uid('tx'), type: 'payment', bookingId: b.id, customerId: me.id, ownerId: van.ownerId, amount: plan.dueNow, at: b.createdAt, status: status === 'confirmed' ? 'captured' : 'authorised', method: payment.label, note: plan.type === 'part' ? '25% reservation' : '' });
     if (plan.depositNow) App.db.transactions.unshift({ id: App.uid('tx'), type: 'deposit', bookingId: b.id, customerId: me.id, ownerId: van.ownerId, amount: plan.depositNow, at: b.createdAt, status: status === 'confirmed' ? 'captured' : 'authorised', method: payment.label, note: 'Refundable deposit' });
     let t = App.db.threads.find(x => x.vanId === vanId && x.customerId === me.id);
@@ -600,6 +620,7 @@ App.api = {
     const van = App.get.van(b.vanId);
     if (accept) {
       b.status = 'confirmed';
+      App.rewardReferral(b);
       b.paymentStatus = b.payment?.plan?.type === 'part' ? 'part-paid' : 'paid';
       if (b.depositMethod === 'upi') b.depositStatus = 'paid';
       else if (!b.depositMethod) b.depositStatus = 'held';

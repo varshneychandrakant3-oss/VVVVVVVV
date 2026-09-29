@@ -255,12 +255,19 @@ const paymentsTab = (m, me) => {
     ${me.credit ? h`<div class="callout good-bg">${App.icon('wallet')} You have <strong>${money(me.credit)}</strong> VanYatra credit, used automatically on your next booking.</div>` : ''}
     ${due.length ? h`<div class="callout">${App.icon('calendar-days')} Upcoming: ${due.map(b => h`<strong>${money(b.payment.plan.balance)}</strong> for ${b.id} on ${App.fmtDate(b.payment.plan.balanceDueOn)} `)}— charged automatically; we’ll remind you 3 days before.</div>` : ''}
     ${held.length ? h`<div class="callout">${App.icon('lock')} Deposits: ${held.map(b => h`<strong>${money(b.pricing.deposit)}</strong> for ${b.id} (${b.depositStatus === 'paid' ? 'paid by UPI' : 'held on card'}) `)}— returned within ${App.C.depositReleaseDays} days of return.</div>` : ''}
+    <div class="card refer-card"><h2>${App.icon('users')} Invite friends</h2>
+      <p class="small">Friends get ${money(App.C.referralCredit)} off their first trip; you get ${money(App.C.referralCredit)} credit when they book. ${App.db.users.filter(u => u.referredBy === me.id).length ? `${App.plural(App.db.users.filter(u => u.referredBy === me.id).length, 'friend')} joined so far.` : ''}</p>
+      <div class="row gap wrap"><code class="ref-code">${App.referralCode(me)}</code>
+        <button type="button" class="btn btn-sm" id="copy-ref">Copy invite link</button>
+        <a class="btn btn-sm btn-ghost" href="https://wa.me/?text=${encodeURIComponent(`Join me on VanYatra and get ${App.fmt.money(App.C.referralCredit)} off your first camper van trip: ${location.href.split('#')[0]}#/signup?ref=${App.referralCode(me)}`)}" target="_blank" rel="noopener">${App.icon('share')} Share on WhatsApp</a></div></div>
     <div class="card"><h2>Saved payment methods</h2><p class="muted small">Cards are tokenised by our payment gateway; we only keep the brand and last 4 digits.</p>
       <ul class="plain"><li>${App.icon('credit-card')} Visa •• 4242 <span class="badge badge-muted">default</span></li><li>${App.icon('smartphone')} UPI · ${me.email.split('@')[0]}@okbank</li></ul></div>
     <h2 class="section-sub">Transaction history</h2>
     ${tx.length ? h`<div class="table-wrap"><table class="table"><thead><tr><th>Date</th><th>Booking</th><th>Type</th><th>Method</th><th class="num">Amount</th><th>Status</th><th></th></tr></thead><tbody>
       ${tx.map(t => h`<tr><td>${fmtDate(t.at)}</td><td>${t.bookingId}</td><td>${t.type}</td><td>${t.method || '—'}</td><td class="num ${t.type === 'refund' ? 'good' : ''}">${t.type === 'refund' ? '+' : ''}${money(t.amount)}</td><td>${App.pill(t.status)}</td><td><button class="link" data-receipt="${t.bookingId}">Receipt</button></td></tr>`)}
     </tbody></table></div>` : App.emptyState('💳', 'No payments yet', '')}`);
+  const cr = m.querySelector('#copy-ref');
+  if (cr) cr.onclick = async () => { const link = location.href.split('#')[0] + '#/signup?ref=' + App.referralCode(me); try { await navigator.clipboard.writeText(link); App.toast('Invite link copied', 'good'); } catch (e) { App.prompt('Copy your invite link', link); } };
   m.querySelectorAll('[data-receipt]').forEach(b => b.onclick = () => App.receipt(b.dataset.receipt));
 };
 

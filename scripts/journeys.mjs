@@ -524,6 +524,43 @@ const JOURNEYS = {
     return f.map(st => st.sessions).join('→');
   },
 
+  // Deals and referrals: deal badges and prices, seasonal pages, invite credit for both sides
+  async deals() {
+    await T.go('#/deals');
+    T.assert(T.$$('.campaign').length === 4, 'Seasonal campaigns missing');
+    const cards = T.$$('.van-card');
+    T.assert(cards.length >= 3, 'Deals page has no offers');
+    // The deal is already in the card's total
+    const lastCard = T.$$('section.block')[0].querySelector('.van-card');
+    if (lastCard) {
+      const v = App.get.van(lastCard.dataset.van), [s, e] = lastCard.querySelector('a').getAttribute('href').match(/start=([\d-]+)&end=([\d-]+)/).slice(1);
+      const q = App.quote(v, s, e);
+      T.assert(q.discountKind === 'lastMinute' && T.rupees((lastCard.innerText.match(/₹[\d,]+(?=\s*total)/i) || [''])[0]) === q.total && /last-minute/i.test(lastCard.innerText), 'Last-minute deal not applied on the card');
+    }
+    await T.go('#/deals/winter-rajasthan'); T.assert(/Winter in Rajasthan/.test(T.text('main h1')), 'Campaign page missing');
+    T.noOverflow();
+    // Referral: Priya invites a new traveller; both get credit
+    await T.login('traveller@vanyatra.in', '/account/payments');
+    await T.go('#/account/payments');
+    const code = T.$('.ref-code').innerText.trim();
+    T.assert(code.length >= 6 && /wa\.me/.test(T.$('.refer-card a[href*="wa.me"]').href), 'Invite link missing');
+    const inviterId = App.me().id, before = App.me().credit || 0;
+    await App.api.logout();
+    await T.go('#/signup?ref=' + code);
+    T.assert(/invited you/.test(T.text()), 'Invite not shown on sign-up');
+    const f = T.$('#signup-form'); f.name.value = 'Kavya Menon'; f.email.value = 'kavya' + Date.now() + '@example.com'; f.phone.value = '9876500011'; f.password.value = 'journey123'; f.terms.checked = true; f.requestSubmit();
+    await T.until(() => App.me()?.name === 'Kavya Menon', 8000, 'sign-up');
+    T.assert(App.me().credit === App.C.referralCredit && App.me().referredBy === inviterId, 'Invitee credit not granted');
+    // Her first confirmed booking rewards the inviter
+    const [s2, e2] = T.futureRange(140, 3);
+    const van = App.db.vans.find(v => v.status === 'published' && v.instantBook && App.isAvailable(v.id, s2, e2) && v.minNights <= 3);
+    App.db.traveller = { identity: { status: 'verified', method: 'aadhaar', data: { name: 'Kavya Menon', dob: '1994-01-01' } }, licence: { status: 'verified', kind: 'indian', validUpto: '2035-01-01', data: { dlMasked: 'XXXX1234' } } };
+    const b = App.api.createBooking({ vanId: van.id, start: s2, end: e2, adults: 2, children: 0, options: {}, driver: { name: 'Kavya Menon', age: 32, licence: 'XXXX1234', phone: '9876500011', check: { status: 'verified' } }, payment: { method: 'upi', label: 'UPI', plan: { type: 'full' } }, specialRequests: '' });
+    if (b.status === 'requested') App.api.respondToRequest(b.id, true);
+    T.assert((App.get.user(inviterId).credit || 0) === before + App.C.referralCredit, 'Inviter not credited');
+    return 'code ' + code;
+  },
+
   // An unverified traveller can't pay until identity is verified
   async gate() {
     await T.login('sam@example.com', '/');

@@ -12,6 +12,8 @@
 window.App = window.App || {};
 (() => {
   const KEY = 'vanyatra.demobackend.v1';
+  // Bump when demo data gains fields that returning visitors should get
+  const DEMO_VERSION = 2;
   const core = App.core;
   let st = null;
 
@@ -24,10 +26,12 @@ window.App = window.App || {};
     try { st = JSON.parse(localStorage.getItem(KEY) || 'null'); } catch (e) { st = null; }
     if (st) {
       // Browsers that saved demo data before traveller verification existed
-      if (!st.market.travellers) {
+      if (!st.market.travellers || (st.demoVersion || 1) < DEMO_VERSION) {
         const seed = App.buildSeed();
-        st.market.travellers = seed.travellers;
+        st.market.travellers = st.market.travellers || seed.travellers;
         for (const u of seed.users) if (!st.accounts.some(a => a.id === u.id || a.email === u.email)) st.accounts.push({ id: u.id, name: u.name, email: u.email, role: u.role, password: u.password, status: 'active', createdAt: u.createdAt });
+        for (const v of seed.vans) core.backfillDemoVan(st.market.vans.find(x => x.id === v.id), v);
+        st.demoVersion = DEMO_VERSION;
         persist();
       }
       return;
@@ -38,7 +42,7 @@ window.App = window.App || {};
       version: 1, sessionUserId: null,
       accounts: seed.users.map(u => ({ id: u.id, name: u.name, email: u.email, role: u.role, password: u.password, status: 'active', createdAt: u.createdAt })),
       market: { vans: seed.vans, documents: seed.documents, owners: seed.owners, travellers: seed.travellers, notifications: [] },
-      verifications: [], audit: [], dlStates: {}
+      verifications: [], audit: [], dlStates: {}, demoVersion: DEMO_VERSION
     };
     persist();
   }

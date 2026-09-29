@@ -12,7 +12,7 @@ import { accounts, findAccount } from './lib/auth.js';
 export const C = App.C;
 
 // Bump when the demo data gains new vans/owners; existing servers get them merged in
-const SEED_VERSION = 3;
+const SEED_VERSION = 4;
 
 const uid = (p) => p + crypto.randomBytes(6).toString('hex');
 const now = () => new Date().toISOString();
@@ -41,6 +41,7 @@ export function state() {
         // Refresh photos on untouched demo vans (they used to have only 4)
         const cur = s.vans.find(x => x.id === v.id);
         if (cur.ownerId === v.ownerId && cur.photos.length < 5 && cur.photos.every(p => p.startsWith('photo-'))) cur.photos = v.photos;
+        core.backfillDemoVan(cur, v);
       }
     }
     for (const d of seed.documents) {

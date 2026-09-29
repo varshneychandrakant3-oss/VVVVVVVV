@@ -32,6 +32,8 @@ const ROUTES = [
   ['/trip/:id/checkin', 'checkin', ['customer', 'owner', 'admin']],
   ['/trip/:id/inspection/:phase', 'inspection', ['customer', 'owner', 'admin']],
   ['/plan', 'planner'],
+  ['/deals', 'deals'],
+  ['/deals/:id', 'deals'],
   ['/guide', 'guide'],
   ['/help', 'help'],
   ['/help/:topic', 'help']
@@ -94,6 +96,7 @@ App.renderHeader = () => {
     ['#/search', 'Find a van'],
     ['#/map', 'Map'],
     ['#/plan', 'Plan a trip'],
+    ['#/deals', 'Deals'],
     ['#/list-your-van', 'List your van'],
     ['#/help', 'Help']
   ];

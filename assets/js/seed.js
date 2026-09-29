@@ -361,6 +361,8 @@ App.buildSeed = function () {
       discounts: { weekly: 10, monthly: 20 }, kmPerDay: 250, extraKmFee: 12,
       kmPackages: { plus: price >= 9000 ? 600 : 450, unlimited: price >= 9000 ? 1200 : 900 },
       driver: driverFor(type, destinationId, i), delivery: deliveryFor(destinationId, i),
+      // Some owners run deals
+      earlyBird: i % 3 === 0 ? { days: 60, pct: 10 } : null, lastMinute: i % 4 === 1 ? { days: 10, pct: 15 } : null,
       beds: sleepText[sleeps], length: type === 'Motorhome' ? '7.2 m' : type === 'Pop-top' ? '4.5 m' : '5.9 m',
       height: type === 'Motorhome' ? '3.2 m' : type === 'Pop-top' ? '2.1 m (roof down)' : type === '4x4 Overlander' ? '2.5 m' : '2.7 m',
       licence: type === 'Motorhome' ? 'LMV (Transport) licence' : 'Standard LMV car licence',

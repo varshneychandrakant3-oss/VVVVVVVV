@@ -111,6 +111,7 @@ App.vanCard = (van, opts = {}) => {
       <p class="meta">Sleeps ${van.sleeps} · ${van.seats} seats · ${van.transmission} · ${dest ? dest.name : ''}</p>
       <div class="card-badges">${App.verifiedBadge(van.ownerId)}${App.realPhotosBadge(van)}</div>
       <div class="van-card-price">
+        ${(() => { const d = App.dealBadge ? App.dealBadge(van, opts.start, opts.end) : ''; return d ? App.h`<span class="badge badge-deal">${App.icon('sparkles')} ${d}</span>` : ''; })()}
         ${q ? App.h`<span><strong>${App.money(q.total)}</strong> total</span><span class="muted">${App.fmt.nights(q.nights)} · incl. fees &amp; GST</span><button type="button" class="link small price-link" data-price-van="${van.id}" data-start="${opts.start}" data-end="${opts.end}">Price details</button>`
             : App.h`<span><strong>${App.money(van.pricePerNight)}</strong> <span class="muted">/ night</span></span>`}
         ${!available ? App.h`<span class="badge badge-bad">Unavailable for your dates</span>` : ''}

@@ -46,6 +46,14 @@
     const vm = String(u || '').match(/vimeo\.com\/(?:video\/)?(\d{6,12})/);
     return yt ? 'https://www.youtube-nocookie.com/embed/' + yt[1] : vm ? 'https://player.vimeo.com/video/' + vm[1] : null;
   };
+  // Demo vans saved by an older version get newer demo fields (only ones they don't have yet)
+  core.DEMO_FIELDS = ['height', 'photoLabels', 'kmPackages', 'driver', 'delivery', 'earlyBird', 'lastMinute'];
+  core.backfillDemoVan = (cur, seedVan) => {
+    if (!cur || !seedVan || cur.ownerId !== seedVan.ownerId) return false;
+    let changed = false;
+    for (const k of core.DEMO_FIELDS) if (cur[k] === undefined && seedVan[k] !== undefined) { cur[k] = JSON.parse(JSON.stringify(seedVan[k])); changed = true; }
+    return changed;
+  };
   core.fromOutcome = (o) => (o === 'verified' ? 'verified' : o === 'review' ? 'pending' : 'action_required');
 
   /* Traveller verification: can this traveller book a trip ending on tripEnd?

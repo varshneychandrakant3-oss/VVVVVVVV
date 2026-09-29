@@ -45,11 +45,13 @@ App.pages.login = (el, _p, q) => {
 
 App.pages.signup = (el, _p, q) => {
   const role = q.role === 'owner' ? 'owner' : 'customer';
+  const inviter = q.ref && App.db.users.find(x => App.referralCode(x) === String(q.ref).toUpperCase());
   el.innerHTML = String(h`
   <div class="auth-wrap">
     <div class="auth-art"><img src="${photo('photo-1530541930197-ff16ac917b0e', 1000)}" alt=""><div class="auth-quote">Join 10,000+ travellers exploring India by van.</div></div>
     <div class="auth-card">
       <h1>Create your account</h1>
+      ${inviter ? h`<div class="callout good-bg">${App.icon('sparkles')} ${inviter.name.split(' ')[0]} invited you — get ${App.money(App.C.referralCredit)} off your first trip.</div>` : ''}
       <form id="signup-form" novalidate>
         <fieldset class="role-pick"><legend>I want to</legend>
           <label class="pay-opt ${role === 'customer' ? 'on' : ''}"><input type="radio" name="role" value="customer" ${role === 'customer' ? 'checked' : ''}><span><strong>${App.icon('compass')} Rent a van</strong><span class="small muted">Book trips as a traveller</span></span></label>
@@ -74,7 +76,7 @@ App.pages.signup = (el, _p, q) => {
     if (!f.checkValidity()) { f.reportValidity(); return; }
     try {
       const d = App.formData(f);
-      const u = await App.api.signup({ name: d.name.trim(), email: d.email.trim(), phone: d.phone.trim(), password: d.password, role: d.role });
+      const u = await App.api.signup({ name: d.name.trim(), email: d.email.trim(), phone: d.phone.trim(), password: d.password, role: d.role, ref: q.ref });
       App.toast('Account created!', 'good');
       App.go(u.role === 'owner' ? '#/owner/onboarding' : '#/verify?next=' + encodeURIComponent(q.next || '/'));
     } catch (ex) { const err = el.querySelector('#su-err'); err.textContent = ex.message; err.hidden = false; }

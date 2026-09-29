@@ -32,6 +32,8 @@ App.COUNTRY_PROFILES = {
     depositReleaseDays: 7,
     // Credit given when an owner cancels, towards rebooking a similar van
     rebookCredit: 2000,
+    // Referral: the friend gets this off their first trip, and the inviter gets it when they book
+    referralCredit: 1000,
     expiryWarningDays: 30,
     supportPhone: '1800-120-4455',
     emergencyNumber: '112',
