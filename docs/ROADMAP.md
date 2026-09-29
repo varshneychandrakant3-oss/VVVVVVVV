@@ -52,7 +52,11 @@ Agreed on 28 Sep 2026: go ahead with the recommendations below.
 
 ## P1 — Journey features
 
-**Status: not started.** Waiting for review of P0. The van page phone bar reading "Reserve · ₹X total" (part of P1.13) and the photo captions were built early, in P0.1 and P0.6.
+**Status: ✅ done (29 Sep 2026)**, all 20 items. Details and open TODOs are in [CHANGELOG.md](CHANGELOG.md).
+
+## P2 status
+
+**Not started.** Waiting for review of P1.
 
 | Item | Status | Change | Files | Effort | Depends |
 |---|---|---|---|---|---|

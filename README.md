@@ -19,6 +19,8 @@ npm start
 
 Then open http://localhost:8080. It starts in **test mode**: every check returns realistic results without contacting any government system, so you can click through every flow for free.
 
+Traveller extras worth trying: the four-step checkout (protection, extras, driver, delivery, 25% reservation), `#/plan` (trip planner), `#/guide`, and pre-check-in and inspections from **My trips**.
+
 Checks (run all three with `npm run check`):
 
 ```bash
@@ -164,14 +166,17 @@ _headers                   Security headers for static hosting
 
 ## Still to do before a real launch
 
-- **Bookings, messages and reviews:** these are still per-browser demo data. Move them to the server the same way vans and documents were moved.
+- **Bookings, messages, reviews and trip records:** still per-browser demo data (bookings, inspections, road closures, saved searches, trip plans). Move them to the server the same way vans and documents were moved; this also makes booking rules (eligibility, credit, the 48-hour deposit-claim window) server-enforced.
 - **Database:** the server stores JSON files, which is fine for a single-server pilot. Swap `server/lib/store.js` for Postgres or similar before running more than one server.
 - **Payments:** `assets/js/payments.js` has the same three steps as Razorpay and Cashfree PG: create an order, open hosted checkout, verify the signature. To go live:
   - Add a server endpoint that creates the order with the gateway's secret key.
   - Add a server endpoint that verifies the payment signature and creates the booking. Don't let the browser decide a payment succeeded.
   - Replace the test checkout dialog with the gateway's checkout script.
-  - Add deposit pre-authorisation, marketplace payouts (Route or Easy Split) and webhooks.
-- **Notifications:** owner notifications are stored on the server today. Send them by email, SMS or WhatsApp through a provider as well.
+  - Implement `charge()` for 25% reservations with a recurring mandate (UPI AutoPay or a saved card), run it from a daily server job, and retry failures with reminders.
+  - Implement `refund()` for UPI deposits and cancellations, card pre-authorisation for "hold at pickup", EMI through the gateway, marketplace payouts (Route or Easy Split) and webhooks.
+  - The shared price rules (`assets/js/core/pricing.js`) already run on the server; compute the order amount there, never from the browser.
+- **Notifications:** in-app notifications work today, and WhatsApp messages (opt-in) are queued by `App.sendWhatsApp` (see the admin outbox). Connect the WhatsApp Business API with approved templates (`booking_confirmed`, `pickup_reminder`, `trip_tips`, `closure_alert`), plus email and DLT-registered SMS.
+- **Inspection photos and calendar sync:** inspection photos are resized data URLs in the browser; store them in encrypted object storage. Calendar import works from `.ics` files; add a server job to fetch other sites' calendar links.
 - **Document storage:** uploaded files need encrypted object storage with access logging. Today only file names are kept.
 - **Face match:** compare the selfie with the Aadhaar photo through the provider's face-match and liveness APIs.
 - **Scheduled jobs:** re-check VAHAN nightly for documents close to expiry, and send email and SMS through a provider.
