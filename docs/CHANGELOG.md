@@ -99,11 +99,33 @@ What changed:
 - A forced reflow when setting the page title is gone.
 - Accessibility fixes: footer heading order, the date button's name, link underline and chip tap size.
 
+### After P2: build step (29 Sep 2026)
+Approved after the P2 review. Lighthouse mobile, Node server, two runs each:
+
+| Page | After P2 | With the build step |
+|---|---|---|
+| Home | 72–82 | 84–85 |
+| Van page (`/vans/v1/`) | 71–78 | 71–78 |
+| Destination (`/destinations/goa/`) | — | 75–79 |
+
+- **Build (`npm run build`, esbuild):**
+  - `app.html` is now the source shell. The build writes `index.html` with one minified script bundle instead of 28 files (174 KB → 147 KB gzipped), plus a CSS bundle (92 KB → 78 KB) and an owner/admin bundle loaded on demand.
+  - File names carry a content hash, so they can be cached for a year (the Node server and `_headers` say so).
+  - The built files are committed, so GitHub Pages needs no build.
+- **Start-up requests run in parallel:**
+  - Before: backend check → config → session → market data, one after another.
+  - After: `boot.js` starts the backend check while the scripts download, and the other three requests are made together.
+- **Render:** the page is scrolled to the top only when it isn't already there. Reading the scroll position forced an extra layout on every screen (about 350 ms on a slow phone).
+- **Pre-rendered pages** show the loader while the app starts, rather than painting the static copy and then swapping it. Before, this could shift the layout by up to 0.9. Search engines and visitors without JavaScript still get the static copy.
+- **Tried and reverted:** preloading the main photo on van and destination pages. It competed with the scripts for bandwidth and made the largest paint slower (6.5 s).
+
+**Still not 90.** On a slow phone, most of the remaining time is the first render: laying out the page for the first time (fonts, about 1,000 elements) and running the app code. The next steps would be:
+- render the first screen without waiting for all of the market data
+- trim the demo seed data from the main bundle when a server is present
+- pre-render the home page shell
+
 ### Open TODOs from P2
-- **Performance ≥ 90 is not reached yet.** The rest of the gap is JavaScript run time on a slow phone: about 560 KB of unminified scripts that build every page in the browser. Next steps:
-  - Add a build step that bundles and minifies (esbuild).
-  - Pre-render the home page shell like the other public pages.
-  - Self-host a Latin subset of the font.
+- **Performance ≥ 90 is not reached yet.** The build step is done (see above). The next steps are listed there, plus self-hosting a Latin subset of the font.
 - **Hindi:** have a native speaker review it. Then extract strings for search results, the van page, checkout and account.
 - **Push notifications** only work while the site is open or installed. Real push (when the app is closed) needs a push service and VAPID keys on the server.
 - **SOS and live chat** are front-end only in this demo. Connect them to a real support desk and an on-call phone line.

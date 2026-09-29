@@ -22,6 +22,8 @@ const opt = (k, d) => { const i = args.indexOf('--' + k); return i >= 0 ? args[i
 const MODES = opt('mode', 'both') === 'both' ? ['demo', 'server'] : [opt('mode')];
 const ONLY = opt('only', '');
 const WIDTH = Number(opt('width', 360));
+// --shell app.html runs the journeys on the source files instead of the built bundles
+const SHELL = opt('shell', '');
 
 const CHROME = [
   process.env.CHROME_PATH,
@@ -44,7 +46,7 @@ async function startStatic() {
     let rel = decodeURIComponent(new URL(req.url, 'http://x').pathname).replace(/^\/+/, '') || 'index.html';
     if (rel.endsWith('/')) rel += 'index.html';
     const file = path.join(ROOT, rel);
-    if (!file.startsWith(ROOT) || !(['index.html', 'sw.js', '404.html', 'sitemap.xml', 'robots.txt'].includes(rel) || ['assets/', 'vans/', 'destinations/', 'help/', 'guide/', 'deals/'].some(d => rel.startsWith(d))) || !fs.existsSync(file) || fs.statSync(file).isDirectory()) { res.writeHead(404); return res.end('Not found'); }
+    if (!file.startsWith(ROOT) || !(['index.html', 'app.html', 'sw.js', '404.html', 'sitemap.xml', 'robots.txt'].includes(rel) || ['assets/', 'vans/', 'destinations/', 'help/', 'guide/', 'deals/'].some(d => rel.startsWith(d))) || !fs.existsSync(file) || fs.statSync(file).isDirectory()) { res.writeHead(404); return res.end('Not found'); }
     res.writeHead(200, { 'Content-Type': TYPES[path.extname(file)] || 'application/octet-stream' });
     fs.createReadStream(file).pipe(res);
   }).listen(port);
@@ -627,7 +629,11 @@ const JOURNEYS = {
     const shell = keys.find(k => k.startsWith('vanyatra-shell-'));
     T.assert(shell, 'App shell not cached: ' + keys.join(','));
     const c = await caches.open(shell);
-    for (const p of ['./index.html', './assets/js/app.js', './assets/css/app.css', './assets/js/pages/booking.js']) T.assert(await c.match(p), 'Not cached: ' + p);
+    // The shell and every file it links to (the built bundles, including the on-demand owner/admin one)
+    const shellHtml = await (await fetch('index.html')).text();
+    const files = ['./index.html', ...[...shellHtml.matchAll(/(?:src|href)="(assets\/build\/[^"]+)"/g)].map(m => './' + m[1])];
+    T.assert(files.length >= 5, 'Built files not found in index.html');
+    for (const p of files) T.assert(await c.match(p), 'Not cached: ' + p);
     await T.login('traveller@vanyatra.in', '/account/bookings');
     await T.go('#/account/bookings');
     window.__tripIds = T.$$('.trip-card .eyebrow').map(x => x.innerText);
@@ -807,10 +813,10 @@ async function run(mode) {
     problems.length = 0;
     if (mode === 'server' && results.length) { host.stop(); host = await startNode(); origin = new URL(host.url).origin; }
     // Fresh demo data for each journey
-    await chrome.send('Page.navigate', { url: host.url });
+    await chrome.send('Page.navigate', { url: host.url + SHELL });
     await sleep(700);
     await chrome.send('Runtime.evaluate', { expression: 'localStorage.clear(); sessionStorage.clear();' });
-    await chrome.send('Page.navigate', { url: host.url });
+    await chrome.send('Page.navigate', { url: host.url + SHELL });
     await sleep(900);
     const t0 = Date.now();
     let ok = true, detail = '';
@@ -853,7 +859,7 @@ async function screens(dir, routes) {
   await chrome.send('Page.enable'); await chrome.send('Runtime.enable');
   await chrome.send('Emulation.setDeviceMetricsOverride', { width: WIDTH, height: Number(opt('height', 780)), deviceScaleFactor: 1, mobile: WIDTH < 768 });
   await chrome.send('Page.addScriptToEvaluateOnNewDocument', { source: HELPERS });
-  await chrome.send('Page.navigate', { url: host.url }); await sleep(1500);
+  await chrome.send('Page.navigate', { url: host.url + SHELL }); await sleep(1500);
   for (const [i, spec] of routes.entries()) {
     const [, email, hash, sel, click] = spec.match(/^([^#]*)(#[^@!]*)(?:@([^!]+))?(?:!(.+))?$/) || [];
     const js = `(async () => { await T.until(() => window.App && App.backend, 10000); ${email ? `await T.login(${JSON.stringify(email)}, '/');` : ''} await T.go(${JSON.stringify(hash)}); await T.wait(900); ${sel ? `document.querySelector(${JSON.stringify(sel)})?.scrollIntoView({ block: 'start', behavior: 'instant' }); scrollBy(0, -70); await T.wait(300);` : 'scrollTo(0, 0);'} ${click ? `document.querySelector(${JSON.stringify(click)})?.click(); await T.wait(500);` : ''} })()`;

@@ -362,8 +362,13 @@ App.server = async (method, path, body) => {
 // "demo", while the Node server answers that path with "server".
 App.detectBackend = async () => {
   try {
-    const probe = await fetch('assets/backend.json', { credentials: 'same-origin', cache: 'no-store' }).then(r => r.json());
+    // boot.js starts this request early; later calls (e.g. after a reset) ask again
+    const early = window.VY_PROBE; window.VY_PROBE = null;
+    const probe = await (early || fetch('assets/backend.json', { credentials: 'same-origin', cache: 'no-store' }).then(r => r.json()));
     if (probe.backend === 'server') {
+      // Ask for the session and market data at the same time as the config (App.syncSession)
+      const get = (path) => { const r = App.server('GET', path); r.catch(() => {}); return r; };
+      App._prefetch = { me: get('/api/auth/me'), market: get('/api/market') };
       try {
         const res = await fetch('/api/config', { credentials: 'same-origin' });
         if (res.ok) { App.backend = 'server'; return await res.json(); }
@@ -396,9 +401,10 @@ App.syncSession = async () => {
   try {
     App.verifyConfig = await App.detectBackend();
     App.serverOnline = true;
-    const { user } = await App.server('GET', '/api/auth/me');
+    const pre = App._prefetch || {}; App._prefetch = null;
+    const { user } = await (pre.me || App.server('GET', '/api/auth/me'));
     if (user) bindLocalUser(user); else { App.db.session = null; App.save(); }
-    await App.syncMarket();
+    await App.syncMarket(pre.market);
   } catch (e) {
     App.serverOnline = false;
     App.verifyConfig = null;
@@ -408,9 +414,9 @@ App.syncSession = async () => {
 // Vans, documents, owner verification and their notifications come from the
 // server, which decides every status. Bookings, messages and reviews are still
 // local demo data, so vans the server doesn't return are kept (hidden) for them.
-App.syncMarket = async () => {
+App.syncMarket = async (prefetched) => {
   if (!App.serverOnline) return;
-  const m = await App.server('GET', '/api/market');
+  const m = await (prefetched || App.server('GET', '/api/market'));
   const local = new Map(App.db.vans.map(v => [v.id, v]));
   const ids = new Set(m.vans.map(v => v.id));
   App.db.vans = [

@@ -1,8 +1,15 @@
 // Runs first, before the app's (deferred) scripts: starts the slow downloads early
 // without holding up the first paint.
 (function () {
+  // Scripts are on: pre-rendered pages show the loader rather than the static copy (see app.css)
+  document.documentElement.classList.add('js');
   // The home page hero photo (public.js shows it)
   var HERO = window.VY_HERO = 'photo-1534540378968-85a7b8fde19f';
+  // Ask which backend this is while the app's scripts download (App.detectBackend uses it)
+  if (window.fetch && location.protocol !== 'file:') {
+    window.VY_PROBE = fetch('assets/backend.json', { credentials: 'same-origin', cache: 'no-store' }).then(function (r) { return r.json(); });
+    window.VY_PROBE.catch(function () {}); // handled when the app reads it
+  }
   var add = function (attrs) { var l = document.createElement('link'); for (var k in attrs) l.setAttribute(k, attrs[k]); document.head.appendChild(l); };
   // Web font: added from script so it doesn't block rendering (text shows in the fallback font first)
   add({ rel: 'stylesheet', href: 'https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap' });

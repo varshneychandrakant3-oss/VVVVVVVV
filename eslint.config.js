@@ -1,10 +1,10 @@
-// Lint config. The web app is plain browser scripts (no modules, no build):
+// Lint config. The web app is plain browser scripts (no modules; scripts/build.mjs only joins and minifies them):
 // each file adds to the global `App`. The server and tools are ES modules for Node.
 import js from '@eslint/js';
 import globals from 'globals';
 
 export default [
-  { ignores: ['node_modules/', 'data/'] },
+  { ignores: ['node_modules/', 'data/', 'assets/build/'] },
   js.configs.recommended,
   {
     files: ['assets/js/**/*.js'],

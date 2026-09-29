@@ -301,6 +301,9 @@ fieldset.field legend { margin-bottom: 6px; }
 .field-error::before { content: '⚠ '; }
 .check > .field-error { flex-basis: 100%; margin-left: 28px; }
 .check { flex-wrap: wrap; }
+/* Pre-rendered pages hold a static copy for search engines and visitors without scripts;
+   with scripts, the loader shows until the app draws the same screen */
+html.js .prerendered, html:not(.js) .boot-loading { display: none; }
 .boot-loading { min-height: 100vh; display: grid; place-items: center; color: var(--muted); font-weight: 600; gap: 10px; }
 .field.inline { flex-direction: row; align-items: center; gap: 8px; margin: 0; }
 .field.inline select, .field.inline input { width: auto; min-height: 40px; }

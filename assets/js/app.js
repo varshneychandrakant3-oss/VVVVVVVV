@@ -99,7 +99,9 @@ App.render = () => {
   App.track('page_view', { page: route.page });
   try { fn(main, route.params, route.query); }
   catch (e) { console.error(e); main.innerHTML = String(App.emptyState('⚠️', 'Something went wrong', e.message, App.h`<a class="btn" href="#/">Go home</a>`)); }
-  if (!App._keepScroll) window.scrollTo({ top: 0, behavior: 'instant' });
+  // Reading or setting the scroll position forces a layout straight away, so the position
+  // is tracked by a scroll listener and the page is only scrolled when it isn't at the top
+  if (!App._keepScroll && App._scrolled) window.scrollTo({ top: 0, behavior: 'instant' });
   App._keepScroll = false;
   App.closeMenu && App.closeMenu();
   App.renderTabbar(route);
@@ -323,6 +325,7 @@ App.pages.notFound = (el) => {
 window.addEventListener('hashchange', App.render);
 document.addEventListener('DOMContentLoaded', async () => {
   if ('scrollRestoration' in history) history.scrollRestoration = 'manual';
+  addEventListener('scroll', () => { App._scrolled = window.scrollY > 0; }, { passive: true });
   // Pre-rendered pages (scripts/prerender.mjs) say which screen they are
   const pre = document.documentElement.dataset.route;
   if (pre && !location.hash) history.replaceState(null, '', pre);

@@ -18,7 +18,7 @@ const TYPES = { '.html': 'text/html; charset=utf-8', '.css': 'text/css; charset=
 
 // Public files: the app shell and assets, the service worker (at the root), and the pages
 // pre-rendered for search engines (scripts/prerender.mjs)
-const PUBLIC_FILES = ['index.html', 'sw.js', '404.html', 'sitemap.xml', 'robots.txt'];
+const PUBLIC_FILES = ['index.html', 'app.html', 'sw.js', '404.html', 'sitemap.xml', 'robots.txt'];
 const PUBLIC_DIRS = ['assets/', 'vans/', 'destinations/', 'help/', 'guide/', 'deals/'];
 
 const gzipCache = new Map();
@@ -35,7 +35,9 @@ function serveStatic(req, res, pathname) {
   try { data = fs.readFileSync(full); } catch { throw new HttpError(404, 'Not found'); }
   const type = TYPES[path.extname(full)] || 'application/octet-stream';
   const etag = '"' + crypto.createHash('sha1').update(data).digest('base64url').slice(0, 20) + '"';
-  const headers = { 'Content-Type': type, 'Cache-Control': 'no-cache', ETag: etag, Vary: 'Accept-Encoding', ...SECURITY_HEADERS };
+  // Built bundles have the content hash in their name, so they never change
+  const cache = rel.startsWith('assets/build/') ? 'public, max-age=31536000, immutable' : 'no-cache';
+  const headers = { 'Content-Type': type, 'Cache-Control': cache, ETag: etag, Vary: 'Accept-Encoding', ...SECURITY_HEADERS };
   if (req.headers['if-none-match'] === etag) { res.writeHead(304, headers); return res.end(); }
   if (/text|json|xml|javascript|svg|manifest/.test(type) && data.length > 1024 && /\bgzip\b/.test(req.headers['accept-encoding'] || '')) {
     data = gzipCache.get(etag) || zlib.gzipSync(data, { level: 9 });

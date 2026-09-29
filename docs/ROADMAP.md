@@ -15,7 +15,7 @@ Agreed on 28 Sep 2026: go ahead with the recommendations below.
 
 | # | Decision | My recommendation |
 |---|---|---|
-| D1 | **Lint and checks.** The brief says "run the build and lint", but there is no build step. | Add **ESLint as a dev-only tool** (`npm run lint`), plus `npm run check` (syntax check, tests, headless journey script). There's still no build step, and the site deploys as-is. |
+| D1 | **Lint and checks.** The brief says "run the build and lint", but there is no build step. | Add **ESLint as a dev-only tool** (`npm run lint`), plus `npm run check` (syntax check, tests, headless journey script). There's still no build step, and the site deploys as-is. **Update after P2:** a small esbuild step now joins and minifies the scripts (`npm run build`), and the built files are committed. |
 | D2 | **Icons** (Lucide) | Copy the ~40 icons we use into one **inline SVG sprite** (`assets/icons.svg`, ISC licence credited). There's no runtime library and no CDN call. |
 | D3 | **SEO** (P2). Hash URLs aren't indexable. | A **pre-render script** writes static HTML for the home page, the 10 destinations, 32 vans and the help pages, with meta tags, OG and JSON-LD. The app then takes over in the browser. Moving to history routing on GitHub Pages needs a 404.html redirect hack that's fragile. Old `#/` links keep working either way. |
 | D4 | **Hindi** (P2) | Build the i18n layer and extract the strings. Machine-drafted Hindi must be **reviewed by a native speaker** before launch; I'll mark it as a draft. |
