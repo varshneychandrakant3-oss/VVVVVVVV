@@ -81,6 +81,7 @@ App.render = () => {
   App._keepScroll = false;
   App.closeMenu && App.closeMenu();
   App.renderTabbar(route);
+  App.renderTripBar();
   // Keep the current dashboard section visible in the swipeable pill row
   const dnav = main.querySelector('.dash-nav nav'), act = dnav && dnav.querySelector('a.active');
   if (act) dnav.scrollLeft = act.offsetLeft - dnav.clientWidth / 2 + act.clientWidth / 2;

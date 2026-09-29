@@ -112,6 +112,7 @@ const GUIDE = [
     <li>Not keen on driving? Many vans can be booked <strong>with a driver</strong>.</li></ul>
     <div class="video-placeholder">${App.icon('camera', { size: 28 })}<div><strong>Video: your first camper drive</strong><span class="small muted">A short walkthrough of controls, reversing and hill driving is being filmed with our owners. Until then, your owner walks you through the van at pickup.</span></div></div>`]
 ];
+App.GUIDE = GUIDE;
 App.pages.guide = (el) => {
   el.innerHTML = String(h`<div class="container narrow section prose guide">
     <p class="eyebrow">First-timer’s guide</p><h1>Van life in India, simply explained</h1>

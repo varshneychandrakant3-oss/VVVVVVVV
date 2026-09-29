@@ -588,6 +588,35 @@ const JOURNEYS = {
     return id;
   },
 
+  // Support: help search across everything, live chat, trip-time roadside bar and SOS
+  async support() {
+    await T.go('#/help');
+    const q = T.$('#help-q'); q.value = 'deposit refund'; q.dispatchEvent(new Event('input', { bubbles: true })); await T.wait(100);
+    T.assert(T.$$('.help-results li').length >= 2 && /Policy|FAQ/.test(T.text('#help-results')), 'Help search found nothing for "deposit refund"');
+    q.value = 'inner line permit'; q.dispatchEvent(new Event('input', { bubbles: true })); await T.wait(100);
+    T.assert(/Ladakh/.test(T.text('#help-results')), 'Help search misses destination guides');
+    await T.login('traveller@vanyatra.in', '/help');
+    await T.go('#/help');
+    T.$('#open-chat').click(); await T.until(() => T.$('#sc-input'), 3000, 'chat');
+    T.$('#sc-input').value = 'How do I get my deposit back?'; T.$('#sc-form').requestSubmit(); await T.wait(200);
+    T.assert(T.$$('.support-chat .msg').length === 2 && /specialist/.test(T.text('.support-chat')), 'Chat did not reply');
+    T.$('.modal [data-close]').click(); await T.wait(100);
+    // A trip in progress: roadside bar and SOS
+    const b = App.db.bookings.find(x => x.customerId === App.me().id && x.status === 'confirmed');
+    b.start = App.addDays(App.today(), -1); b.end = App.addDays(App.today(), 3); b.checkin = { ecName: 'Rahul', ecPhone: '9811122233' }; App.save();
+    await T.go('#/');
+    T.assert(T.$('#trip-bar') && /Roadside/.test(T.text('#trip-bar')), 'Trip bar missing during a trip');
+    navigator.geolocation.getCurrentPosition = (ok) => ok({ coords: { latitude: 32.2432, longitude: 77.1892, accuracy: 25 } });
+    const before = App.db.notifications.length;
+    T.$('#sos-btn').click(); await T.until(() => T.$('#sos-loc'), 3000, 'SOS');
+    T.assert(T.$(`.sos a[href="tel:${App.C.emergencyNumber}"]`), 'SOS lacks the emergency number');
+    T.$('#sos-loc').click(); await T.wait(200);
+    T.assert(/Location sent/.test(T.text('#sos-out')) && T.$('#sos-out a[href^="sms:"]') && App.db.notifications.length > before && App.db.notifications.some(n => n.userId === b.ownerId && /maps\.google\.com\/\?q=32\.2432,77\.1892/.test(n.text)), 'SOS location not shared');
+    T.$('.modal [data-close]').click(); await T.wait(100);
+    T.noOverflow();
+    return 'help, chat, SOS ok';
+  },
+
   // An unverified traveller can't pay until identity is verified
   async gate() {
     await T.login('sam@example.com', '/');

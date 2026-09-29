@@ -323,14 +323,20 @@ const POLICY = {
     <h2>Payouts</h2><p>Bank account with ${App.C.payout.routingLabel}, verified by a ₹1 penny-drop. Payouts are sent 24 hours after the trip starts.</p>`]
 };
 
+App.FAQ = FAQ; App.POLICY = POLICY;
+
 App.pages.help = (el, { topic }, q) => {
   if (topic === 'faq' || !topic) {
     el.innerHTML = String(h`<div class="container narrow section">
       <p class="eyebrow">Help centre</p><h1>${topic ? 'Frequently asked questions' : 'How can we help?'}</h1>
       ${!topic ? h`<div class="help-tiles">${[['safety', '🛡️', 'Trust & safety'], ['faq', '❓', 'FAQs'], ['mountain-promise', 'mountain', 'Mountain Promise'], ['guide', 'compass', 'First-timer’s guide'], ['support', '💬', 'Contact support'], ['cancellation', '↩️', 'Cancellations & refunds'], ['owners', '🚐', 'Owner requirements'], ['terms', '📄', 'Terms'], ['privacy', '🔒', 'Privacy']].map(([id, ic, l]) => h`<a class="card help-tile" href="${id === 'guide' ? '#/guide' : '#/help/' + id}">${App.icon(ic, { size: 28 })}${l}</a>`)}</div>` : ''}
+      ${!topic ? h`<label class="field help-search"><span>Search help</span><input type="search" id="help-q" placeholder="e.g. deposit refund, permit, pets" autocomplete="off"></label><div id="help-results" aria-live="polite"></div>
+      <div class="callout row-between wrap"><span>${App.icon('message-circle')} Can’t find it? Chat with our team — usually within 5 minutes.</span><button type="button" class="btn btn-sm btn-primary" id="open-chat">Chat with us</button></div>` : ''}
       <label class="field"><span class="sr-only">Search FAQs</span><input type="search" id="faq-q" placeholder="Search questions…"></label>
       <div id="faq-list">${FAQ.map(([sec, items]) => h`<h2>${sec}</h2>${items.map(([qq, a]) => h`<details class="faq"><summary>${qq}</summary><p>${a}</p></details>`)}`)}</div>
     </div>`);
+    App.bindHelpSearch(el);
+    el.querySelector('#open-chat')?.addEventListener('click', () => App.openSupportChat());
     el.querySelector('#faq-q').oninput = (e) => {
       const t = e.target.value.toLowerCase();
       el.querySelectorAll('.faq').forEach(d => { const m = d.textContent.toLowerCase().includes(t); d.hidden = !m; if (t && m) d.open = true; });
@@ -344,7 +350,7 @@ App.pages.help = (el, { topic }, q) => {
       <div class="grid-3">
         <div class="card"><h3>${App.icon('phone')} 24×7 roadside</h3><p><a href="tel:${App.C.supportPhone}">${App.C.supportPhone}</a></p></div>
         <div class="card"><h3>${App.icon('siren')} Emergency</h3><p>Call ${App.C.emergencyNumber}, then let us know.</p></div>
-        <div class="card"><h3>${App.icon('mail')} Email</h3><p>support@vanyatra.in<br><span class="small muted">Replies within 4 hours</span></p></div>
+        <div class="card"><h3>${App.icon('message-circle')} Live chat</h3><p><button type="button" class="btn btn-sm btn-primary" id="open-chat">Chat with us</button><br><span class="small muted">Usually within 5 minutes, 8 am – 10 pm</span></p></div>
       </div>
       <form class="card" id="support-form">
         <h2>Send us a message</h2>
@@ -356,6 +362,7 @@ App.pages.help = (el, { topic }, q) => {
         <label class="field"><span>How can we help?</span><textarea name="msg" rows="5" required minlength="10">${q.van ? 'Listing ' + q.van + ': ' : ''}</textarea></label>
         <button class="btn btn-primary">Send message</button>
       </form></div>`);
+    el.querySelector('#open-chat').onclick = () => App.openSupportChat();
     el.querySelector('#support-form').onsubmit = async (e) => {
       e.preventDefault();
       const f = e.target;
