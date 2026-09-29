@@ -290,7 +290,50 @@ const JOURNEYS = {
     const creditBefore = App.me().credit || 0;
     App.api.cancelBooking(b2.id, 'owner', 'Van broke down');
     T.assert(b2.refund === b2.payment.plan.paid && b2.depositStatus !== 'paid' && (App.me().credit || 0) === creditBefore + App.C.rebookCredit && b2.rebook?.search.includes(s2), 'Owner cancellation guarantee not applied');
+    // The credit is used on the next booking
+    await T.go('#/book/' + van2.id + '?start=' + s2 + '&end=' + e2 + '&adults=2&children=0');
+    for (const wait of ['.prot-table', '[name=phone]', '[name=payPlan]']) { T.$('#book-form').requestSubmit(); await T.until(() => T.$(wait), 6000, wait); }
+    T.assert(T.$('[name=useCredit]')?.checked && /VanYatra credit used/.test(T.text('.book-summary')), 'Credit not offered at checkout');
+    const creditNow = App.me().credit;
+    T.$('#book-form').agree.checked = true; T.$('#book-form').requestSubmit();
+    await T.clickModal('successful'); await T.until(() => /confirmed/.test(location.hash), 8000, 'confirmation with credit');
+    T.assert(App.me().credit === creditNow - App.db.bookings.at(-1).payment.creditUsed && App.db.bookings.at(-1).payment.creditUsed > 0, 'Credit not deducted');
     return b.id + ' ' + App.fmt.money(quote.total) + ' · 25% ' + App.fmt.money(plan.dueNow);
+  },
+
+  // Search: quick-filter chips, pickup location, helpful empty results, saved search alerts
+  async search() {
+    await T.login('traveller@vanyatra.in', '/');
+    await T.go('#/search');
+    const count = () => +(T.text('#result-count').match(/^(\d+)/) || [0, 0])[1];
+    const all = count();
+    T.assert(T.$$('.fchip').length >= 12, 'Quick-filter chips missing');
+    T.$('[data-chip="driver"]').click(); await T.wait(200);
+    T.assert(location.hash.includes('driver=1') && count() === App.db.vans.filter(v => v.status === 'published' && App.driverFor(v)).length && count() < all, 'Driver chip did not filter');
+    T.assert(/1 filter on/.test(T.text('.results-meta')), 'Active filter count not shown');
+    T.$('[data-chip="driver"]').click(); await T.wait(200);
+    T.assert(count() === all, 'Chip did not toggle off');
+    // Pickup location: an airport someone delivers to
+    const pt = App.db.vans.find(v => v.status === 'published' && v.delivery?.points?.length).delivery.points[0];
+    const sel = T.$('#filter-form [name=pickup]'); sel.value = pt.id; sel.dispatchEvent(new Event('input', { bubbles: true })); await T.wait(200);
+    T.assert(count() > 0 && T.$$('.van-card').every(c => App.get.van(c.dataset.van).delivery?.points?.some(p => p.id === pt.id) || c.closest('.dim')), 'Pickup location filter wrong');
+    // Empty results suggest other dates or regions
+    const b = App.db.bookings.find(x => x.status === 'confirmed' && x.start > App.addDays(App.today(), 5) && App.get.van(x.vanId)?.status === 'published');
+    const v = App.get.van(b.vanId);
+    await T.go('#/search?dest=' + v.destinationId + '&start=' + b.start + '&end=' + b.end + '&type=' + encodeURIComponent(v.type) + '&min=' + v.pricePerNight + '&max=' + v.pricePerNight);
+    if (count() === 0) T.assert(/Free on nearby dates|another region/.test(T.text()), 'Empty results give no suggestions');
+    // Save a search where the van is booked, then free it up: an alert arrives
+    await T.go('#/search?dest=' + v.destinationId + '&start=' + b.start + '&end=' + b.end);
+    T.$('#save-search').click(); await T.wait(200);
+    const ss = App.db.savedSearches.find(s => s.params.includes(b.start));
+    T.assert(ss && !ss.known.includes(v.id), 'Search not saved');
+    b.status = 'cancelled'; App.save();
+    const before = App.db.notifications.length;
+    App.checkSavedSearches();
+    T.assert(App.db.notifications.length === before + 1 && App.db.notifications[0].text.includes(v.name), 'No alert when a matching van freed up');
+    await T.go('#/account/saved'); T.assert(T.text().includes(ss.label), 'Saved search not listed in the account');
+    T.noOverflow();
+    return all + ' vans, alerts work';
   },
 
   // An unverified traveller can't pay until identity is verified

@@ -213,8 +213,33 @@ App.pages.search = (el, _p, q) => {
     dest: q.dest || '', start: q.start || '', end: q.end || '', guests: +q.guests || 1,
     types: q.type ? q.type.split(',') : [], min: +q.min || 0, max: +q.max || maxP,
     amen: q.amen ? q.amen.split(',') : [], family: !!q.family, pets: !!q.pets, instant: !!q.instant, auto: !!q.auto,
+    fuel: q.fuel || '', driver: !!q.driver, delivery: !!q.delivery, pickup: q.pickup || '',
     sort: q.sort || 'recommended', view: q.view || 'list'
   };
+  // Pickup places: owners' bases and the airports, stations and hotels they deliver to
+  const places = new Map();
+  for (const v of publishedVans()) {
+    places.set('city:' + v.pickup.city, { id: 'city:' + v.pickup.city, name: v.pickup.city, type: 'city' });
+    for (const p of v.delivery?.points || []) places.set(p.id, { id: p.id, name: p.name, type: p.type });
+  }
+  const placeList = [...places.values()].sort((a, b) => (a.type === 'city') - (b.type === 'city') || a.name.localeCompare(b.name));
+  // Quick filters shown as chips above the results
+  const CHIPS = [
+    ['instant', 'Instant book', 'zap', () => state.instant, (on) => { state.instant = on; }],
+    ['driver', 'Driver available', 'user', () => state.driver, (on) => { state.driver = on; }],
+    ['delivery', 'Delivery', 'route', () => state.delivery, (on) => { state.delivery = on; }],
+    ['sleeps4', 'Sleeps 4+', 'bed-double', () => state.guests >= 4, (on) => { state.guests = on ? 4 : 1; }],
+    ['budget', 'Under ₹5,000', 'wallet', () => state.max <= 5000, (on) => { state.max = on ? 5000 : maxP; }],
+    ['auto', 'Automatic', 'cog', () => state.auto, (on) => { state.auto = on; }],
+    ['toilet', 'Toilet', 'toilet', () => state.amen.includes('toilet'), (on) => toggleAmen('toilet', on)],
+    ['ac', 'AC', 'snowflake', () => state.amen.includes('ac'), (on) => toggleAmen('ac', on)],
+    ['heater', 'Heater', 'flame', () => state.amen.includes('heater'), (on) => toggleAmen('heater', on)],
+    ['4x4', '4x4', 'mountain', () => state.types.includes('4x4 Overlander'), (on) => { state.types = on ? [...new Set([...state.types, '4x4 Overlander'])] : state.types.filter(t => t !== '4x4 Overlander'); }],
+    ['pets', 'Pet friendly', 'paw-print', () => state.pets, (on) => { state.pets = on; }],
+    ['childseat', 'Child seat anchors', 'baby', () => state.amen.includes('childseat'), (on) => toggleAmen('childseat', on)],
+    ['family', 'Family friendly', 'users', () => state.family, (on) => { state.family = on; }]
+  ];
+  const toggleAmen = (id, on) => { state.amen = on ? [...new Set([...state.amen, id])] : state.amen.filter(a => a !== id); };
   el.innerHTML = String(h`
   <div class="container search-top">
     <h1>${state.dest ? h`Camper vans for ${App.get.dest(state.dest)?.name || 'your trip'}` : 'Find your camper van'}</h1>
@@ -227,6 +252,8 @@ App.pages.search = (el, _p, q) => {
         <label class="field"><span>Destination</span><select name="dest"><option value="">Anywhere</option>${App.db.destinations.map(d => h`<option value="${d.id}" ${state.dest === d.id ? 'selected' : ''}>${d.name}</option>`)}</select></label>
         <div class="field"><span id="f-dates-l">Dates</span><div id="f-dates" role="group" aria-labelledby="f-dates-l"></div></div>
         <label class="field"><span>Travellers</span><input type="number" name="guests" min="1" max="8" value="${state.guests}"></label>
+        <label class="field"><span>Pickup location</span><select name="pickup"><option value="">Anywhere</option>
+          ${['city', 'airport', 'station', 'hotel'].map(t => placeList.some(p => p.type === t) ? h`<optgroup label="${{ city: 'Owner’s base', airport: 'Airports (delivery)', station: 'Stations (delivery)', hotel: 'Hotels (delivery)' }[t]}">${placeList.filter(p => p.type === t).map(p => h`<option value="${p.id}" ${state.pickup === p.id ? 'selected' : ''}>${p.name}</option>`)}</optgroup>` : '')}</select></label>
         <fieldset class="field"><legend>Price per night</legend>
           <div class="grid-2"><label class="small">Min<input type="number" name="min" step="500" min="0" value="${state.min}"></label><label class="small">Max<input type="number" name="max" step="500" min="0" value="${state.max}"></label></div>
           <input type="range" name="maxRange" min="2000" max="${maxP}" step="500" value="${state.max}" aria-label="Maximum price per night">
@@ -237,7 +264,10 @@ App.pages.search = (el, _p, q) => {
           <label class="check"><input type="checkbox" name="pets" ${state.pets ? 'checked' : ''}> ${App.icon('paw-print')} Pet friendly</label>
           <label class="check"><input type="checkbox" name="instant" ${state.instant ? 'checked' : ''}> ${App.icon('zap')} Instant book</label>
           <label class="check"><input type="checkbox" name="auto" ${state.auto ? 'checked' : ''}> Automatic transmission</label>
+          <label class="check"><input type="checkbox" name="driver" ${state.driver ? 'checked' : ''}> ${App.icon('user')} Driver available</label>
+          <label class="check"><input type="checkbox" name="delivery" ${state.delivery ? 'checked' : ''}> ${App.icon('route')} Delivery to airport, station or hotel</label>
         </fieldset>
+        <label class="field"><span>Fuel</span><select name="fuel"><option value="">Any</option>${['Diesel', 'Petrol', 'CNG', 'Electric'].map(f => h`<option ${state.fuel === f ? 'selected' : ''}>${f}</option>`)}</select></label>
         <fieldset class="field"><legend>Amenities</legend><div class="amen-grid">${App.AMENITIES.filter(a => a.id !== 'pets').map(a => h`<label class="check"><input type="checkbox" name="amen" value="${a.id}" ${state.amen.includes(a.id) ? 'checked' : ''}> ${a.label}</label>`)}</div></fieldset>
         <button type="button" class="btn btn-ghost btn-block" id="clear-filters">Clear all filters</button>
       </form>
@@ -254,6 +284,8 @@ App.pages.search = (el, _p, q) => {
           ${[['recommended', 'Recommended'], ['price_asc', 'Price: low to high'], ['price_desc', 'Price: high to low'], ['rating', 'Top rated'], ['sleeps', 'Sleeps most']].map(([v, l]) => h`<option value="${v}" ${state.sort === v ? 'selected' : ''}>${l}</option>`)}
         </select></label>
       </div>
+      <div class="chip-bar" role="group" aria-label="Quick filters"><div class="chip-scroll" id="chips"></div></div>
+      <div class="results-meta"><span id="active-count" class="small muted"></span><button type="button" class="link small" id="chips-clear" hidden>Clear all</button><button type="button" class="btn btn-sm btn-ghost" id="save-search">${App.icon('bell')} Save search</button></div>
       <div class="map map-lg" id="search-map" ${state.view === 'map' ? '' : 'hidden'}></div>
       <div id="results"></div>
     </section>
@@ -264,18 +296,14 @@ App.pages.search = (el, _p, q) => {
     const f = App.formData(form);
     Object.assign(state, {
       dest: f.dest, start: f.start, end: f.end, guests: +f.guests || 1, min: +f.min || 0, max: +f.max || maxP,
-      types: [].concat(f.types || []), amen: [].concat(f.amen || []), family: !!f.family, pets: !!f.pets, instant: !!f.instant, auto: !!f.auto
+      types: [].concat(f.types || []), amen: [].concat(f.amen || []), family: !!f.family, pets: !!f.pets, instant: !!f.instant, auto: !!f.auto,
+      fuel: f.fuel || '', driver: !!f.driver, delivery: !!f.delivery, pickup: f.pickup || ''
     });
   };
   let map = null;
   const draw = () => {
     const validDates = state.start && state.end && state.end > state.start;
-    let list = publishedVans().filter(v =>
-      (!state.dest || v.destinationId === state.dest) && v.sleeps >= state.guests &&
-      v.pricePerNight >= state.min && v.pricePerNight <= state.max &&
-      (!state.types.length || state.types.includes(v.type)) &&
-      state.amen.every(a => v.amenities.includes(a)) &&
-      (!state.family || v.familyFriendly) && (!state.pets || v.petFriendly) && (!state.instant || v.instantBook) && (!state.auto || v.transmission === 'Automatic'));
+    let list = publishedVans().filter(v => App.searchMatches(v, state));
     const avail = validDates ? list.filter(v => App.isAvailable(v.id, state.start, state.end)) : list;
     const sorters = {
       recommended: (a, b) => (App.get.ratingScore(b.id) * 10 + (b.instantBook ? 5 : 0)) - (App.get.ratingScore(a.id) * 10 + (a.instantBook ? 5 : 0)),
@@ -286,17 +314,18 @@ App.pages.search = (el, _p, q) => {
     const unavailable = list.filter(v => !avail.includes(v));
     el.querySelector('#result-count').textContent = `${App.plural(avail.length, 'van')} available${validDates ? ` · ${App.fmt.dateRange(state.start, state.end)}` : ''}`;
     el.querySelector('#filters-apply').textContent = `Show ${App.plural(avail.length, 'van')}`;
-    const active = [state.dest, validDates, state.guests > 1, state.min > 0, state.max < maxP, state.types.length, state.amen.length, state.family, state.pets, state.instant, state.auto].filter(Boolean).length;
+    const active = [state.dest, validDates, state.guests > 1, state.min > 0, state.max < maxP, state.types.length, state.amen.length, state.family, state.pets, state.instant, state.auto, state.fuel, state.driver, state.delivery, state.pickup].filter(Boolean).length;
+    drawChips(active);
     const fc = el.querySelector('#filter-count'); fc.hidden = !active; fc.textContent = active;
     const opts = validDates ? { start: state.start, end: state.end } : {};
     el.querySelector('#results').innerHTML = String(avail.length
       ? h`<div class="van-grid">${avail.map(v => App.vanCard(v, opts))}</div>
           ${unavailable.length ? h`<h3 class="section-sub">Booked for your dates</h3><div class="van-grid dim">${unavailable.map(v => App.vanCard(v, opts))}</div>` : ''}`
-      : App.emptyState('🔎', 'No vans match those filters', 'Try widening your price range, changing dates or removing some amenities.', h`<button class="btn" id="clear2">Clear filters</button>`));
+      : noResults(list, validDates));
     const c2 = el.querySelector('#clear2'); if (c2) c2.onclick = clear;
     // Keep filters in the URL (shareable) without re-rendering the page
     const params = new URLSearchParams();
-    for (const [k, v] of Object.entries({ dest: state.dest, start: state.start, end: state.end, guests: state.guests > 1 ? state.guests : '', type: state.types.join(','), min: state.min || '', max: state.max < maxP ? state.max : '', amen: state.amen.join(','), family: state.family ? 1 : '', pets: state.pets ? 1 : '', instant: state.instant ? 1 : '', auto: state.auto ? 1 : '', sort: state.sort !== 'recommended' ? state.sort : '', view: state.view !== 'list' ? state.view : '' })) if (v) params.set(k, v);
+    for (const [k, v] of Object.entries({ dest: state.dest, start: state.start, end: state.end, guests: state.guests > 1 ? state.guests : '', type: state.types.join(','), min: state.min || '', max: state.max < maxP ? state.max : '', amen: state.amen.join(','), family: state.family ? 1 : '', pets: state.pets ? 1 : '', instant: state.instant ? 1 : '', auto: state.auto ? 1 : '', fuel: state.fuel, driver: state.driver ? 1 : '', delivery: state.delivery ? 1 : '', pickup: state.pickup, sort: state.sort !== 'recommended' ? state.sort : '', view: state.view !== 'list' ? state.view : '' })) if (v) params.set(k, v);
     history.replaceState(null, '', '#/search' + (params.toString() ? '?' + params : ''));
     if (state.view === 'map') {
       const mapEl = el.querySelector('#search-map');
@@ -306,12 +335,62 @@ App.pages.search = (el, _p, q) => {
     }
   };
   const clear = () => { App.go('#/search'); };
+  // Keep the filter panel's inputs in step with chips
+  const syncForm = () => {
+    const set = (name, on) => { const x = form.querySelector(`[name="${name}"]`); if (x) x.checked = on; };
+    ['instant', 'driver', 'delivery', 'auto', 'pets', 'family'].forEach(k => set(k, state[k]));
+    form.querySelectorAll('[name=amen]').forEach(x => { x.checked = state.amen.includes(x.value); });
+    form.querySelectorAll('[name=types]').forEach(x => { x.checked = state.types.includes(x.value); });
+    form.guests.value = state.guests; form.max.value = state.max; form.maxRange.value = state.max;
+  };
+  const drawChips = (active) => {
+    el.querySelector('#chips').innerHTML = String(h`${CHIPS.map(([id, label, icon, isOn]) => h`<button type="button" class="fchip ${isOn() ? 'on' : ''}" data-chip="${id}" aria-pressed="${isOn()}">${App.icon(icon)} ${label}</button>`)}`);
+    el.querySelectorAll('[data-chip]').forEach(b => b.onclick = () => { const c = CHIPS.find(x => x[0] === b.dataset.chip); c[4](!c[3]()); syncForm(); draw(); });
+    el.querySelector('#active-count').textContent = active ? `${App.plural(active, 'filter')} on` : '';
+    el.querySelector('#chips-clear').hidden = !active;
+  };
+  // Nothing found: suggest nearby dates and other regions that have vans
+  const noResults = (list, validDates) => {
+    const tips = [];
+    if (validDates && list.length) {
+      const n = App.nightsBetween(state.start, state.end);
+      for (const shift of [7, -7, 14, 21]) {
+        const s = App.addDays(state.start, shift);
+        if (s < App.today()) continue;
+        const c = list.filter(v => App.isAvailable(v.id, s, App.addDays(s, n))).length;
+        if (c) tips.push(h`<button type="button" class="btn btn-sm" data-shift="${shift}">${App.fmt.dateRange(s, App.addDays(s, n))} · ${App.plural(c, 'van')}</button>`);
+        if (tips.length >= 3) break;
+      }
+    }
+    // Same filters, other regions
+    const regions = state.dest ? App.db.destinations.filter(d => d.id !== state.dest).map(d => [d, publishedVans().filter(v => App.searchMatches(v, { ...state, dest: d.id }) && (!validDates || App.isAvailable(v.id, state.start, state.end))).length]).filter(([, c]) => c).sort((a, b) => b[1] - a[1]).slice(0, 3) : [];
+    return h`<div class="empty"><div class="empty-icon" aria-hidden="true">${App.icon('search')}</div><h3>No vans match that search</h3>
+      <p class="muted">${list.length && validDates ? 'Every matching van is booked on those dates.' : 'Try removing a filter or two.'}</p>
+      ${tips.length ? h`<p class="small"><strong>Free on nearby dates:</strong></p><div class="row gap wrap center-row">${tips}</div>` : ''}
+      ${regions.length ? h`<p class="small"><strong>Or try another region:</strong></p><div class="row gap wrap center-row">${regions.map(([d, c]) => h`<button type="button" class="btn btn-sm btn-ghost" data-region="${d.id}">${d.name} · ${App.plural(c, 'van')}</button>`)}</div>` : ''}
+      <p><button class="btn" id="clear2">Clear filters</button> <button type="button" class="btn btn-ghost" data-save-empty>${App.icon('bell')} Alert me when one frees up</button></p></div>`;
+  };
+  el.querySelector('#results').addEventListener('click', (e) => {
+    const sh = e.target.closest('[data-shift]'), rg = e.target.closest('[data-region]');
+    if (sh) { const n = App.nightsBetween(state.start, state.end); state.start = App.addDays(state.start, +sh.dataset.shift); state.end = App.addDays(state.start, n); dates.set(state.start, state.end, { silent: true }); draw(); }
+    if (rg) { state.dest = rg.dataset.region; form.dest.value = state.dest; draw(); }
+    if (e.target.closest('[data-save-empty]')) saveSearch();
+  });
+  const saveSearch = () => {
+    const me = App.me();
+    if (!me) return App.go('#/login?next=' + encodeURIComponent(location.hash.slice(1)));
+    const params = location.hash.split('?')[1] || '';
+    const s = App.api.saveSearch(params, state);
+    App.toast(s.existing ? 'You already saved this search.' : 'Search saved. We’ll let you know when a matching van is free.', 'good');
+  };
+  el.querySelector('#save-search').onclick = saveSearch;
+  el.querySelector('#chips-clear').onclick = clear;
   form.addEventListener('input', (e) => {
     if (e.target.name === 'maxRange') form.max.value = e.target.value;
     if (e.target.name === 'max') form.maxRange.value = e.target.value;
     read(); draw();
   });
-  App.dateRangeField(el.querySelector('#f-dates'), { start: state.start, end: state.end });
+  const dates = App.dateRangeField(el.querySelector('#f-dates'), { start: state.start, end: state.end });
   el.querySelector('#clear-filters').onclick = clear;
   el.querySelector('#sort').onchange = (e) => { state.sort = e.target.value; draw(); };
   el.querySelectorAll('[data-view]').forEach(b => b.onclick = () => {

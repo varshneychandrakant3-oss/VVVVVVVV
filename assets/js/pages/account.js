@@ -14,7 +14,7 @@ App.pages.account = (el, { tab = 'bookings', id }) => {
     title: 'My account', subtitle: me.name, base: '#/account', active: tab,
     nav: [
       { id: 'bookings', icon: '🧳', label: 'My trips', count: mine.filter(b => ['confirmed', 'requested'].includes(b.status)).length },
-      { id: 'saved', icon: '♡', label: 'Saved vans', count: me.savedVans.length },
+      { id: 'saved', icon: '♡', label: 'Saved', count: me.savedVans.length },
       { id: 'messages', icon: '💬', label: 'Messages', count: unreadThreads },
       { id: 'payments', icon: '💳', label: 'Payments' },
       { id: 'reviews', icon: '★', label: 'Reviews', count: toReview },
@@ -202,16 +202,29 @@ const itineraryTab = (m, id) => {
 /* ---------- Saved ---------- */
 const savedTab = (m, me) => {
   const vans = me.savedVans.map(App.get.van).filter(v => v && v.status === 'published');
-  m.innerHTML = String(h`<h1>Saved vans</h1>${vans.length ? h`<div class="van-grid">${vans.map(v => App.vanCard(v))}</div>` : App.emptyState('♡', 'Nothing saved yet', 'Tap the heart on any van to save it for later.', h`<a class="btn btn-primary" href="#/search">Browse vans</a>`)}`);
+  const searches = (App.db.savedSearches || []).filter(s => s.userId === me.id);
+  m.innerHTML = String(h`<h1>Saved</h1>
+    <h2 class="section-sub">Saved searches</h2>
+    ${searches.length ? h`<ul class="plain list-rows saved-searches">${searches.map(s => h`<li>
+      <div><a href="#/search?${s.params}"><strong>${s.label}</strong></a><div class="small muted">${App.plural(s.known.length, 'van')} free now · saved ${App.fmtDate(s.createdAt)}</div></div>
+      <div class="row gap"><label class="check small"><input type="checkbox" data-alert="${s.id}" ${s.alerts ? 'checked' : ''}> Alerts</label><button type="button" class="icon-btn" data-del-search="${s.id}" aria-label="Delete saved search ${s.label}">${App.icon('x')}</button></div>
+    </li>`)}</ul>` : h`<p class="muted small">Save a search from the search page, and we’ll tell you when a matching van becomes free.</p>`}
+    <h2 class="section-sub">Saved vans</h2>
+    ${vans.length ? h`<div class="van-grid">${vans.map(v => App.vanCard(v))}</div>` : App.emptyState('♡', 'Nothing saved yet', 'Tap the heart on any van to save it for later.', h`<a class="btn btn-primary" href="#/search">Browse vans</a>`)}`);
   m.querySelectorAll('[data-save]').forEach(b => b.addEventListener('click', () => setTimeout(() => { App._keepScroll = true; App.render(); }, 50)));
+  m.querySelectorAll('[data-alert]').forEach(c => c.onchange = () => { App.db.savedSearches.find(s => s.id === c.dataset.alert).alerts = c.checked; App.save(); App.toast(c.checked ? 'Alerts on' : 'Alerts off'); });
+  m.querySelectorAll('[data-del-search]').forEach(b => b.onclick = () => { App.db.savedSearches = App.db.savedSearches.filter(s => s.id !== b.dataset.delSearch); App.save(); App._keepScroll = true; App.render(); });
 };
 
 /* ---------- Payments ---------- */
 const paymentsTab = (m, me) => {
   const tx = App.db.transactions.filter(t => t.customerId === me.id && t.type !== 'payout');
-  const held = App.db.bookings.filter(b => b.customerId === me.id && b.depositStatus === 'held');
+  const held = App.db.bookings.filter(b => b.customerId === me.id && ['held', 'paid'].includes(b.depositStatus) && ['confirmed', 'completed'].includes(b.status));
+  const due = App.db.bookings.filter(b => b.customerId === me.id && b.status === 'confirmed' && b.payment?.plan?.balance > 0);
   m.innerHTML = String(h`<h1>Payments</h1>
-    ${held.length ? h`<div class="callout">${App.icon('lock')} Deposits currently held: ${held.map(b => h`<strong>${money(b.pricing.deposit)}</strong> for ${b.id} `)}— released within ${App.C.depositReleaseDays} days of return.</div>` : ''}
+    ${me.credit ? h`<div class="callout good-bg">${App.icon('wallet')} You have <strong>${money(me.credit)}</strong> VanYatra credit, used automatically on your next booking.</div>` : ''}
+    ${due.length ? h`<div class="callout">${App.icon('calendar-days')} Upcoming: ${due.map(b => h`<strong>${money(b.payment.plan.balance)}</strong> for ${b.id} on ${App.fmtDate(b.payment.plan.balanceDueOn)} `)}— charged automatically; we’ll remind you 3 days before.</div>` : ''}
+    ${held.length ? h`<div class="callout">${App.icon('lock')} Deposits: ${held.map(b => h`<strong>${money(b.pricing.deposit)}</strong> for ${b.id} (${b.depositStatus === 'paid' ? 'paid by UPI' : 'held on card'}) `)}— returned within ${App.C.depositReleaseDays} days of return.</div>` : ''}
     <div class="card"><h2>Saved payment methods</h2><p class="muted small">Cards are tokenised by our payment gateway; we only keep the brand and last 4 digits.</p>
       <ul class="plain"><li>${App.icon('credit-card')} Visa •• 4242 <span class="badge badge-muted">default</span></li><li>${App.icon('smartphone')} UPI · ${me.email.split('@')[0]}@okbank</li></ul></div>
     <h2 class="section-sub">Transaction history</h2>

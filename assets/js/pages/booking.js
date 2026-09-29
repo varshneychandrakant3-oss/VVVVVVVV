@@ -39,7 +39,12 @@ App.pages.book = (el, { id }, q) => {
   const driverOffer = App.driverFor(van);
   if (!driverOffer) s.options.driver = false;
   const quote = () => App.quote(van, s.start, s.end, s.options);
-  const planFor = (qte) => App.paymentPlan(qte, s.start, { plan: s.payPlan, deposit: s.depositMethod });
+  // Credit (e.g. from an owner cancellation) pays part of what's due now
+  const planFor = (qte) => {
+    const p = App.paymentPlan(qte, s.start, { plan: s.payPlan, deposit: s.depositMethod });
+    const credit = me && s.useCredit !== false ? Math.min(me.credit || 0, p.dueNow) : 0;
+    return { ...p, credit, chargeNow: p.chargeNow - credit };
+  };
   // Instant book needs a fully verified traveller; anything under review becomes a request
   const instantNow = () => !!me && van.instantBook && App.core.travellerEligibility(App.travellerRecord(me), s.end).instant;
   const bookUrl = () => `/book/${van.id}?start=${s.start}&end=${s.end}&adults=${s.adults}&children=${s.children}`;
@@ -81,7 +86,8 @@ App.pages.book = (el, { id }, q) => {
     ${App.priceLines(qte)}
     ${s.step === 4 && plan.chargeNow !== qte.total ? h`<dl class="price-lines due-now"><div class="total"><dt>Due now</dt><dd>${money(plan.chargeNow)}</dd></div>
       ${plan.type === 'part' ? h`<div class="muted"><dt>Balance, charged ${fmtDate(plan.balanceDueOn)}</dt><dd>${money(plan.balance)}</dd></div>` : ''}
-      ${plan.depositNow ? h`<div class="muted"><dt>Includes refundable deposit</dt><dd>${money(plan.depositNow)}</dd></div>` : ''}</dl>` : ''}
+      ${plan.depositNow ? h`<div class="muted"><dt>Includes refundable deposit</dt><dd>${money(plan.depositNow)}</dd></div>` : ''}
+      ${plan.credit ? h`<div class="good"><dt>VanYatra credit used</dt><dd>−${money(plan.credit)}</dd></div>` : ''}</dl>` : ''}
     <button type="button" class="link small" data-price-van="${van.id}" data-start="${s.start}" data-end="${s.end}" data-options="${optionsAttr()}">See full price breakdown</button>
     <p class="small muted">${App.icon('lock')} Payments are processed by a PCI-DSS compliant gateway. VanYatra never sees or stores your full card number.</p>`;
 
@@ -224,6 +230,7 @@ App.pages.book = (el, { id }, q) => {
       <label class="choice ${plan.depositMethod === 'hold' ? 'on' : ''}"><input type="radio" name="depositMethod" value="hold" ${plan.depositMethod === 'hold' ? 'checked' : ''}><span><strong>Hold on a credit card at pickup</strong><span class="small muted">The amount is blocked, not charged, and released within ${App.C.depositReleaseDays} days of return.</span></span></label>
     </div><small class="muted">Prefer no deposit? <button type="button" class="link small" data-goto="2">Choose zero-deposit</button></small></fieldset>`
       : qte.depositWaived ? h`<p class="small">${App.icon('check')} No deposit — you chose zero-deposit.</p>` : ''}
+    ${me.credit ? h`<label class="choice ${plan.credit ? 'on' : ''}"><input type="checkbox" name="useCredit" ${s.useCredit !== false ? 'checked' : ''}><span><strong>Use ${money(Math.min(me.credit, plan.dueNow + plan.credit))} of your VanYatra credit</strong><span class="small muted">You have ${money(me.credit)} credit.</span></span></label>` : ''}
     <fieldset class="field"><legend>Payment method</legend><div class="pay-methods">
       ${methods.map(([v, l, d]) => h`<label class="pay-opt ${s.payMethod === v ? 'on' : ''}"><input type="radio" name="payMethod" value="${v}" ${s.payMethod === v ? 'checked' : ''}><span><strong>${l}</strong><span class="small muted">${d}</span></span></label>`)}
     </div></fieldset>
@@ -273,6 +280,7 @@ App.pages.book = (el, { id }, q) => {
       if (e.target.name === 'agree') { s.agree = e.target.checked; return; }
       const d = App.formData(f);
       s.payPlan = d.payPlan || 'full'; s.depositMethod = d.depositMethod || s.depositMethod; s.payMethod = d.payMethod || 'upi';
+      if (f.useCredit) s.useCredit = f.useCredit.checked;
       s.agree = !!d.agree; s.payError = null;
       draw();
     });
@@ -342,16 +350,19 @@ App.pages.book = (el, { id }, q) => {
     btn.disabled = true; btn.innerHTML = '<span class="spinner" aria-hidden="true"></span> Starting secure checkout…';
     try {
       const request = !instantNow();
-      const order = await App.payments.createOrder({ amount: plan.chargeNow, receipt: `${van.id}:${s.start}:${s.end}`, notes: { van: van.name, plan: plan.type, deposit: plan.depositMethod } });
+      // Fully covered by credit: nothing to send to the gateway
+      const covered = plan.chargeNow <= 0;
+      const order = covered ? { id: 'order_credit_' + Date.now().toString(36) } : await App.payments.createOrder({ amount: plan.chargeNow, receipt: `${van.id}:${s.start}:${s.end}`, notes: { van: van.name, plan: plan.type, deposit: plan.depositMethod } });
       const what = plan.type === 'part' ? '25% reservation' : 'Trip total';
-      const pay = await App.payments.checkout(order, { method: s.payMethod, description: `${request ? 'Authorise' : 'Pay'}: ${what}${plan.depositNow ? ' + refundable deposit' : ''}` });
+      const pay = covered ? { status: 'paid', method: 'credit', label: 'VanYatra credit', paymentId: 'credit_' + Date.now().toString(36), signature: null }
+        : await App.payments.checkout(order, { method: s.payMethod, description: `${request ? 'Authorise' : 'Pay'}: ${what}${plan.depositNow ? ' + refundable deposit' : ''}` });
       if (pay.status === 'cancelled') { btn.disabled = false; btn.innerHTML = label; return App.toast('Payment cancelled — you haven’t been charged.'); }
       if (pay.status === 'failed') { s.payError = pay.reason + ' You haven’t been charged. Try again or choose another payment method.'; return draw(); }
       btn.innerHTML = '<span class="spinner" aria-hidden="true"></span> Confirming payment…';
-      if (!(await App.payments.verify(order, pay))) { s.payError = 'We couldn’t confirm this payment. You haven’t been charged. Please try again.'; return draw(); }
+      if (!covered && !(await App.payments.verify(order, pay))) { s.payError = 'We couldn’t confirm this payment. You haven’t been charged. Please try again.'; return draw(); }
       const b = App.api.createBooking({
         vanId: van.id, start: s.start, end: s.end, adults: s.adults, children: s.children, options: s.options, driver: s.driver,
-        payment: { method: pay.method, label: pay.label, orderId: order.id, paymentId: pay.paymentId, plan }, specialRequests: s.specialRequests
+        payment: { method: pay.method, label: pay.label, orderId: order.id, paymentId: pay.paymentId, plan, creditUsed: plan.credit }, specialRequests: s.specialRequests
       });
       clearProgress();
       App.go('#/booking/' + b.id + '/confirmed');

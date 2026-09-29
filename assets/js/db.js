@@ -131,6 +131,38 @@ App.refundFor = (booking, when = new Date()) => {
   return { pct, daysBefore, amount, paid, policy, withinGrace };
 };
 
+/* ---------------- Search ----------------
+ * One definition of "matches this search", used by the search page and saved-search alerts.
+ * c: { dest, guests, min, max, types[], amen[], family, pets, instant, auto, fuel, driver, delivery, pickup }
+ */
+App.searchMatches = (v, c) =>
+  (!c.dest || v.destinationId === c.dest) && v.sleeps >= (c.guests || 1) &&
+  v.pricePerNight >= (c.min || 0) && (!c.max || v.pricePerNight <= c.max) &&
+  (!c.types?.length || c.types.includes(v.type)) && (c.amen || []).every(a => v.amenities.includes(a)) &&
+  (!c.family || v.familyFriendly) && (!c.pets || v.petFriendly) && (!c.instant || v.instantBook) && (!c.auto || v.transmission === 'Automatic') &&
+  (!c.fuel || v.fuel === c.fuel) && (!c.driver || !!App.driverFor(v)) && (!c.delivery || !!v.delivery?.points?.length) &&
+  (!c.pickup || (c.pickup.startsWith('city:') ? v.pickup.city === c.pickup.slice(5) : (v.delivery?.points || []).some(p => p.id === c.pickup)));
+
+// Saved searches: travellers get an in-app alert when a matching van becomes free
+const searchLabel = (c) => [c.dest ? App.get.dest(c.dest)?.name : 'Anywhere', c.start && c.end ? App.fmt.dateRange(c.start, c.end) : 'any dates', c.guests > 1 ? App.plural(c.guests, 'traveller') : ''].filter(Boolean).join(' · ');
+const matchingFree = (c) => App.db.vans.filter(v => v.status === 'published' && App.searchMatches(v, c) && (!c.start || !c.end || App.isAvailable(v.id, c.start, c.end))).map(v => v.id);
+App.checkSavedSearches = () => {
+  const me = App.me();
+  if (!me) return;
+  let changed = false;
+  for (const s of (App.db.savedSearches || []).filter(x => x.userId === me.id && x.alerts)) {
+    if (s.criteria.end && s.criteria.end < App.today()) continue;
+    const now = matchingFree(s.criteria), fresh = now.filter(id => !s.known.includes(id));
+    if (fresh.length) {
+      const v = App.get.van(fresh[0]);
+      App.notify(me.id, `Good news: ${v.name}${fresh.length > 1 ? ` and ${App.plural(fresh.length - 1, 'other van')}` : ''} ${fresh.length > 1 ? 'are' : 'is'} free for your saved search (${s.label}).`, '#/search?' + s.params);
+      changed = true;
+    }
+    if (now.join() !== s.known.join()) { s.known = now; changed = true; }
+  }
+  if (changed) App.save();
+};
+
 /* ---------------- Traveller verification ----------------
  * The server keeps each traveller's identity and licence status (decided by
  * App.core rules). Owners who book use their owner KYC as their identity. */
@@ -227,6 +259,7 @@ App.runExpiryChecks = () => {
     }
   }
   if (changed) App.save();
+  App.checkSavedSearches();
 };
 
 App.docExpiryState = (doc) => {
@@ -384,6 +417,17 @@ App.api = {
     await App.syncMarket();
     return u;
   },
+  saveSearch(params, criteria) {
+    const me = App.me();
+    App.db.savedSearches = App.db.savedSearches || [];
+    const existing = App.db.savedSearches.find(s => s.userId === me.id && s.params === params);
+    if (existing) return { ...existing, existing: true };
+    const c = { dest: criteria.dest, start: criteria.start, end: criteria.end, guests: criteria.guests, min: criteria.min, max: criteria.max, types: criteria.types, amen: criteria.amen, family: criteria.family, pets: criteria.pets, instant: criteria.instant, auto: criteria.auto, fuel: criteria.fuel, driver: criteria.driver, delivery: criteria.delivery, pickup: criteria.pickup };
+    const s = { id: App.uid('ss'), userId: me.id, params, criteria: c, label: searchLabel(c), alerts: true, known: matchingFree(c), createdAt: new Date().toISOString() };
+    App.db.savedSearches.unshift(s);
+    App.save();
+    return s;
+  },
   toggleSave(vanId) {
     const me = App.me();
     const i = me.savedVans.indexOf(vanId);
@@ -422,11 +466,13 @@ App.api = {
       options: pricing.options,
       driver: { name: driver.name, age: driver.age, licenceMasked: driver.provided ? '' : 'XXXXXXXX' + String(driver.licence || '').slice(-4), provided: !!driver.provided, licencePhoto: driver.licencePhoto || null, check: driver.check || null },
       payment: { method: payment.method, label: payment.label, orderId: payment.orderId || null, paymentId: payment.paymentId || null,
+        creditUsed: Math.min(payment.creditUsed || 0, me.credit || 0),
         plan: { type: plan.type, dueNow: plan.dueNow, balance: plan.balance, balanceDueOn: plan.balanceDueOn, paid: plan.dueNow, depositPaid: plan.depositNow } }, specialRequests,
       createdAt: new Date().toISOString(), risk, itinerary: [],
       traveller: { level: App.core.travellerLevel(trav), identity: trav.identity.status, idMethod: trav.identity.method || null, licence: trav.licence.status, licenceKind: trav.licence.kind || null }
     };
     App.db.bookings.push(b);
+    if (b.payment.creditUsed) me.credit -= b.payment.creditUsed;
     App.db.transactions.unshift({ id: App.uid('tx'), type: 'payment', bookingId: b.id, customerId: me.id, ownerId: van.ownerId, amount: plan.dueNow, at: b.createdAt, status: status === 'confirmed' ? 'captured' : 'authorised', method: payment.label, note: plan.type === 'part' ? '25% reservation' : '' });
     if (plan.depositNow) App.db.transactions.unshift({ id: App.uid('tx'), type: 'deposit', bookingId: b.id, customerId: me.id, ownerId: van.ownerId, amount: plan.depositNow, at: b.createdAt, status: status === 'confirmed' ? 'captured' : 'authorised', method: payment.label, note: 'Refundable deposit' });
     let t = App.db.threads.find(x => x.vanId === vanId && x.customerId === me.id);

@@ -1006,3 +1006,16 @@ button, a, label, select { touch-action: manipulation; }
 .md-pick { display: inline-flex; gap: 4px; }
 .md-pick select { min-height: 40px; padding: 4px 6px; border: 1.5px solid var(--line); border-radius: 8px; background: var(--surface); }
 .drv-check { border-top: 1px dashed var(--line); margin-top: 8px; padding-top: 10px; display: grid; gap: 8px; }
+
+/* Search: quick filter chips, saved searches */
+.chip-bar { position: sticky; top: 68px; z-index: 15; background: var(--bg); margin: 0 -16px; padding: 6px 16px; }
+.chip-scroll { display: flex; gap: 8px; overflow-x: auto; scrollbar-width: none; padding: 2px; }
+.chip-scroll::-webkit-scrollbar { display: none; }
+.fchip { flex: none; display: inline-flex; align-items: center; gap: 6px; padding: 7px 12px; border-radius: 999px; border: 1.5px solid var(--line); background: var(--surface); color: var(--ink); font: inherit; font-size: .88rem; font-weight: 600; cursor: pointer; white-space: nowrap; min-height: 38px; }
+.fchip.on { background: var(--primary); border-color: var(--primary); color: var(--primary-ink); }
+.fchip:focus-visible { outline: 3px solid var(--accent); outline-offset: 1px; }
+.results-meta { display: flex; align-items: center; gap: 12px; margin: 6px 0 12px; flex-wrap: wrap; }
+.results-meta #save-search { margin-left: auto; }
+.center-row { justify-content: center; margin-bottom: 12px; }
+.saved-searches li { gap: 12px; }
+@media (max-width: 767px) { .chip-bar { top: 124px; } }
