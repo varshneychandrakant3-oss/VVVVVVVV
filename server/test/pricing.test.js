@@ -7,7 +7,7 @@ const van = {
   id: 'vt', destinationId: 'himachal', pricePerNight: 6000, weekendPrice: 7000, cleaningFee: 1200, deposit: 15000,
   discounts: { weekly: 10, monthly: 20 }, kmPerDay: 250, extraKmFee: 12, amenities: [], petFriendly: false,
   kmPackages: { plus: 450, unlimited: 900 },
-  driver: { available: true, feePerDay: 1800, bataPerDay: 400, stayPerNight: 600 },
+  driver: { available: true, feePerDay: 1800, bataPerDay: 400, stayPerNight: 600, check: { status: 'verified' } },
   delivery: { perKm: 20, points: [{ id: 'kuu', name: 'Bhuntar airport', type: 'airport', km: 50 }], oneWay: [{ id: 'delhi', name: 'Delhi', fee: 12000 }] }
 };
 // Thu 12 Nov 2026 → Mon 16 Nov 2026: Thu, Fri, Sat, Sun nights (2 at the weekend rate)
@@ -64,4 +64,26 @@ test('payment plans: 25% now only when pickup is 11+ days away; UPI deposit paid
   assert.equal(late.type, 'full');
   assert.equal(late.partAllowed, false);
   assert.equal(late.depositNow, 0); // card hold at pickup by default
+});
+
+test('a driver is only offered once their licence is verified', () => {
+  const unchecked = { ...van, driver: { available: true, feePerDay: 1800 } };
+  assert.equal(App.driverFor(unchecked), null);
+  assert.equal(App.quote(unchecked, S, E, { driver: true }).driver, null);
+});
+
+test('seasons, early-bird and last-minute pricing (best discount wins, no stacking)', () => {
+  const peak = { ...van, seasons: [{ name: 'Diwali week', from: '11-10', to: '11-14', pct: 20 }] };
+  const q = App.quote(peak, S, E, { today: '2026-10-01' });
+  // 12, 13 (Fri, weekend rate) and 14 Nov (Sat, weekend rate) are in season; 15 Nov isn't
+  assert.equal(q.season.amount, Math.round(6000 * 0.2) + Math.round(7000 * 0.2) * 2);
+  assert.equal(q.rental, q.base + q.season.amount);
+  const deals = { ...van, earlyBird: { days: 60, pct: 10 }, lastMinute: { days: 7, pct: 15 } };
+  assert.equal(App.quote(deals, S, E, { today: '2026-09-01' }).discountKind, 'earlyBird');
+  assert.equal(App.quote(deals, S, E, { today: '2026-11-08' }).discountKind, 'lastMinute');
+  assert.equal(App.quote(deals, S, E, { today: '2026-10-20' }).discountKind, null);
+  // A 7-night trip booked early: 10% early-bird beats nothing, and the weekly 10% doesn't add to it
+  const week = App.quote(deals, '2026-11-12', '2026-11-19', { today: '2026-09-01' });
+  assert.equal(week.discountPct, 10);
+  assert.equal(week.discount, Math.round(week.base * 0.1));
 });

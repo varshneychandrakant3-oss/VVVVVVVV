@@ -256,6 +256,15 @@
       const check = { source: rec.source, checkedAt: rec.checkedAt, outcome: rec.status, recordId: rec.id };
       // Travellers keep their own record. A licence checked while booking may belong
       // to another driver, so only a check made from the profile updates it.
+      // An owner's driver: the licence check is recorded on the van it's for
+      if (rec.type === 'dl' && opts.purpose === 'driver') {
+        const van = getVan(opts.vanId);
+        if (van && van.ownerId === rec.subjectId) {
+          van.driver = { ...(van.driver || {}), check: { ...check, status: fromOutcome(rec.status), validUpto: rec.data.validUpto || null, note: noteOf(rec) }, licenceLast4: String(rec.data.dlMasked || '').slice(-4), name: str(opts.name, 60) };
+          io.persist();
+        }
+        return;
+      }
       if (accountOf(rec.subjectId)?.role === 'customer') {
         if (rec.type === 'aadhaar' || (rec.type === 'dl' && opts.purpose === 'profile')) { travellerCheck(traveller(rec.subjectId), rec, check); io.persist(); }
         return;
@@ -343,6 +352,35 @@
       if ('discounts' in body) set.discounts = { weekly: num(body.discounts.weekly, 0, 50), monthly: num(body.discounts.monthly, 0, 60) };
       if ('rules' in body) set.rules = [].concat(body.rules || []).map(r => str(r, 200)).filter(Boolean).slice(0, 20);
       if ('relation' in body) set.relation = ['owner', 'company', 'authorised'].includes(body.relation) ? body.relation : 'owner';
+      /* Trip options the owner offers (see assets/js/core/pricing.js) */
+      const slug = (x, i, p) => (str(x, 60).toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') || p + i).slice(0, 40);
+      const MD = (x) => (/^(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$/.test(x || '') ? x : null);
+      if ('addOns' in body) {
+        const ids = new Set((App.ADD_ON_CATALOG || []).map(a => a.id));
+        set.addOns = [].concat(body.addOns || []).filter(a => a && ids.has(a.id)).slice(0, 20).map(a => ({ id: a.id, price: num(a.price, 0, 20000) }));
+      }
+      if ('kmPackages' in body) {
+        const k = body.kmPackages || {};
+        set.kmPackages = { plus: k.plus == null ? null : num(k.plus, 0, 5000), unlimited: k.unlimited == null ? null : num(k.unlimited, 0, 10000) };
+      }
+      if ('driver' in body) {
+        const d = body.driver || {};
+        // A new driver needs a fresh licence check
+        const keep = van.driver?.check && (!d.licenceLast4 || d.licenceLast4 === van.driver.licenceLast4) ? { check: van.driver.check, licenceLast4: van.driver.licenceLast4, name: van.driver.name } : {};
+        set.driver = { ...keep, available: !!d.available, feePerDay: num(d.feePerDay ?? 1800, 300, 10000), bataPerDay: num(d.bataPerDay ?? 400, 0, 3000), stayPerNight: num(d.stayPerNight ?? 600, 0, 5000),
+          languages: [].concat(d.languages || []).map(x => str(x, 20)).filter(Boolean).slice(0, 5) };
+      }
+      if ('delivery' in body) {
+        const d = body.delivery;
+        set.delivery = d ? {
+          perKm: num(d.perKm ?? 20, 0, 200),
+          points: [].concat(d.points || []).slice(0, 6).map((p, i) => ({ id: slug(p.name, i, 'p'), name: str(p.name, 60), type: ['airport', 'station', 'hotel'].includes(p.type) ? p.type : 'hotel', km: num(p.km ?? 0, 0, 500) })).filter(p => p.name),
+          oneWay: [].concat(d.oneWay || []).slice(0, 6).map((o, i) => ({ id: slug(o.name, i, 'o'), name: str(o.name, 40), fee: num(o.fee ?? 0, 0, 100000) })).filter(o => o.name)
+        } : null;
+      }
+      if ('seasons' in body) set.seasons = [].concat(body.seasons || []).slice(0, 8).map(x => ({ name: str(x.name, 40) || 'Season', from: MD(x.from), to: MD(x.to), pct: num(x.pct, -50, 100) })).filter(x => x.from && x.to && x.pct);
+      if ('earlyBird' in body) set.earlyBird = body.earlyBird && +body.earlyBird.pct ? { days: num(body.earlyBird.days, 14, 365), pct: num(body.earlyBird.pct, 1, 40) } : null;
+      if ('lastMinute' in body) set.lastMinute = body.lastMinute && +body.lastMinute.pct ? { days: num(body.lastMinute.days, 1, 30), pct: num(body.lastMinute.pct, 1, 50) } : null;
       if ('pickup' in body) {
         const p = body.pickup || {};
         set.pickup = { ...van.pickup, city: str(p.city, 60), address: str(p.address, 200), time: str(p.time, 5), returnTime: str(p.returnTime, 5), lat: num(p.lat ?? van.pickup.lat, -90, 90), lng: num(p.lng ?? van.pickup.lng, -180, 180) };

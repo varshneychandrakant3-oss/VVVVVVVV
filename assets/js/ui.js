@@ -132,7 +132,8 @@ App.priceLines = (p, { deposit = true, detail = false } = {}) => {
       ${p.weekendNights ? App.h`<div><dt>${money(p.weekendRate)} × ${App.fmt.plural(p.weekendNights, 'weekend night')} <span class="muted small">(Fri, Sat)</span></dt><dd>${money(p.weekendRate * p.weekendNights)}</dd></div>` : ''}`;
   return App.h`<dl class="price-lines">
     ${nightLines}
-    ${p.discount ? App.h`<div class="good"><dt>${p.discountPct}% ${p.nights >= 28 ? 'monthly' : 'weekly'} discount</dt><dd>−${money(p.discount)}</dd></div>` : ''}
+    ${p.season ? App.h`<div><dt>${p.season.label}</dt><dd>${p.season.amount < 0 ? '−' : '+'}${money(Math.abs(p.season.amount))}</dd></div>` : ''}
+    ${p.discount ? App.h`<div class="good"><dt>${p.discountPct}% ${p.discountLabel || (p.nights >= 28 ? 'monthly discount' : 'weekly discount')}</dt><dd>−${money(p.discount)}</dd></div>` : ''}
     ${p.protection?.amount ? App.h`<div><dt>${p.protection.label} protection</dt><dd>${money(p.protection.amount)}</dd></div>` : ''}
     ${detail && p.addOnLines?.length ? p.addOnLines.map(a => App.h`<div><dt>${a.label} <span class="muted small">(${a.detail})</span></dt><dd>${money(a.amount)}</dd></div>`)
       : p.addOns ? App.h`<div><dt>Extras${p.addOnLines?.length ? ` (${p.addOnLines.length})` : ''}</dt><dd>${money(p.addOns)}</dd></div>` : ''}
@@ -162,7 +163,7 @@ App.priceDrawer = (van, start, end, options = {}) => {
     body: App.h`<p class="muted small">${van.name} · ${App.fmt.dateRange(start, end)} · ${App.fmt.nights(q.nights)}</p>
       ${App.priceLines(q, { detail: true })}
       <ul class="plain price-notes small">
-        <li><strong>Nightly rates.</strong> ${money(q.weekdayRate)} Sunday–Thursday${q.weekendRate !== q.weekdayRate ? `, ${money(q.weekendRate)} on Friday and Saturday nights` : ''}.${q.discountPct ? ` ${q.discountPct}% off because the trip is ${q.nights >= 28 ? '28' : '7'}+ nights.` : ''}</li>
+        <li><strong>Nightly rates.</strong> ${money(q.weekdayRate)} Sunday–Thursday${q.weekendRate !== q.weekdayRate ? `, ${money(q.weekendRate)} on Friday and Saturday nights` : ''}.${q.season ? ` Includes ${q.season.label} pricing set by the owner.` : ''}${q.discountPct ? ` ${q.discountPct}% ${q.discountLabel}.` : ''}</li>
         <li><strong>Cleaning fee.</strong> Set by the owner, charged once per trip.</li>
         <li><strong>Service fee.</strong> ${Math.round(App.C.serviceFeeRate * 100)}% of the rental and extras. Covers 24×7 roadside and trip support, secure payments and verification.</li>
         <li><strong>${App.C.taxLabel}.</strong> ${Math.round(App.C.taxRate * 100)}% on the rental, extras and fees, shown on your tax invoice.</li>

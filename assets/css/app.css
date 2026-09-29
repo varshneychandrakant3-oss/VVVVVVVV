@@ -987,3 +987,22 @@ button, a, label, select { touch-action: manipulation; }
   .page-book { padding-bottom: 84px; }
 }
 @media (max-width: 479px) { .prot-table { font-size: .78rem; } .prot-table th, .prot-table td { padding: 8px 2px; } .book-main.card { padding: 16px 12px; } }
+
+/* Owner: trip options editor */
+.van-options { margin-top: 24px; }
+.opt-block { border: 1px solid var(--line); border-radius: var(--radius-sm); padding: 12px 14px; margin-bottom: 10px; background: var(--surface); }
+.opt-block > summary { cursor: pointer; font-weight: 700; display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.opt-block[open] > summary { margin-bottom: 10px; }
+.opt-rows { display: grid; gap: 6px; }
+.opt-row { display: flex; align-items: center; justify-content: space-between; gap: 8px 12px; flex-wrap: wrap; padding: 4px 0; }
+.opt-row input[type=number] { width: 72px; min-height: 36px; padding: 4px 8px; border: 1.5px solid var(--line); border-radius: 8px; background: var(--surface); }
+.opt-price { display: inline-flex; align-items: center; gap: 4px; }
+.opt-price input { width: 88px; min-height: 36px; padding: 4px 8px; border: 1.5px solid var(--line); border-radius: 8px; background: var(--surface); }
+.opt-list { display: grid; gap: 8px; margin-bottom: 8px; }
+.opt-line { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+.opt-line > input:not([type=number]), .opt-line > select { flex: 1 1 140px; min-height: 40px; padding: 6px 10px; border: 1.5px solid var(--line); border-radius: 8px; background: var(--surface); min-width: 0; }
+.opt-inline { flex-direction: row; align-items: center; gap: 10px; }
+.opt-inline input { width: 72px; min-height: 36px; padding: 4px 8px; border: 1.5px solid var(--line); border-radius: 8px; }
+.md-pick { display: inline-flex; gap: 4px; }
+.md-pick select { min-height: 40px; padding: 4px 6px; border: 1.5px solid var(--line); border-radius: 8px; background: var(--surface); }
+.drv-check { border-top: 1px dashed var(--line); margin-top: 8px; padding-top: 10px; display: grid; gap: 8px; }

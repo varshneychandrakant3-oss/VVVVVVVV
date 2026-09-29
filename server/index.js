@@ -109,7 +109,7 @@ async function handleApi(req, res, url) {
     if (m[1] === 'dl' && body.purpose === 'profile') body.name = verify.kycName(subject);
     if (m[1] === 'vehicle' && body.vanId && market.ownVan(actor, body.vanId).ownerId !== subject.id) throw new HttpError(400, 'That van belongs to a different owner.');
     const result = await route.fn(subject, actor, body);
-    market.onVerification(result, actor, { purpose: body.purpose });
+    market.onVerification(result, actor, { purpose: body.purpose, vanId: body.vanId, name: body.name });
     return sendJson(res, 200, { result });
   }
 

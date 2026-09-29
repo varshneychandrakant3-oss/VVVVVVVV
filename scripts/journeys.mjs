@@ -336,8 +336,32 @@ const JOURNEYS = {
     await T.until(() => /step=9/.test(location.hash), 6000, 'photos step save');
     T.assert(App.get.van(vanId).photoLabels[0] === 'exterior' && App.get.van(vanId).photos.length === 5, 'Photo tags not saved');
     await T.go('#/owner/onboarding?van=' + vanId + '&step=9');
-    await T.until(() => T.$('#ls-save'), 6000, 'listing step'); T.$('#ls-save').click();
+    await T.until(() => T.$('#ls-save'), 6000, 'listing step');
+    // Owner options: price an extra, add a season, a delivery point and a verified driver
+    const opt = (sel) => T.$('#van-options ' + sel);
+    T.assert(opt('[data-addon="gas"]'), 'Extras editor missing');
+    if (!opt('[data-addon="gas"]').checked) { opt('[data-addon="gas"]').click(); }
+    opt('[data-addon-price="gas"]').disabled = false; opt('[data-addon-price="gas"]').value = '750';
+    opt('#add-se').click(); await T.wait(100);
+    const se = T.$$('#van-options [data-se]'); se.find(i => i.dataset.k === 'name').value = 'Christmas & New Year'; se.find(i => i.dataset.k === 'pct').value = '25';
+    opt('#add-pt').click(); await T.wait(100);
+    const pts = T.$$('#van-options [data-pt]'); pts.filter(i => i.dataset.k === 'name').at(-1).value = 'Journey test hotel'; pts.filter(i => i.dataset.k === 'km').at(-1).value = '12';
+    opt('#eb-pct').value = '10'; opt('#eb-days').value = '60';
+    opt('#drv-on').checked = true;
+    opt('#drv-name').value = 'Rakesh Kumar'; opt('#drv-dl').value = 'KL0720150054321'; opt('#drv-dob').value = '1985-05-05'; opt('#drv-consent').checked = true;
+    opt('#drv-verify').click();
+    await T.until(() => App.get.van(vanId).driver?.check?.status === 'verified', 8000, 'driver licence check');
+    // The editor redraws after the check; set the driver on again in case it was re-read
+    if (!opt('#drv-on').checked) opt('#drv-on').checked = true;
+    T.$('#ls-save').click();
     await T.until(() => /step=10/.test(location.hash), 6000, 'listing step save');
+    const sv = App.get.van(vanId);
+    T.assert(sv.addOns.find(a => a.id === 'gas')?.price === 750, 'Extra price not saved');
+    T.assert(sv.seasons.some(x => x.name === 'Christmas & New Year' && x.pct === 25 && x.from === '12-20'), 'Season not saved');
+    T.assert(sv.delivery.points.some(p => p.name === 'Journey test hotel' && p.km === 12), 'Delivery point not saved');
+    T.assert(sv.earlyBird?.pct === 10 && App.driverFor(sv), 'Early-bird or verified driver not saved');
+    const xmas = App.quote(sv, '2026-12-24', '2026-12-27');
+    T.assert(xmas.season?.amount > 0 && xmas.total > App.quote({ ...sv, seasons: [] }, '2026-12-24', '2026-12-27').total, 'Season not applied to prices');
     return tabs.length + ' sections';
   },
 

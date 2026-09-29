@@ -22,6 +22,7 @@
   const parse = (s) => { const [y, m, d] = String(s).slice(0, 10).split('-').map(Number); return Date.UTC(y, m - 1, d); };
   const nightsBetween = (a, b) => Math.round((parse(b) - parse(a)) / DAY);
   const weekday = (s, i) => new Date(parse(s) + i * DAY).getUTCDay();
+  const isoAt = (s, i) => new Date(parse(s) + i * DAY).toISOString().slice(0, 10);
   const round500 = (n) => Math.round(n / 500) * 500;
 
   // Destinations where snow chains and heaters matter
@@ -71,7 +72,8 @@
   };
 
   // With-driver option (many families won't self-drive in the mountains)
-  App.driverFor = (van) => (van.driver && van.driver.available ? { feePerDay: 1800, bataPerDay: 400, stayPerNight: 600, ...van.driver } : null);
+  // Offered only once the driver's licence is verified (SARATHI check run by the owner)
+  App.driverFor = (van) => (van.driver && van.driver.available && (van.driver.verified || van.driver.check?.status === 'verified') ? { feePerDay: 1800, bataPerDay: 400, stayPerNight: 600, ...van.driver } : null);
 
   /* How a trip is paid (like Roadsurfer's split payment, adapted for India):
    *   plan 'full'  — everything now
@@ -104,9 +106,28 @@
     for (let i = 0; i < nights; i++) { const d = weekday(start, i); if (d === 5 || d === 6) weekendNights++; }
     const weekdayNights = nights - weekendNights;
     const base = weekdayNights * weekdayRate + weekendNights * weekendRate;
-    const discountPct = nights >= 28 ? (van.discounts?.monthly || 0) : nights >= 7 ? (van.discounts?.weekly || 0) : 0;
-    const discount = Math.round(base * discountPct / 100);
-    const rental = base - discount;
+    // Seasons set by the owner, by calendar date (e.g. Christmas week +25%, monsoon −15%)
+    const inSeason = (md, x) => (x.from <= x.to ? md >= x.from && md <= x.to : md >= x.from || md <= x.to);
+    let seasonAdj = 0; const seasonNames = new Set();
+    for (let i = 0; i < nights; i++) {
+      const md = isoAt(start, i).slice(5), d = weekday(start, i);
+      const sn = (van.seasons || []).find(x => inSeason(md, x));
+      if (sn) { seasonAdj += Math.round(((d === 5 || d === 6) ? weekendRate : weekdayRate) * sn.pct / 100); seasonNames.add(sn.name); }
+    }
+    const season = seasonAdj ? { amount: seasonAdj, label: [...seasonNames].join(', ') } : null;
+    const gross = base + seasonAdj;
+    // Discounts don't stack: the best of long-stay, early-bird and last-minute applies
+    const today = extras.today || (App.today ? App.today() : new Date().toISOString().slice(0, 10));
+    const ahead = nightsBetween(today, start);
+    const offers = [
+      nights >= 28 && ['monthly', van.discounts?.monthly, 'monthly discount'],
+      nights >= 7 && nights < 28 && ['weekly', van.discounts?.weekly, 'weekly discount'],
+      van.earlyBird?.pct && ahead >= van.earlyBird.days && ['earlyBird', van.earlyBird.pct, `early-bird discount (booked ${van.earlyBird.days}+ days ahead)`],
+      van.lastMinute?.pct && ahead >= 0 && ahead <= van.lastMinute.days && ['lastMinute', van.lastMinute.pct, 'last-minute deal']
+    ].filter(o => o && o[1] > 0).sort((a, b) => b[1] - a[1]);
+    const [discountKind = null, discountPct = 0, discountLabel = ''] = offers[0] || [];
+    const discount = Math.round(gross * discountPct / 100);
+    const rental = gross - discount;
 
     // Extras: ids use the van's prices; objects (older callers) are taken as given
     const offered = App.addOnsFor(van);
@@ -143,7 +164,7 @@
     const ownerGross = rental + addOns + km.amount + (driver?.amount || 0) + (delivery?.amount || 0) + (oneWay?.amount || 0);
     const commission = Math.round(ownerGross * C.ownerCommissionRate);
     return {
-      nights, base, discountPct, discount, rental, addOns, addOnLines, cleaning, service, tax, total,
+      nights, base, season, discountPct, discountKind, discountLabel, discount, rental, addOns, addOnLines, cleaning, service, tax, total,
       weekdayNights, weekendNights, weekdayRate, weekendRate,
       protection, km, driver, delivery, oneWay, zeroDepositFee,
       kmIncluded: km.kmIncluded, kmPerDay: pkg.kmPerDay, extraKmFee: van.extraKmFee || 0,

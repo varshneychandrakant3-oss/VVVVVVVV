@@ -127,7 +127,7 @@ window.App = window.App || {};
       if (vm[1] === 'vehicle' && body.vanId && market.ownVan(actor, body.vanId).ownerId !== subject.id) throw bad(400, 'That van belongs to a different owner.');
       if (vm[1] === 'dl' && body.purpose === 'profile') body.name = verifier.kycName(subject);
       const result = await fn(subject, actor, body);
-      market.onVerification(result, actor, { purpose: body.purpose });
+      market.onVerification(result, actor, { purpose: body.purpose, vanId: body.vanId, name: body.name });
       return { result };
     }
     if (p === '/api/verify/mine') {

@@ -18,7 +18,7 @@ App.ONBOARDING_STEPS = [
   { id: 'insurance', scope: 'van', title: 'Insurance', blurb: 'Commercial cover for self-drive rental.' },
   { id: 'inspection', scope: 'van', title: 'Safety inspection', blurb: 'Roadworthiness and habitation checks.' },
   { id: 'photos', scope: 'van', title: 'Photos & specifications', blurb: 'Show travellers what they’re booking.' },
-  { id: 'listing', scope: 'van', title: 'Pricing, availability & rules', blurb: 'Prices, blocked dates, deposit, cancellation, amenities.' },
+  { id: 'listing', scope: 'van', title: 'Pricing, availability & rules', blurb: 'Prices, seasons and deals, blocked dates, extras, driver and delivery, deposit, rules.' },
   { id: 'payout', scope: 'owner', title: 'Payout setup', blurb: 'Bank account checked with a ₹1 deposit.' },
   { id: 'review', scope: 'van', title: 'Platform review', blurb: 'Our team checks everything (≈2 business days).' },
   { id: 'publish', scope: 'van', title: 'Publish listing', blurb: 'Go live and start taking bookings.' }
@@ -497,9 +497,11 @@ const STEPS = {
         <label class="field"><span>Reason (optional)</span><input id="bl-note" placeholder="Service, personal use…" maxlength="60"></label>
       </div>
       <button type="button" class="btn btn-sm" id="bl-add">＋ Block these dates</button>
+      <div id="van-options" class="van-options"></div>
       <div class="form-actions"><button class="btn btn-primary" id="ls-save">Save & continue</button></div></form>`);
     const f = c.querySelector('#f');
     const blocked = (van.blocked || []).map(r => ({ ...r }));
+    const optionsEditor = App.vanOptionsEditor(c.querySelector('#van-options'), van);
     const drawBlocked = () => {
       c.querySelector('#blocked-list').innerHTML = String(blocked.length
         ? h`${blocked.map((r, i) => h`<li><span>${App.fmt.dateRange(r.start, r.end)} <span class="small muted">${r.note || ''}</span></span><button type="button" class="link" data-unblock="${i}">Remove</button></li>`)}`
@@ -522,8 +524,11 @@ const STEPS = {
       if (!f.checkValidity()) return f.reportValidity();
       const d = App.formData(f);
       const dest = App.get.dest(d.destinationId);
+      let extras;
+      try { extras = optionsEditor.collect(); } catch (err) { return App.toast(err.message, 'bad'); }
       busy(c.querySelector('#ls-save'), async () => {
         await patchVan(van, {
+          ...extras,
           name: d.name.trim(), destinationId: d.destinationId, description: d.description.trim(), amenities: [].concat(d.amenities || []), familyFriendly: !!d.familyFriendly,
           pricePerNight: +d.pricePerNight, weekendPrice: +d.weekendPrice || +d.pricePerNight, cleaningFee: +d.cleaningFee, deposit: +d.deposit,
           discounts: { weekly: +d.weekly, monthly: +d.monthly }, minNights: +d.minNights, kmPerDay: +d.kmPerDay, extraKmFee: +d.extraKmFee,
