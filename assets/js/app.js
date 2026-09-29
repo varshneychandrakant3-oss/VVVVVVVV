@@ -31,6 +31,8 @@ const ROUTES = [
   ['/admin/:tab/:id', 'admin', ['admin']],
   ['/trip/:id/checkin', 'checkin', ['customer', 'owner', 'admin']],
   ['/trip/:id/inspection/:phase', 'inspection', ['customer', 'owner', 'admin']],
+  ['/plan', 'planner'],
+  ['/guide', 'guide'],
   ['/help', 'help'],
   ['/help/:topic', 'help']
 ];
@@ -90,6 +92,7 @@ App.renderHeader = () => {
     ['#/destinations', 'Destinations'],
     ['#/search', 'Find a van'],
     ['#/map', 'Map'],
+    ['#/plan', 'Plan a trip'],
     ['#/list-your-van', 'List your van'],
     ['#/help', 'Help']
   ];
@@ -215,7 +218,7 @@ App.renderFooter = () => {
         <p>India’s camper van marketplace. Every owner is ID-verified, every van is insured and safety-inspected.</p>
         <p class="small">24×7 roadside help: <a href="tel:${App.C.supportPhone}">${App.C.supportPhone}</a> · Emergency: ${App.C.emergencyNumber}</p>
       </div>
-      <div><h4>Explore</h4><a href="#/destinations">Destinations</a><a href="#/search">All vans</a><a href="#/map">Map</a><a href="#/search?family=1">Family trips</a></div>
+      <div><h4>Explore</h4><a href="#/destinations">Destinations</a><a href="#/search">All vans</a><a href="#/map">Map</a><a href="#/plan">Trip planner</a><a href="#/guide">First-timer’s guide</a><a href="#/search?family=1">Family trips</a></div>
       <div><h4>Owners</h4><a href="#/list-your-van">List your van</a><a href="#/owner">Owner dashboard</a><a href="#/help/owners">Owner requirements</a></div>
       <div><h4>Support</h4><a href="#/help/safety">Trust & safety</a><a href="#/help/faq">FAQs</a><a href="#/help/support">Contact support</a><a href="#/help/cancellation">Cancellation & refunds</a><a href="#/help/terms">Terms</a><a href="#/help/privacy">Privacy</a></div>
     </div>

@@ -407,6 +407,11 @@ App.mapCard = {
         <div class="mc-row"><a class="btn btn-sm btn-ghost" href="#/search?dest=${d.id}">See vans</a><a class="btn btn-sm btn-primary" href="#/destinations/${d.id}">Explore</a></div>
       </div></div>`;
   },
+  spot: (s, d) => App.h`<div class="map-card map-card-text"><div class="mc-body">
+    <span class="eyebrow">${App.icon(App.SPOT_TYPES[s.type][1])} ${App.SPOT_TYPES[s.type][0].replace(/s$/, '').replace(/es with/, ' with')}${d ? ' · ' + d.name : ''}</span>
+    <strong>${s.name}</strong>
+    ${s.note ? App.h`<span class="small muted">${s.note}</span>` : ''}
+  </div></div>`,
   camp: (c, d) => App.h`<div class="map-card map-card-text"><div class="mc-body">
     <span class="eyebrow">${App.icon('tent')} ${c.type}${d ? ' · near ' + d.name : ''}</span>
     <strong>${c.name}</strong>

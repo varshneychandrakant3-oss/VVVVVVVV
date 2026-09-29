@@ -459,6 +459,34 @@ const JOURNEYS = {
     return id + ' moved to ' + App.fmt.dateRange(b.start, b.end);
   },
 
+  // Trip planning: destination guides, spots, planner, first-timer's guide
+  async plan() {
+    await T.go('#/destinations/ladakh');
+    const t = T.text();
+    T.assert(/Before you go/.test(t) && /Inner Line Permit/.test(t) && T.$('a[href="https://www.lahdclehpermit.in/"]'), 'Permits with the official link missing');
+    T.assert(T.$$('.day-plan').length >= 2 && /Sarchu → Leh/.test(T.$('.day-plan').textContent), 'Day-by-day plans missing');
+    T.assert(T.$$('.route a.btn').every(a => a.getAttribute('href').includes('dest=ladakh')), 'Vans-for-route links wrong');
+    T.assert(/Dhabas with parking|Water & waste/i.test(t), 'Spots missing from the destination');
+    T.noOverflow();
+    await T.go('#/map'); T.assert(T.$$('[data-layer]').length === 6, 'Map lacks spot layers');
+    // Planner: Ladakh in July for a family of 4 with kids
+    const y = new Date().getFullYear() + (new Date().getMonth() >= 6 ? 1 : 0);
+    const s = `${y}-07-10`, e = `${y}-07-15`;
+    await T.go(`#/plan?dest=ladakh&start=${s}&end=${e}&guests=4&kids=1`);
+    const pt = T.text();
+    T.assert(T.$$('.route').length >= 1 && /Packing checklist/.test(pt) && /Sleeping bags rated below 0/.test(pt) && /Printed Inner Line Permits/.test(pt) && /For the kids/.test(pt), 'Planner content incomplete');
+    const first = App.get.van(T.$('.van-card')?.dataset.van);
+    T.assert(!first || first.amenities.includes('heater') || first.type === '4x4 Overlander' || !App.db.vans.some(v => v.destinationId === 'ladakh' && v.amenities.includes('heater')), 'Heater vans not ranked first for high passes');
+    T.assert(/wa\.me\/\?text=/.test(T.$('#share-plan').href), 'WhatsApp share link missing');
+    await T.login('traveller@vanyatra.in', '/');
+    await T.go(`#/plan?dest=ladakh&start=${s}&end=${e}&guests=4&kids=1`);
+    T.$('[data-pack]').click(); T.$('#save-plan').click(); await T.wait(200);
+    await T.go('#/account/saved'); T.assert(/Trip plans/.test(T.text()) && /Ladakh/.test(T.text()), 'Saved plan not in the account');
+    await T.go('#/guide'); T.assert(T.$$('.guide section').length >= 6 && /Is van life legal in India/.test(T.text()), 'Guide incomplete');
+    T.noOverflow();
+    return 'plans, spots, guide ok';
+  },
+
   // An unverified traveller can't pay until identity is verified
   async gate() {
     await T.login('sam@example.com', '/');
@@ -550,10 +578,12 @@ const JOURNEYS = {
 
 /* ---------- Runner ---------- */
 async function run(mode) {
-  const host = mode === 'demo' ? await startStatic() : await startNode();
+  // Server mode gets a fresh server (and data) per journey, so sign-in rate limits and
+  // earlier journeys' changes don't carry over; demo mode clears the browser instead.
+  let host = mode === 'demo' ? await startStatic() : await startNode();
   const chrome = await launchChrome();
   const problems = [];
-  const origin = new URL(host.url).origin;
+  let origin = new URL(host.url).origin;
   chrome.on((m) => {
     if (m.method === 'Runtime.exceptionThrown') problems.push('Exception: ' + (m.params.exceptionDetails.exception?.description || m.params.exceptionDetails.text));
     if (m.method === 'Runtime.consoleAPICalled' && m.params.type === 'error') problems.push('console.error: ' + m.params.args.map(a => a.value ?? a.description).join(' '));
@@ -567,6 +597,7 @@ async function run(mode) {
   for (const [name, fn] of Object.entries(JOURNEYS)) {
     if (ONLY && !ONLY.split(',').includes(name)) continue;
     problems.length = 0;
+    if (mode === 'server' && results.length) { host.stop(); host = await startNode(); origin = new URL(host.url).origin; }
     // Fresh demo data for each journey
     await chrome.send('Page.navigate', { url: host.url });
     await sleep(700);

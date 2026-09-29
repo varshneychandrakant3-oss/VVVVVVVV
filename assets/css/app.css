@@ -1051,3 +1051,30 @@ button, a, label, select { touch-action: manipulation; }
 .compare-grid img { width: 100%; aspect-ratio: 4 / 3; object-fit: cover; border-radius: 8px; }
 .sign-card { display: grid; gap: 10px; justify-items: start; margin-top: 16px; }
 .promise-callout .row { margin-top: 8px; }
+
+/* Destination guides */
+.day-plan { margin: 8px 0 12px; }
+.day-plan summary { cursor: pointer; font-weight: 650; color: var(--primary); }
+.day-plan ol { margin: 8px 0 0; padding-left: 1.2em; display: grid; gap: 8px; }
+.route .route-meta { flex-wrap: wrap; }
+.route .btn { margin-top: 4px; }
+.gtk-dl { display: grid; gap: 14px; margin: 0; }
+.gtk-dl > div { display: grid; gap: 4px; }
+.gtk-dl dt { font-weight: 700; display: flex; gap: 8px; align-items: center; }
+.gtk-dl dt .ic { color: var(--primary); }
+.gtk-dl dd { margin: 0; }
+.gtk-dl dd p { margin: 0 0 6px; }
+.camp-list li .ic { color: var(--primary); }
+
+/* Planner and guide */
+.planner-form { display: grid; gap: 4px 16px; grid-template-columns: 1fr; align-items: end; }
+@media (min-width: 900px) { .planner-form { grid-template-columns: 1fr 1.6fr .6fr auto; } .planner-form .check { margin-bottom: 18px; } }
+.pack-grid { display: grid; gap: 12px; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); }
+.pack { margin: 0; display: grid; gap: 6px; }
+.pack legend { font-weight: 750; padding: 0 4px; }
+.guide .lead { font-size: 1.1rem; color: var(--muted); }
+.toc ul { list-style: none; padding: 0; display: flex; flex-wrap: wrap; gap: 8px; }
+.toc a { display: inline-block; padding: 6px 12px; border-radius: 999px; background: var(--surface-2); text-decoration: none; font-weight: 600; font-size: .9rem; }
+.video-placeholder { display: flex; gap: 12px; align-items: flex-start; border: 1.5px dashed var(--line); border-radius: var(--radius-sm); padding: 14px; margin-top: 12px; }
+.video-placeholder > div { display: grid; gap: 4px; }
+.video-placeholder .ic { color: var(--primary); }

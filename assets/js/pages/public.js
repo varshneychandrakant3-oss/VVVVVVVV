@@ -80,6 +80,7 @@ App.pages.home = (el) => {
       <li><span class="step-n">2</span><h3>Choose your van</h3><p>Compare real photos, beds, amenities and live availability. Every owner is verified.</p></li>
       <li><span class="step-n">3</span><h3>Book & hit the road</h3><p>Pay securely, see every rupee up front, and get your trip plan and pickup details instantly.</p></li>
     </ol>
+    <p class="center"><a class="btn btn-primary" href="#/plan">${App.icon('route')} Plan a trip</a> <a class="btn btn-ghost" href="#/guide">New to van life? Start here</a></p>
   </section>
 
   <section class="section container">
@@ -152,6 +153,36 @@ App.pages.destinations = (el, _p, q) => {
   draw();
 };
 
+// A suggested route with its day-by-day plan and a search for vans that suit it
+const routeCard = App.routeCard = (d, r) => {
+  const plan = App.TRIP_GUIDES[d.id]?.plans?.[r.name] || [];
+  const hours = plan.reduce((s, x) => s + (x.hours || 0), 0);
+  const top = Math.max(0, ...plan.map(x => x.alt || 0));
+  const high = top >= 3500;
+  const q = `#/search?dest=${d.id}${high ? '&amen=heater' : ''}`;
+  return h`<article class="route"><h3>${r.name}</h3>
+    <div class="route-meta"><span>${App.icon('calendar-days')} ${r.days} days</span><span>${App.icon('route')} ${App.fmt.km(r.km)}</span>${hours ? h`<span>${App.icon('clock')} ~${Math.round(hours)} h driving</span>` : ''}${top ? h`<span title="Highest overnight stop; passes on the way are higher">${App.icon('mountain')} nights up to ${App.fmt.number(top)} m</span>` : ''}</div>
+    <p>${r.desc}</p>
+    ${plan.length ? h`<details class="day-plan"><summary>Day-by-day plan</summary><ol>${plan.map(x => h`<li><strong>${x.from === x.to ? x.from : `${x.from} → ${x.to}`}</strong> <span class="small muted">${x.km ? `${App.fmt.km(x.km)} · ~${x.hours} h` : 'No driving'}${x.alt ? ` · ${App.fmt.number(x.alt)} m` : ''}</span>${x.note ? h`<div class="small">${x.note}</div>` : ''}</li>`)}</ol></details>` : ''}
+    ${high ? h`<p class="small">${App.icon('info')} High passes: pick a van with a heater (4x4 is a bonus on rough stretches), and read the altitude notes for this region.</p>` : ''}
+    <a class="btn btn-sm" href="${q}">${App.icon('caravan')} Vans for this route</a></article>`;
+};
+// Practical notes: altitude, permits (official links), fuel, network, roads
+const beforeYouGo = (d) => {
+  const p = App.TRIP_GUIDES[d.id]?.practical;
+  if (!p) return '';
+  return h`<section class="block"><h2>Before you go</h2>
+    <dl class="gtk-dl">
+      <div><dt>${App.icon('mountain')} Altitude & health</dt><dd>${p.altitude}</dd></div>
+      <div><dt>${App.icon('id-card')} Permits</dt><dd>${p.permits.map(x => h`<p><strong>${x.name}.</strong> ${x.need || ''} ${x.link ? h`<a href="${x.link}" target="_blank" rel="noopener">${x.source} ↗</a>` : ''}</p>`)}</dd></div>
+      <div><dt>${App.icon('fuel')} Fuel</dt><dd>${p.fuel}</dd></div>
+      <div><dt>${App.icon('wifi')} Mobile network</dt><dd>${p.network}</dd></div>
+      <div><dt>${App.icon('route')} Roads</dt><dd>${p.roads}</dd></div>
+    </dl>
+    <p class="small muted">Rules and road conditions change. Check official sources before you travel; distances and times are approximate.</p>
+  </section>`;
+};
+
 App.pages.destination = (el, { id }) => {
   const d = App.get.dest(id);
   if (!d) return App.pages.notFound(el);
@@ -178,14 +209,16 @@ App.pages.destination = (el, { id }) => {
       </section>
       <section class="block"><h2>Highlights</h2><ul class="ticks">${d.highlights.map(x => h`<li>${x}</li>`)}</ul></section>
       <section class="block"><h2>Suggested road trips</h2>
-        <div class="route-grid">${d.routes.map(r => h`<article class="route"><h3>${r.name}</h3><div class="route-meta"><span>${App.icon('calendar-days')} ${r.days} days</span><span>${App.icon('route')} ${r.km} km</span></div><p>${r.desc}</p><a class="link-arrow" href="#/search?dest=${d.id}">Find a van for this route →</a></article>`)}</div>
+        <div class="route-grid">${d.routes.map(r => routeCard(d, r))}</div>
       </section>
+      ${beforeYouGo(d)}
       <section class="block"><h2>Top attractions</h2><div class="chip-row">${d.attractions.map(a => h`<span class="chip">${App.icon('map-pin')} ${a}</span>`)}</div></section>
       <section class="block"><h2>Things to do</h2><div class="chip-row">${d.activities.map(a => h`<span class="chip">${a}</span>`)}</div></section>
       <section class="block"><h2>Photos</h2><div class="photo-strip">${d.gallery.map(g => h`<img src="${photo(g, 600)}" alt="${d.name} scenery" loading="lazy">`)}</div></section>
-      <section class="block"><h2>Nearby campsites</h2>
+      <section class="block"><h2>Campsites & van-friendly spots</h2>
         <div class="map map-md" id="dest-map"></div>
-        <ul class="camp-list">${d.campsites.map(c => h`<li><strong>${c.name}</strong> <span class="badge badge-muted">${c.type}</span><div class="small muted">${c.facilities.join(' · ')}</div></li>`)}</ul>
+        <ul class="camp-list">${d.campsites.map(c => h`<li>${App.icon('tent')} <strong>${c.name}</strong> <span class="badge badge-muted">${c.type}</span><div class="small muted">${c.facilities.join(' · ')}</div></li>`)}${(App.TRIP_GUIDES[d.id]?.spots || []).map(s => h`<li>${App.icon(App.SPOT_TYPES[s.type][1])} <strong>${s.name}</strong> <span class="badge badge-muted">${App.SPOT_TYPES[s.type][0]}</span>${s.note ? h`<div class="small muted">${s.note}</div>` : ''}</li>`)}</ul>
+        <p class="small muted">Spots are examples to plan with — always check they’re open, and park only where it’s allowed. <a href="#/guide">First-timer’s guide to van life in India</a></p>
       </section>
     </div>
     <aside class="dest-aside">
@@ -201,6 +234,7 @@ App.pages.destination = (el, { id }) => {
   bindSearchForm(el);
   App.mountMap(el.querySelector('#dest-map'), [
     ...d.campsites.map(c => ({ lat: c.lat, lng: c.lng, label: '⛺', kind: 'camp', title: c.name, html: App.mapCard.camp(c, d) })),
+    ...(App.TRIP_GUIDES[d.id]?.spots || []).map(s => ({ lat: s.lat, lng: s.lng, label: App.SPOT_TYPES[s.type][1], kind: 'camp', title: s.name, html: App.mapCard.spot(s, d) })),
     ...vans.map(v => ({ lat: v.pickup.lat, lng: v.pickup.lng, label: money(v.pricePerNight), kind: 'van', title: v.name, html: App.mapCard.van(v) }))
   ]);
 };
@@ -417,13 +451,14 @@ App.pages.search = (el, _p, q) => {
 
 /* ================= MAP ================= */
 App.pages.map = (el, _p, q) => {
-  const show = { vans: q.layer !== 'dest', dests: q.layer !== 'vans', camps: true };
+  const show = { vans: q.layer !== 'dest', dests: q.layer !== 'vans', camps: true, dhaba: true, homestay: true, water: true };
   el.innerHTML = String(h`
     <div class="container search-top"><h1>Explore on the map</h1><p class="muted">Destinations, van pickup points and van-friendly campsites across India.</p>
       <div class="filter-row" role="group" aria-label="Map layers">
         <label class="check"><input type="checkbox" data-layer="dests" checked> <span class="map-pin map-pin-dest mini">Destinations</span></label>
         <label class="check"><input type="checkbox" data-layer="vans" checked> <span class="map-pin map-pin-van mini">Vans</span></label>
         <label class="check"><input type="checkbox" data-layer="camps" checked> <span class="map-pin map-pin-camp mini">${App.icon('tent')} Campsites</span></label>
+        ${['dhaba', 'homestay', 'water'].map(t => h`<label class="check"><input type="checkbox" data-layer="${t}" checked> <span class="map-pin map-pin-camp mini">${App.icon(App.SPOT_TYPES[t][1])} ${App.SPOT_TYPES[t][0]}</span></label>`)}
       </div></div>
     <div class="container"><div class="map map-xl" id="full-map"></div></div>
     <div class="container section-tight"><h2 class="section-sub">All locations</h2><div class="loc-cols" id="loc-list"></div></div>`);
@@ -433,6 +468,7 @@ App.pages.map = (el, _p, q) => {
     if (show.dests) App.db.destinations.forEach(d => markers.push({ lat: d.lat, lng: d.lng, label: d.name, kind: 'dest', title: d.name, html: App.mapCard.dest(d) }));
     if (show.vans) publishedVans().forEach(v => markers.push({ lat: v.pickup.lat, lng: v.pickup.lng, label: money(v.pricePerNight), kind: 'van', title: v.name, html: App.mapCard.van(v) }));
     if (show.camps) App.db.destinations.forEach(d => d.campsites.forEach(c => markers.push({ lat: c.lat, lng: c.lng, label: '⛺', kind: 'camp', title: c.name, html: App.mapCard.camp(c, d) })));
+    App.db.destinations.forEach(d => (App.TRIP_GUIDES[d.id]?.spots || []).filter(s => show[s.type]).forEach(s => markers.push({ lat: s.lat, lng: s.lng, label: App.SPOT_TYPES[s.type][1], kind: 'camp', title: s.name, html: App.mapCard.spot(s, d) })));
     if (map) map.remove();
     const mEl = el.querySelector('#full-map'); mEl.innerHTML = '';
     map = await App.mountMap(mEl, markers);

@@ -296,7 +296,7 @@ App.pages.help = (el, { topic }, q) => {
   if (topic === 'faq' || !topic) {
     el.innerHTML = String(h`<div class="container narrow section">
       <p class="eyebrow">Help centre</p><h1>${topic ? 'Frequently asked questions' : 'How can we help?'}</h1>
-      ${!topic ? h`<div class="help-tiles">${[['safety', '🛡️', 'Trust & safety'], ['faq', '❓', 'FAQs'], ['support', '💬', 'Contact support'], ['cancellation', '↩️', 'Cancellations & refunds'], ['owners', '🚐', 'Owner requirements'], ['terms', '📄', 'Terms'], ['privacy', '🔒', 'Privacy']].map(([id, ic, l]) => h`<a class="card help-tile" href="#/help/${id}">${App.icon(ic, { size: 28 })}${l}</a>`)}</div>` : ''}
+      ${!topic ? h`<div class="help-tiles">${[['safety', '🛡️', 'Trust & safety'], ['faq', '❓', 'FAQs'], ['mountain-promise', 'mountain', 'Mountain Promise'], ['guide', 'compass', 'First-timer’s guide'], ['support', '💬', 'Contact support'], ['cancellation', '↩️', 'Cancellations & refunds'], ['owners', '🚐', 'Owner requirements'], ['terms', '📄', 'Terms'], ['privacy', '🔒', 'Privacy']].map(([id, ic, l]) => h`<a class="card help-tile" href="${id === 'guide' ? '#/guide' : '#/help/' + id}">${App.icon(ic, { size: 28 })}${l}</a>`)}</div>` : ''}
       <label class="field"><span class="sr-only">Search FAQs</span><input type="search" id="faq-q" placeholder="Search questions…"></label>
       <div id="faq-list">${FAQ.map(([sec, items]) => h`<h2>${sec}</h2>${items.map(([qq, a]) => h`<details class="faq"><summary>${qq}</summary><p>${a}</p></details>`)}`)}</div>
     </div>`);

@@ -238,6 +238,7 @@ const savedTab = (m, me) => {
       <div><a href="#/search?${s.params}"><strong>${s.label}</strong></a><div class="small muted">${App.plural(s.known.length, 'van')} free now · saved ${App.fmtDate(s.createdAt)}</div></div>
       <div class="row gap"><label class="check small"><input type="checkbox" data-alert="${s.id}" ${s.alerts ? 'checked' : ''}> Alerts</label><button type="button" class="icon-btn" data-del-search="${s.id}" aria-label="Delete saved search ${s.label}">${App.icon('x')}</button></div>
     </li>`)}</ul>` : h`<p class="muted small">Save a search from the search page, and we’ll tell you when a matching van becomes free.</p>`}
+    ${(App.db.plans || []).some(p => p.userId === me.id) ? h`<h2 class="section-sub">Trip plans</h2><ul class="plain list-rows">${App.db.plans.filter(p => p.userId === me.id).map(p => h`<li><a href="${p.url}"><strong>${p.label}</strong></a><span class="small muted">${App.plural(p.packed.length, 'item')} packed · saved ${App.fmtDate(p.createdAt)}</span></li>`)}</ul>` : ''}
     <h2 class="section-sub">Saved vans</h2>
     ${vans.length ? h`<div class="van-grid">${vans.map(v => App.vanCard(v))}</div>` : App.emptyState('♡', 'Nothing saved yet', 'Tap the heart on any van to save it for later.', h`<a class="btn btn-primary" href="#/search">Browse vans</a>`)}`);
   m.querySelectorAll('[data-save]').forEach(b => b.addEventListener('click', () => setTimeout(() => { App._keepScroll = true; App.render(); }, 50)));

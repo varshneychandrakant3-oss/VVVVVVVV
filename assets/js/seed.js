@@ -26,7 +26,7 @@ App.buildSeed = function () {
       attractions: ['Thiksey Monastery', 'Magnetic Hill', 'Sangam (Indus–Zanskar confluence)', 'Shanti Stupa', 'Hemis National Park'],
       activities: ['Scenic drives', 'Monastery visits', 'River rafting on the Zanskar', 'Photography', 'Camel safari'],
       routes: [
-        { name: 'Manali → Leh Highway', days: 5, km: 480, desc: 'Classic high-altitude drive over Rohtang, Baralacha La and Tanglang La with camps at Jispa and Sarchu.' },
+        { name: 'Manali → Leh Highway', days: 5, km: 480, desc: 'Classic high-altitude drive through the Atal Tunnel and over Baralacha La and Tanglang La with camps at Jispa and Sarchu.' },
         { name: 'Leh → Nubra → Pangong loop', days: 4, km: 460, desc: 'Cross Khardung La to Hunder dunes, then the Shyok river road to Pangong Tso.' }
       ],
       campsites: [
