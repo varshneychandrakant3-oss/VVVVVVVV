@@ -413,11 +413,14 @@ App.mapCard = {
     <strong>${s.name}</strong>
     ${s.note ? App.h`<span class="small muted">${s.note}</span>` : ''}
   </div></div>`,
-  camp: (c, d) => App.h`<div class="map-card map-card-text"><div class="mc-body">
-    <span class="eyebrow">${App.icon('tent')} ${c.type}${d ? ' · near ' + d.name : ''}</span>
+  // A confirmed campsite (App.CAMPSITES): where it is, what's there, and how it was checked
+  camp: (c) => App.h`<div class="map-card map-card-text"><div class="mc-body">
+    <span class="eyebrow">${App.icon('tent')} Campsite · ${c.place}, ${c.state}</span>
     <strong>${c.name}</strong>
-    <span class="small muted">${c.facilities.join(' · ')}</span>
-    ${d ? App.h`<a class="btn btn-sm btn-ghost" href="#/destinations/${d.id}">About ${d.name}</a>` : ''}
+    ${c.note ? App.h`<span class="small">${c.note}</span>` : ''}
+    <span class="small muted">${[c.vans === 'yes' ? 'Vans & caravans allowed' : 'Ask before arriving in a van', ...(c.facilities || [])].join(' · ')}</span>
+    <span class="small">${App.h`<a href="${c.website}" target="_blank" rel="noopener">Website ↗</a>`}${c.phone ? App.h` · <a href="tel:${c.phone.replace(/\s/g, '')}">${c.phone}</a>` : ''}</span>
+    <span class="small muted camp-source">Listed on <a href="https://www.openstreetmap.org/${c.osm}" target="_blank" rel="noopener">OpenStreetMap</a> · website checked ${App.fmt.date(c.checked)}</span>
   </div></div>`
 };
 // India's official boundary (DataMeet "India composite", CC BY 4.0), loaded once
@@ -463,6 +466,8 @@ App.mountMap = async (el, markers, { zoom = 5, center, circle, cluster = true } 
       group.addLayer(mk);
     });
     group.addTo(map);
+    // Campsite data comes from OpenStreetMap, whose licence asks for this credit
+    if (markers.some(m => m.osm) && App.OSM_CREDIT) map.attributionControl.addAttribution('Campsites ' + App.OSM_CREDIT);
     if (circle) L.circle([circle.lat, circle.lng], { radius: circle.radius || 1500, color: '#1f6f54', fillOpacity: 0.15 }).addTo(map);
     if (!center && markers.length > 1) map.fitBounds(group.getBounds().pad(0.15));
     else if (!center && markers.length === 1) map.setView([markers[0].lat, markers[0].lng], 9);

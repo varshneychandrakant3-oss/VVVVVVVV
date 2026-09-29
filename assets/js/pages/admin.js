@@ -392,8 +392,8 @@ const destinations = (m) => {
         <label class="field span-2"><span>Official source (link)</span><input name="source" type="url" placeholder="https://…"></label>
         <div><button class="btn btn-primary">Record closure</button></div>
       </form></section>
-    <div class="table-wrap"><table class="table"><thead><tr><th>Destination</th><th>Best time</th><th>Family</th><th class="num">Vans</th><th class="num">Campsites</th><th></th></tr></thead><tbody>
-    ${App.db.destinations.map(d => h`<tr><td><div class="row gap"><img class="thumb" src="${photo(d.hero, 120)}" alt=""><div><strong>${d.name}</strong><div class="small muted">${d.tagline}</div></div></div></td><td>${d.bestTime}</td><td>${'★'.repeat(d.familyScore)}</td><td class="num">${App.db.vans.filter(v => v.destinationId === d.id && v.status === 'published').length}</td><td class="num">${d.campsites.length}</td>
+    <div class="table-wrap"><table class="table"><thead><tr><th>Destination</th><th>Best time</th><th>Family</th><th class="num">Vans</th><th class="num" title="Confirmed campsites within 160 km">Campsites</th><th></th></tr></thead><tbody>
+    ${App.db.destinations.map(d => h`<tr><td><div class="row gap"><img class="thumb" src="${photo(d.hero, 120)}" alt=""><div><strong>${d.name}</strong><div class="small muted">${d.tagline}</div></div></div></td><td>${d.bestTime}</td><td>${'★'.repeat(d.familyScore)}</td><td class="num">${App.db.vans.filter(v => v.destinationId === d.id && v.status === 'published').length}</td><td class="num">${App.campsitesNear(d).length}</td>
       <td class="actions"><button class="btn btn-sm btn-ghost" data-edit="${d.id}">Edit</button><a class="btn btn-sm btn-ghost" href="#/destinations/${d.id}">View</a></td></tr>`)}
     </tbody></table></div>`);
   App.dateRangeField(m.querySelector('#cl-dates'), { labels: ['From', 'Until'], clearable: false });
@@ -408,7 +408,7 @@ const destinations = (m) => {
   };
   const edit = async (d) => {
     const isNew = !d;
-    d = d || { id: '', name: '', region: '', lat: 22, lng: 79, tagline: '', hero: '', gallery: [], bestTime: '', bestMonths: [], familyScore: 3, familyNotes: '', highlights: [], attractions: [], activities: [], routes: [], campsites: [] };
+    d = d || { id: '', name: '', region: '', lat: 22, lng: 79, tagline: '', hero: '', gallery: [], bestTime: '', bestMonths: [], familyScore: 3, familyNotes: '', highlights: [], attractions: [], activities: [], routes: [] };
     const res = await App.modal({
       title: isNew ? 'Add destination' : 'Edit ' + d.name, wide: true,
       body: h`<form id="dest-form" class="grid-2">

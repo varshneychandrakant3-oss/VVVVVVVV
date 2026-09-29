@@ -176,6 +176,30 @@ Reported in review: van cards didn't show the places they're named after. For ex
   - Destination photos are refreshed in saved browser data.
 - **TODO:** replace the sample van photos with each owner's real photos when listings go live (the photo guide and "Real photos verified" check already exist). Photo credits are recorded on Unsplash; add a credits page if the licence terms need one at launch.
 
+### After P2: confirmed campsites across India (29 Sep 2026)
+Requested in review: campsites on the map, only verified and real.
+
+- **Before:** each destination had 2–3 campsites with made-up names, for example "Pangong Lakeside Camp" and "Kaza Van Park". They are removed.
+- **After:** `assets/js/data/campsites.js` lists **13 campsites in 6 states** (Himachal Pradesh, Uttarakhand, Karnataka, Kerala, Gujarat, West Bengal). Each one:
+  - is mapped on OpenStreetMap (which gives its position), and isn't marked disused;
+  - has a website, either its own or its operator's official site (Jungle Lodges & Resorts, Gujarat's tent cities), that loads and names the campsite (checked 29 Sep 2026);
+  - is open to travellers. The Indiahikes trek campuses are real but only for its own groups, so they're left out.
+- **How the list was narrowed:**
+  - 1,292 named campsites are mapped in India, but only 42 list a website or phone number. Of those, 9 had a live website that names them.
+  - Four government-run camps were added after checking their official sites: Galibore, Kali Adventure Camp, Tent City Dhordo and Tent City Narmada.
+  - Left out: phone-only listings, sites that are down or block checks, and India's "caravan sites" on OpenStreetMap, which are mostly mis-tagged (car dealers, parking).
+- **Where they show:**
+  - Map: a "Confirmed campsites" layer, plus a list by state under the map.
+  - Destination pages: confirmed campsites within 160 km, with the distance.
+  - Trip itinerary: the "Fill from suggested route" button suggests them as overnight ideas.
+  - Admin → Destinations: a count per destination.
+- **Map card:** where the campsite is and whether vans are allowed. OpenStreetMap records that for only one of them; the rest say "Ask before arriving in a van". The card also has the website, the phone, and a link to the OpenStreetMap entry with the check date.
+- **Credit:** the maps now credit OpenStreetMap, as its licence (ODbL) requires.
+- **Other map layers:** dhabas, homestays and water points are general areas, not checked places. They're now labelled that way and switched off by default on the map.
+- **TODO:**
+  - Re-check the campsite links before launch and every few months.
+  - Add more campsites as owners and partners confirm them. Ideally VanYatra verifies van-friendly campsites itself (a visit or a call, plus photos) and marks them "VanYatra checked".
+
 ### Open TODOs from P2
 - **Performance ≥ 90 is not reached yet.** The build step is done (see above). The next steps are listed there, plus self-hosting a Latin subset of the font.
 - **Hindi:** have a native speaker review it. Then extract strings for search results, the van page, checkout and account.

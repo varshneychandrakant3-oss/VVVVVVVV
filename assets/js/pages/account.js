@@ -191,6 +191,7 @@ const itineraryTab = (m, id) => {
   if (!b || b.customerId !== me.id) { m.innerHTML = String(App.emptyState('🗺️', 'Trip not found', '')); return; }
   const van = App.get.van(b.vanId);
   const dest = App.get.dest(van.destinationId);
+  const camps = App.campsitesNear(dest);
   if (!b.itinerary || !b.itinerary.length) b.itinerary = Array.from({ length: b.nights }, (_, i) => ({ day: i + 1, title: '', notes: '' }));
   b.checklist = b.checklist || {};
   m.innerHTML = String(h`
@@ -211,7 +212,7 @@ const itineraryTab = (m, id) => {
       </form>
       <aside>
         ${dest ? h`<div class="card"><h3>Routes in ${dest.name}</h3>${dest.routes.map(r => h`<div class="mini-route"><strong>${r.name}</strong><span class="small muted">${r.days} days · ${r.km} km</span></div>`)}
-          <h3>Campsites</h3><div class="map map-sm" id="itin-map"></div><ul class="small">${dest.campsites.map(c => h`<li>${App.icon('tent')} ${c.name}</li>`)}</ul></div>` : ''}
+          <h3>Confirmed campsites nearby</h3>${camps.length ? h`<div class="map map-sm" id="itin-map"></div><ul class="small">${camps.map(c => h`<li>${App.icon('tent')} <a href="${c.website}" target="_blank" rel="noopener">${c.name}</a> — ${c.km} km</li>`)}</ul>` : h`<p class="small muted">None confirmed within 160 km yet — ask your owner where to stay.</p>`}</div>` : ''}
         <div class="card"><h3>Packing checklist</h3>${PACKING.map((p, i) => h`<label class="check"><input type="checkbox" data-pack="${i}" ${b.checklist[i] ? 'checked' : ''}> ${p}</label>`)}</div>
       </aside>
     </div>`);
@@ -229,11 +230,11 @@ const itineraryTab = (m, id) => {
     b.itinerary.forEach((day, i) => {
       if (day.title) return;
       day.title = i === 0 ? `Pickup in ${van.pickup.city}` : i === b.itinerary.length - 1 ? `Head back to ${van.pickup.city}` : stops[(i - 1) % stops.length];
-      day.notes = day.notes || (dest.campsites[i % dest.campsites.length] ? 'Overnight: ' + dest.campsites[i % dest.campsites.length].name : '');
+      day.notes = day.notes || (camps.length ? 'Overnight idea: ' + camps[i % camps.length].name + ' (call ahead)' : '');
     });
     App.save(); App._keepScroll = true; App.render(); App.toast('Suggestions added — edit anything you like.', 'good');
   };
-  if (dest) App.mountMap(m.querySelector('#itin-map'), dest.campsites.map(c => ({ lat: c.lat, lng: c.lng, label: '⛺', kind: 'camp', title: c.name, html: App.mapCard.camp(c, dest) })));
+  if (dest && camps.length) App.mountMap(m.querySelector('#itin-map'), camps.map(c => ({ lat: c.lat, lng: c.lng, label: 'tent', kind: 'camp', title: c.name, html: App.mapCard.camp(c), osm: true })));
 };
 
 /* ---------- Saved ---------- */

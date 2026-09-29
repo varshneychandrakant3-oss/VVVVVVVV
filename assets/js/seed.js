@@ -28,11 +28,6 @@ App.buildSeed = function () {
       routes: [
         { name: 'Manali → Leh Highway', days: 5, km: 480, desc: 'Classic high-altitude drive through the Atal Tunnel and over Baralacha La and Tanglang La with camps at Jispa and Sarchu.' },
         { name: 'Leh → Nubra → Pangong loop', days: 4, km: 460, desc: 'Cross Khardung La to Hunder dunes, then the Shyok river road to Pangong Tso.' }
-      ],
-      campsites: [
-        { name: 'Pangong Lakeside Camp', type: 'Van-friendly campsite', lat: 33.9175, lng: 78.4541, facilities: ['Toilets', 'Water refill', 'Meals'] },
-        { name: 'Hunder Dunes Camp', type: 'Campsite', lat: 34.5794, lng: 77.4722, facilities: ['Toilets', 'Power hook-up'] },
-        { name: 'Jispa Riverside', type: 'Campsite', lat: 32.6406, lng: 77.1797, facilities: ['Toilets', 'Showers', 'Water refill'] }
       ]
     },
     {
@@ -47,10 +42,6 @@ App.buildSeed = function () {
       routes: [
         { name: 'Shimla → Kinnaur → Kaza', days: 6, km: 420, desc: 'Gentle acclimatisation through apple orchards of Kinnaur, Nako lake and Tabo.' },
         { name: 'Kaza → Chandratal → Manali', days: 3, km: 200, desc: 'Rough but spectacular road over Kunzum La to the Moon Lake.' }
-      ],
-      campsites: [
-        { name: 'Chandratal Base Camp', type: 'Campsite', lat: 32.4757, lng: 77.6168, facilities: ['Toilets'] },
-        { name: 'Kaza Van Park', type: 'Van-friendly campsite', lat: 32.2270, lng: 78.0716, facilities: ['Toilets', 'Showers', 'Power hook-up', 'Water refill'] }
       ]
     },
     {
@@ -65,11 +56,6 @@ App.buildSeed = function () {
       routes: [
         { name: 'North to South coastal crawl', days: 5, km: 140, desc: 'Arambol → Anjuna → Panjim → Colva → Agonda → Palolem, one beach at a time.' },
         { name: 'Goa hinterland & waterfalls', days: 3, km: 180, desc: 'Spice farms of Ponda, Dudhsagar falls and Netravali forest.' }
-      ],
-      campsites: [
-        { name: 'Agonda Beach Van Stop', type: 'Van-friendly campsite', lat: 15.0444, lng: 73.9868, facilities: ['Toilets', 'Showers', 'Water refill', 'Power hook-up'] },
-        { name: 'Arambol Cliff Camp', type: 'Campsite', lat: 15.6868, lng: 73.7036, facilities: ['Toilets', 'Cafe'] },
-        { name: 'Netravali Forest Camp', type: 'Eco campsite', lat: 15.0869, lng: 74.2166, facilities: ['Toilets', 'Guided walks'] }
       ]
     },
     {
@@ -84,10 +70,6 @@ App.buildSeed = function () {
       routes: [
         { name: 'Kochi → Munnar → Thekkady → Alleppey', days: 7, km: 450, desc: 'The classic loop: colonial Kochi, tea hills, spice forests and backwaters.' },
         { name: 'Coastal Kerala: Kochi → Varkala', days: 4, km: 180, desc: 'Beaches, lighthouses and cliff-top cafés.' }
-      ],
-      campsites: [
-        { name: 'Munnar Tea Valley Camp', type: 'Van-friendly campsite', lat: 10.0889, lng: 77.0595, facilities: ['Toilets', 'Showers', 'Power hook-up'] },
-        { name: 'Alleppey Lakeside', type: 'Campsite', lat: 9.4981, lng: 76.3388, facilities: ['Toilets', 'Water refill'] }
       ]
     },
     {
@@ -102,10 +84,6 @@ App.buildSeed = function () {
       routes: [
         { name: 'Royal Rajasthan loop', days: 10, km: 1400, desc: 'Jaipur → Jodhpur → Jaisalmer → Udaipur → back to Jaipur via Pushkar.' },
         { name: 'Jaipur & Ranthambore weekend', days: 3, km: 360, desc: 'Palaces, then two tiger safaris.' }
-      ],
-      campsites: [
-        { name: 'Sam Dunes Desert Camp', type: 'Van-friendly campsite', lat: 26.8260, lng: 70.5030, facilities: ['Toilets', 'Showers', 'Meals', 'Folk music'] },
-        { name: 'Pushkar Lake Camp', type: 'Campsite', lat: 26.4897, lng: 74.5511, facilities: ['Toilets', 'Water refill'] }
       ]
     },
     {
@@ -120,10 +98,6 @@ App.buildSeed = function () {
       routes: [
         { name: 'Kullu–Manali valley drive', days: 4, km: 160, desc: 'Kullu → Naggar → Manali → Solang → Sissu through the Atal Tunnel.' },
         { name: 'Parvati Valley escape', days: 3, km: 120, desc: 'Bhuntar → Kasol → Manikaran with riverside camps.' }
-      ],
-      campsites: [
-        { name: 'Solang Meadows Camp', type: 'Van-friendly campsite', lat: 32.3166, lng: 77.1570, facilities: ['Toilets', 'Showers', 'Power hook-up'] },
-        { name: 'Kasol Riverside', type: 'Campsite', lat: 32.0100, lng: 77.3150, facilities: ['Toilets', 'Cafe'] }
       ]
     },
     {
@@ -138,10 +112,6 @@ App.buildSeed = function () {
       routes: [
         { name: 'Delhi → Rishikesh → Chopta', days: 5, km: 520, desc: 'River camps, then up into rhododendron forests for the Tungnath trek.' },
         { name: 'Rishikesh weekend', days: 2, km: 60, desc: 'Rafting at Shivpuri and a night on a river beach.' }
-      ],
-      campsites: [
-        { name: 'Shivpuri River Beach Camp', type: 'Van-friendly campsite', lat: 30.1400, lng: 78.3908, facilities: ['Toilets', 'Showers', 'Meals'] },
-        { name: 'Chopta Meadow Camp', type: 'Campsite', lat: 30.4856, lng: 79.2129, facilities: ['Toilets'] }
       ]
     },
     {
@@ -155,10 +125,6 @@ App.buildSeed = function () {
       activities: ['Coffee tasting', 'River rafting at Barapole', 'Birding', 'Plantation stays'],
       routes: [
         { name: 'Bengaluru → Coorg → Chikmagalur', days: 5, km: 620, desc: 'Coffee country loop with waterfalls and a monastery stop at Bylakuppe.' }
-      ],
-      campsites: [
-        { name: 'Coffee Estate Van Retreat', type: 'Van-friendly campsite', lat: 12.4244, lng: 75.7382, facilities: ['Toilets', 'Showers', 'Power hook-up', 'Water refill'] },
-        { name: 'Bhadra Riverside', type: 'Eco campsite', lat: 13.6980, lng: 75.6400, facilities: ['Toilets', 'Guided safari'] }
       ]
     },
     {
@@ -172,13 +138,11 @@ App.buildSeed = function () {
       activities: ['Caving', 'Boating at Dawki', 'Waterfall hikes', 'Village stays'],
       routes: [
         { name: 'Shillong → Cherrapunji → Dawki', days: 5, km: 260, desc: 'Canyons, waterfalls, root bridges and the clearest river in India.' }
-      ],
-      campsites: [
-        { name: 'Shnongpdeng Riverside', type: 'Campsite', lat: 25.2090, lng: 92.0090, facilities: ['Toilets', 'Boating'] },
-        { name: 'Sohra Plateau Van Stop', type: 'Van-friendly campsite', lat: 25.2702, lng: 91.7323, facilities: ['Toilets', 'Water refill'] }
       ]
     }
   ];
+  // Campsites aren't part of the destination data: only confirmed, real campsites are
+  // shown, from assets/js/data/campsites.js (App.campsitesNear)
 
   const users = [
     { id: 'u_admin', name: 'Aisha Kapoor', email: 'admin@vanyatra.in', phone: '+91 98200 00001', role: 'admin' },

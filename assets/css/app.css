@@ -1200,3 +1200,9 @@ button, a, label, select { touch-action: manipulation; }
 form + h2, form + h3 { margin-top: 28px; }
 .amen-list li { display: flex; align-items: center; gap: 8px; }
 .results-meta { margin-top: 10px; }
+/* Campsites: confirmed ones first, then general areas */
+.camp-h { font-size: 1rem; margin: 20px 0 8px; }
+.map + .camp-h { margin-top: 16px; }
+.camp-source { font-size: .78rem; }
+.camp-list .badge { text-transform: none; }
+.loc-cols ul ul { list-style: none; padding-left: 0; margin: 4px 0 10px; }

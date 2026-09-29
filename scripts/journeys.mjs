@@ -476,6 +476,12 @@ const JOURNEYS = {
     T.assert(/Dhabas with parking|Water & waste/i.test(t), 'Spots missing from the destination');
     T.noOverflow();
     await T.go('#/map'); T.assert(T.$$('[data-layer]').length === 6, 'Map lacks spot layers');
+    // Campsites: only confirmed ones, each with its source, website and check date
+    T.assert(App.CAMPSITES.length >= 5 && App.CAMPSITES.every(c => c.website && /^(node|way)\/\d+$/.test(c.osm) && c.checked && c.lat > 6 && c.lat < 37 && c.lng > 68 && c.lng < 98), 'Campsite data incomplete');
+    T.assert(new RegExp('Confirmed campsites \\(' + App.CAMPSITES.length + '\\)').test(T.text()), 'Campsite layer missing');
+    T.assert(App.CAMPSITES.every(c => T.text('#loc-list').includes(c.name)), 'Campsite list incomplete');
+    await T.until(() => /OpenStreetMap/.test(T.$('.leaflet-control-attribution')?.innerText || ''), 8000, 'OpenStreetMap credit');
+    await T.go('#/destinations/himachal'); T.assert(/Confirmed campsites nearby/.test(T.text()) && App.campsitesNear(App.get.dest('himachal')).length && /km ·/i.test(T.text('.camp-list')), 'Nearby campsites missing on Manali');
     // Planner: Ladakh in July for a family of 4 with kids
     const y = new Date().getFullYear() + (new Date().getMonth() >= 6 ? 1 : 0);
     const s = `${y}-07-10`, e = `${y}-07-15`;

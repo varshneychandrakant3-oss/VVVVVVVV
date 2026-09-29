@@ -225,6 +225,7 @@ App.pages.destination = (el, { id }) => {
   const d = App.get.dest(id);
   if (!d) return App.pages.notFound(el);
   const vans = publishedVans().filter(v => v.destinationId === d.id);
+  const camps = App.campsitesNear(d);
   const monthNames = ['J', 'F', 'M', 'A', 'M', 'J', 'J', 'A', 'S', 'O', 'N', 'D'];
   el.innerHTML = String(h`
   <section class="hero hero-dest">
@@ -255,8 +256,14 @@ App.pages.destination = (el, { id }) => {
       <section class="block"><h2>Photos</h2><div class="photo-strip">${d.gallery.map(g => h`${App.img(g, { w: 600, alt: `${d.name} scenery`, sizes: '(min-width: 900px) 30vw, 80vw' })}`)}</div></section>
       <section class="block"><h2>Campsites & van-friendly spots</h2>
         <div class="map map-md" id="dest-map"></div>
-        <ul class="camp-list">${d.campsites.map(c => h`<li>${App.icon('tent')} <strong>${c.name}</strong> <span class="badge badge-muted">${c.type}</span><div class="small muted">${c.facilities.join(' · ')}</div></li>`)}${(App.TRIP_GUIDES[d.id]?.spots || []).map(s => h`<li>${App.icon(App.SPOT_TYPES[s.type][1])} <strong>${s.name}</strong> <span class="badge badge-muted">${App.SPOT_TYPES[s.type][0]}</span>${s.note ? h`<div class="small muted">${s.note}</div>` : ''}</li>`)}</ul>
-        <p class="small muted">Spots are examples to plan with — always check they’re open, and park only where it’s allowed. <a href="#/guide">First-timer’s guide to van life in India</a></p>
+        <h3 class="camp-h">Confirmed campsites nearby</h3>
+        ${camps.length ? h`<ul class="camp-list">${camps.map(c => h`<li>${App.icon('tent')} <strong>${c.name}</strong> <span class="badge badge-muted">${c.km} km · ${c.place}</span>
+          <div class="small muted">${c.vans === 'yes' ? 'Vans & caravans allowed' : 'Ask before arriving in a van'}${c.facilities?.length ? ' · ' + c.facilities.join(' · ') : ''} · <a href="${c.website}" target="_blank" rel="noopener">Website ↗</a></div></li>`)}</ul>`
+          : h`<p class="small muted">We haven’t confirmed a campsite within ${160} km yet. Ask your van owner, or see the <a href="#/map">map</a> for confirmed campsites elsewhere.</p>`}
+        <p class="small muted">Campsites are listed on <a href="https://www.openstreetmap.org" target="_blank" rel="noopener">OpenStreetMap</a> and their own websites were checked on ${App.fmt.date(App.CAMPSITES[0]?.checked)}. Call ahead: campsites close and change hands.</p>
+        <h3 class="camp-h">Other places to look</h3>
+        <ul class="camp-list">${(App.TRIP_GUIDES[d.id]?.spots || []).map(s => h`<li>${App.icon(App.SPOT_TYPES[s.type][1])} <strong>${s.name}</strong> <span class="badge badge-muted">${App.SPOT_TYPES[s.type][0]}</span>${s.note ? h`<div class="small muted">${s.note}</div>` : ''}</li>`)}</ul>
+        <p class="small muted">These are general areas to plan with, not specific checked places — always check they’re open, and park only where it’s allowed. <a href="#/guide">First-timer’s guide to van life in India</a></p>
       </section>
     </div>
     <aside class="dest-aside">
@@ -271,7 +278,7 @@ App.pages.destination = (el, { id }) => {
   </section>`);
   bindSearchForm(el);
   App.mountMap(el.querySelector('#dest-map'), [
-    ...d.campsites.map(c => ({ lat: c.lat, lng: c.lng, label: '⛺', kind: 'camp', title: c.name, html: App.mapCard.camp(c, d) })),
+    ...camps.map(c => ({ lat: c.lat, lng: c.lng, label: 'tent', kind: 'camp', title: c.name, html: App.mapCard.camp(c), osm: true })),
     ...(App.TRIP_GUIDES[d.id]?.spots || []).map(s => ({ lat: s.lat, lng: s.lng, label: App.SPOT_TYPES[s.type][1], kind: 'camp', title: s.name, html: App.mapCard.spot(s, d) })),
     ...vans.map(v => ({ lat: v.pickup.lat, lng: v.pickup.lng, label: money(v.pricePerNight), kind: 'van', title: v.name, html: App.mapCard.van(v) }))
   ]);
@@ -492,15 +499,18 @@ App.pages.search = (el, _p, q) => {
 
 /* ================= MAP ================= */
 App.pages.map = (el, _p, q) => {
-  const show = { vans: q.layer !== 'dest', dests: q.layer !== 'vans', camps: true, dhaba: true, homestay: true, water: true };
+  // The general-area layers (dhabas, homestays, water points) start off, so the map shows
+  // confirmed places first
+  const show = { vans: q.layer !== 'dest', dests: q.layer !== 'vans', camps: true, dhaba: false, homestay: false, water: false };
   el.innerHTML = String(h`
-    <div class="container search-top"><h1>Explore on the map</h1><p class="muted">Destinations, van pickup points and van-friendly campsites across India.</p>
+    <div class="container search-top"><h1>Explore on the map</h1><p class="muted">Destinations, van pickup points and confirmed campsites across India.</p>
       <div class="filter-row" role="group" aria-label="Map layers">
         <label class="check"><input type="checkbox" data-layer="dests" checked> <span class="map-pin map-pin-dest mini">Destinations</span></label>
         <label class="check"><input type="checkbox" data-layer="vans" checked> <span class="map-pin map-pin-van mini">Vans</span></label>
-        <label class="check"><input type="checkbox" data-layer="camps" checked> <span class="map-pin map-pin-camp mini">${App.icon('tent')} Campsites</span></label>
-        ${['dhaba', 'homestay', 'water'].map(t => h`<label class="check"><input type="checkbox" data-layer="${t}" checked> <span class="map-pin map-pin-camp mini">${App.icon(App.SPOT_TYPES[t][1])} ${App.SPOT_TYPES[t][0]}</span></label>`)}
-      </div></div>
+        <label class="check"><input type="checkbox" data-layer="camps" checked> <span class="map-pin map-pin-camp mini">${App.icon('tent')} Confirmed campsites (${App.CAMPSITES.length})</span></label>
+        ${['dhaba', 'homestay', 'water'].map(t => h`<label class="check"><input type="checkbox" data-layer="${t}"> <span class="map-pin map-pin-camp mini">${App.icon(App.SPOT_TYPES[t][1])} ${App.SPOT_TYPES[t][0]} (general areas)</span></label>`)}
+      </div>
+      <p class="small muted">Campsites are listed on OpenStreetMap, and each one’s own website was checked on ${App.fmt.date(App.CAMPSITES[0]?.checked)}. Call ahead before you go.</p></div>
     <div class="container"><div class="map map-xl" id="full-map"></div></div>
     <div class="container section-tight"><h2 class="section-sub">All locations</h2><div class="loc-cols" id="loc-list"></div></div>`);
   let map;
@@ -508,12 +518,14 @@ App.pages.map = (el, _p, q) => {
     const markers = [];
     if (show.dests) App.db.destinations.forEach(d => markers.push({ lat: d.lat, lng: d.lng, label: d.name, kind: 'dest', title: d.name, html: App.mapCard.dest(d) }));
     if (show.vans) publishedVans().forEach(v => markers.push({ lat: v.pickup.lat, lng: v.pickup.lng, label: money(v.pricePerNight), kind: 'van', title: v.name, html: App.mapCard.van(v) }));
-    if (show.camps) App.db.destinations.forEach(d => d.campsites.forEach(c => markers.push({ lat: c.lat, lng: c.lng, label: '⛺', kind: 'camp', title: c.name, html: App.mapCard.camp(c, d) })));
+    if (show.camps) App.CAMPSITES.forEach(c => markers.push({ lat: c.lat, lng: c.lng, label: 'tent', kind: 'camp', title: c.name, html: App.mapCard.camp(c), osm: true }));
     App.db.destinations.forEach(d => (App.TRIP_GUIDES[d.id]?.spots || []).filter(s => show[s.type]).forEach(s => markers.push({ lat: s.lat, lng: s.lng, label: App.SPOT_TYPES[s.type][1], kind: 'camp', title: s.name, html: App.mapCard.spot(s, d) })));
     if (map) map.remove();
     const mEl = el.querySelector('#full-map'); mEl.innerHTML = '';
     map = await App.mountMap(mEl, markers);
-    el.querySelector('#loc-list').innerHTML = String(h`${App.db.destinations.map(d => h`<div><h3><a href="#/destinations/${d.id}">${d.name}</a></h3><ul class="small">${publishedVans().filter(v => v.destinationId === d.id).map(v => h`<li>${App.icon('caravan')} <a href="#/vans/${v.id}">${v.name}</a> — ${v.pickup.city}</li>`)}${d.campsites.map(c => h`<li>${App.icon('tent')} ${c.name}</li>`)}</ul></div>`)}`);
+    const states = [...new Set(App.CAMPSITES.map(c => c.state))].sort();
+    el.querySelector('#loc-list').innerHTML = String(h`${App.db.destinations.map(d => h`<div><h3><a href="#/destinations/${d.id}">${d.name}</a></h3><ul class="small">${publishedVans().filter(v => v.destinationId === d.id).map(v => h`<li>${App.icon('caravan')} <a href="#/vans/${v.id}">${v.name}</a> — ${v.pickup.city}</li>`)}</ul></div>`)}
+      <div><h3>Confirmed campsites</h3><ul class="small">${states.map(s => h`<li><strong>${s}</strong><ul>${App.CAMPSITES.filter(c => c.state === s).map(c => h`<li>${App.icon('tent')} <a href="${c.website}" target="_blank" rel="noopener">${c.name}</a> — ${c.place}</li>`)}</ul></li>`)}</ul></div>`);
   };
   el.querySelectorAll('[data-layer]').forEach(c => c.onchange = () => { show[c.dataset.layer] = c.checked; draw(); });
   draw();
