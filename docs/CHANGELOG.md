@@ -2,6 +2,115 @@
 
 Before and after notes for the improvement brief. Plan and status: [ROADMAP.md](ROADMAP.md). Starting point: [AUDIT.md](AUDIT.md).
 
+## P2 — Growth and polish (29 Sep 2026)
+
+`npm run check` covers everything below:
+- pre-render
+- lint
+- 30 server tests
+- 38 headless journeys at 360px, in demo mode and against a fresh Node server for each journey; also passed at 1280px
+
+New journeys: analytics, deals, posttrip, support, offline, seo, lang.
+
+### P2.1 Deals and referrals
+- **Before:** early-bird and last-minute discounts existed only as pricing rules, so travellers never saw them.
+- **After:**
+  - Van cards show a deal badge (Early-bird −10%, Last minute −15%, Long stay) when the chosen dates qualify. The card, van page and checkout use the same `App.quote`.
+  - `#/deals` lists live deals. There are four seasonal landing pages: Diwali road trips, Rajasthan in winter, Himalayan summer and Kerala monsoon. Each has dates inside its season and pre-filtered vans.
+  - **Referral credits:** every traveller has a code and link (copy or WhatsApp) in Payments. A friend who signs up with it and completes a first trip earns both people ₹1,000 of credit.
+- The demo data was refreshed (server seed v4, demo backend v2), so existing installs get the new deal fields.
+
+### P2.2 After the trip
+- **Before:** a review form with only a star rating.
+- **After:**
+  - When a trip ends, the traveller gets a review request (in-app, plus WhatsApp if they opted in). `#/account/bookings?review=ID` opens the form directly.
+  - The review has sub-scores and up to 4 photos. Review photos show on the van page.
+  - Past trips have **Trip memories** (`#/trip/:id/memories`: route, stops, photos and the review) and **Book again**.
+
+### P2.3 Hindi (draft)
+- **Before:** English only.
+- **After:**
+  - `App.t()` looks up the English text in a Hindi dictionary (`assets/js/i18n.js`) and falls back to English.
+  - Translated so far: the header, menus, tab bar, footer, home page, search form, date field and the analytics notice.
+  - A language switch in the menu and footer (`हिन्दी` / `English`) remembers the choice and sets `<html lang>`. Hindi uses the system's Devanagari font.
+  - While Hindi is on, the footer says the translation is a draft and some pages are still in English.
+- ⚠️ **The Hindi was written without a native reviewer.** Have a native Hindi speaker review it before launch.
+
+### P2.4 Works offline, installable, trip alerts
+- **Before:** no service worker. The app didn't work without a connection.
+- **After:**
+  - `sw.js` caches the app. It reads the file list from `index.html`, so there's no list to maintain.
+  - Photos are cached as they're viewed (up to 150).
+  - Offline, **My trips, the itinerary, pre-check-in and trip plans still open**, with an "offline" notice.
+  - When a new version is out, an "Update available — Refresh" bar appears.
+  - The app is installable (manifest and icons).
+  - "Trip alerts on this device" (Profile) turns on device notifications for booking and trip updates. Tapping one opens the right page.
+
+### P2.5 Search engines and link previews
+- **Before:** every page was `index.html#/…`. Search engines saw one empty page, and shared links had no preview.
+- **After:**
+  - `npm run prerender` (also part of `npm run check`) writes a real page for each of these: 10 destinations, 32 published vans, the help topics, the FAQ, the guide and deals. That's 52 pages.
+  - Each page has its own title, description, canonical URL, Open Graph and Twitter image, readable content, and JSON-LD:
+    - Product/Offer with a nightly price, plus AggregateRating from 3 reviews up
+    - TouristDestination
+    - FAQPage
+    - BreadcrumbList
+
+    The page then starts the app on the same screen.
+  - Also written: `sitemap.xml`, `robots.txt`, and a `404.html` that sends clean links (`/vans/v1`, `/search?dest=goa`) to the matching `#/` screen.
+  - The home page has Organization JSON-LD.
+  - The app updates the description, canonical and share tags per screen.
+  - Old `#/` links work as before.
+
+### P2.6 Home page social proof
+Trip and review totals come from the data, alongside traveller stories and a "Why VanYatra" table comparing VanYatra with car + hotels and with unverified rentals.
+
+### P2.7 Support
+- **Help search:** covers the FAQ, policies, the first-timer guide and each destination's practical info.
+- **"Chat with us":** a live-chat entry with an instant first reply. Admins are notified.
+- **During an active trip:** a bar shows the roadside number and an **SOS** button. SOS shares the traveller's location (with permission) with the owner and our team, and offers call, SMS and WhatsApp links.
+
+### P2.8 Analytics
+- **Before:** none.
+- **After:** `App.track(event, props)` records page views, searches, filters, van views, date picks and each checkout step, payment and booking. It records **only after the visitor agrees** in a consent bar, and there are no third-party trackers.
+  - Admin → Analytics shows the funnel.
+  - Profile & privacy can turn it off, which deletes the recorded events.
+
+### P2.9 Performance
+Lighthouse, mobile (simulated slow 4G, 4× CPU), home page on the Node server:
+
+| | Before | After |
+|---|---|---|
+| Performance | 16 | 72–82 (varies run to run) |
+| First contentful paint | 6.2 s | 1.4 s |
+| Largest contentful paint | 10.0 s | 3.7–4.4 s |
+| Total blocking time | 780 ms | 310–570 ms |
+| Layout shift | 1.05 | 0.06 |
+| Accessibility / Best practices / SEO | 95 / 100 / 100 | 97 / 100 / 100 |
+
+What changed:
+- The owner and admin screens (about 165 KB) load when first opened. The service worker still caches them for offline use.
+- All scripts are deferred. A small `boot.js` loads the web font off the critical path and preloads the home hero.
+- Hero and destination photos use responsive `srcset` (previously one 1800px image for every screen). Off-screen photos load at low priority.
+- Maps load Leaflet and tiles only when scrolled near (IntersectionObserver).
+- The Node server gzips files and large API responses, and answers repeat requests with ETag/304.
+- Layout shift is fixed by reserving the header's height.
+- Below-the-fold home sections skip layout until needed (`content-visibility`).
+- A forced reflow when setting the page title is gone.
+- Accessibility fixes: footer heading order, the date button's name, link underline and chip tap size.
+
+### Open TODOs from P2
+- **Performance ≥ 90 is not reached yet.** The rest of the gap is JavaScript run time on a slow phone: about 560 KB of unminified scripts that build every page in the browser. Next steps:
+  - Add a build step that bundles and minifies (esbuild).
+  - Pre-render the home page shell like the other public pages.
+  - Self-host a Latin subset of the font.
+- **Hindi:** have a native speaker review it. Then extract strings for search results, the van page, checkout and account.
+- **Push notifications** only work while the site is open or installed. Real push (when the app is closed) needs a push service and VAPID keys on the server.
+- **SOS and live chat** are front-end only in this demo. Connect them to a real support desk and an on-call phone line.
+- **Pre-rendered pages** use the seed data. At launch, run `npm run prerender` against live data on each deploy.
+- **Analytics** events are stored in the browser (demo) or with other demo data. Send them to the server for real reporting.
+- **Referral credit** is applied in the demo backend. Move it to the server with the booking records.
+
 ## P1 — Journeys, trip planning and hosts (29 Sep 2026)
 
 `npm run check` covers everything below:

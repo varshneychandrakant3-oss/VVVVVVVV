@@ -28,7 +28,7 @@ const addMonths = (ym, n) => { const [y, m] = ym.split('-').map(Number); const d
 const longLabel = (iso) => { const p = App.parseDate(iso); return `${DAY_NAMES[p.getDay()]}, ${p.getDate()} ${fmt.MONTHS_LONG[p.getMonth()]} ${p.getFullYear()}`; };
 
 App.dateRangeField = (host, opts = {}) => {
-  const o = { names: ['start', 'end'], labels: ['Pickup', 'Return'], minNights: 1, placeholder: 'Add date', clearable: true, ...opts };
+  const o = { names: ['start', 'end'], labels: [App.t('Pickup'), App.t('Return')], minNights: 1, placeholder: App.t('Add date'), clearable: true, ...opts };
   const state = { start: o.start || '', end: o.end && o.start && o.end > o.start ? o.end : '' };
   const uid = 'drf' + Math.random().toString(36).slice(2, 8);
 

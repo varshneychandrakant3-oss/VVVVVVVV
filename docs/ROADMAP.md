@@ -54,10 +54,6 @@ Agreed on 28 Sep 2026: go ahead with the recommendations below.
 
 **Status: ✅ done (29 Sep 2026)**, all 20 items. Details and open TODOs are in [CHANGELOG.md](CHANGELOG.md).
 
-## P2 status
-
-**Not started.** Waiting for review of P1.
-
 | Item | Status | Change | Files | Effort | Depends |
 |---|---|---|---|---|---|
 | P1.1 Four-step booking | 3 steps | 1 Dates & guests → 2 Protection & add-ons → 3 Driver (licence upload or verified profile, age check) → 4 Review & pay. Progress bar, sticky price summary, **progress saved** to storage, **guest checkout up to payment** (sign-in or quick signup at step 4). | `booking.js`, `db.js`, `auth.js` | M | P0.1, P0.4 |
@@ -82,6 +78,8 @@ Agreed on 28 Sep 2026: go ahead with the recommendations below.
 | P1.20 Owner dashboard | Mostly exists | iCal export and import, listing health score, pricing tips ("similar vans in Goa in December earn ₹X/night", from our own data). | `owner.js`, `db.js` | M | iCal adapter |
 
 ## P2 — Growth and polish
+
+**Status: ✅ done (29 Sep 2026)**, all 9 items, with two caveats. The Hindi is a draft that needs a native review. Lighthouse mobile performance is 72–82, not yet 90. Details and open TODOs are in [CHANGELOG.md](CHANGELOG.md).
 
 | Item | Change | Effort |
 |---|---|---|

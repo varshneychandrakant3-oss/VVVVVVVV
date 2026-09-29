@@ -735,6 +735,21 @@ const JOURNEYS = {
     T.assert(App.db.travellers.u_cust6.identity.status === 'verified', 'Approval not saved');
     return tabs.length + ' sections';
   },
+  // Hindi (draft): switch, chrome and home page translated, still fits at 360px, choice remembered
+  lang: async function () {
+    T.$('.footer-lang').click();
+    await T.until(() => document.documentElement.lang === 'hi' && /पहियों/.test(T.text('main h1')), 3000, 'Hindi home');
+    T.assert(/गंतव्य/.test(T.text('#site-nav')) && /होम/.test(T.text('#tabbar')), 'Chrome not translated');
+    T.assert(/पिकअप/.test(T.text('#search-form')) && /ड्राफ़्ट/.test(T.text('#site-footer')), 'Search form or draft note missing');
+    T.noOverflow();
+    await T.go('#/search'); T.noOverflow();
+    await T.go('#/help'); T.noOverflow();
+    await T.go('#/'); await T.until(() => T.$('.nav-lang'), 3000, 'switch');
+    T.assert(localStorage.getItem('vanyatra.lang.v1') === 'hi', 'Choice not saved');
+    T.$('.nav-lang').click();
+    await T.until(() => document.documentElement.lang === 'en-IN' && /Your home on wheels/.test(T.text('main h1')), 3000, 'back to English');
+    return 'hi ↔ en';
+  },
   // Pre-rendered pages (npm run prerender): structured data for search engines, then the app boots on the same screen
   seo: async function () {
     const html = await (await fetch('vans/v1/')).text();

@@ -143,40 +143,41 @@ App.renderHeader = () => {
     ['#/deals', 'Deals'],
     ['#/list-your-van', 'List your van'],
     ['#/help', 'Help']
-  ];
+  ].map(([href, label]) => [href, App.t(label)]);
   document.getElementById('site-header').innerHTML = String(App.h`
     <div class="container header-inner">
-      <a href="#/" class="logo" aria-label="VanYatra home">
+      <a href="#/" class="logo" aria-label="${App.t('VanYatra home')}">
         <svg viewBox="0 0 40 28" width="38" height="27" aria-hidden="true"><rect x="1" y="4" width="30" height="17" rx="5" fill="#1f6f54"/><path d="M31 9h3.5a3 3 0 0 1 2.6 1.5l2 3.5V21h-8z" fill="#2c8a69"/><rect x="5" y="8" width="7" height="5" rx="1.5" fill="#fff4dc"/><rect x="14" y="8" width="7" height="5" rx="1.5" fill="#fff4dc"/><rect x="1" y="14" width="30" height="2.5" fill="#f28c38"/><circle cx="9" cy="22" r="3.6" fill="#1b1b1b"/><circle cx="29" cy="22" r="3.6" fill="#1b1b1b"/><circle cx="9" cy="22" r="1.4" fill="#ddd"/><circle cx="29" cy="22" r="1.4" fill="#ddd"/></svg>
         <span>Van<b>Yatra</b></span>
       </a>
       <nav id="site-nav" aria-label="Main">
         ${nav.map(([href, label]) => App.h`<a href="${href}" class="${route.startsWith(href.slice(1)) ? 'active' : ''}">${label}</a>`)}
+        ${App.langSwitch('nav-lang')}
       </nav>
         <div class="nav-auth">
         ${me ? App.h`
-          ${me.role === 'owner' ? App.h`<a class="btn btn-sm btn-ghost" href="#/owner">Owner dashboard</a>` : ''}
-          ${me.role === 'admin' ? App.h`<a class="btn btn-sm btn-ghost" href="#/admin">Admin</a>` : ''}
+          ${me.role === 'owner' ? App.h`<a class="btn btn-sm btn-ghost" href="#/owner">${App.t('Owner dashboard')}</a>` : ''}
+          ${me.role === 'admin' ? App.h`<a class="btn btn-sm btn-ghost" href="#/admin">${App.t('Admin')}</a>` : ''}
           <div class="dropdown">
-            <button class="icon-btn bell" id="bell" aria-label="Notifications, ${unread} unread" aria-haspopup="true">${App.icon('bell')}${unread ? App.h`<span class="dot">${unread}</span>` : ''}</button>
+            <button class="icon-btn bell" id="bell" aria-label="${App.t('Notifications, {n} unread', { n: unread })}" aria-haspopup="true">${App.icon('bell')}${unread ? App.h`<span class="dot">${unread}</span>` : ''}</button>
             <div class="dropdown-menu notif-menu" id="notif-menu" hidden></div>
           </div>
           <div class="dropdown">
             <button class="user-btn" id="user-btn" aria-haspopup="true" aria-expanded="false">${App.avatar(me, 32)}<span class="hide-sm">${me.name.split(' ')[0]}</span></button>
             <div class="dropdown-menu" id="user-menu" hidden>
               <div class="menu-head"><strong>${me.name}</strong><span class="muted">${me.email}</span><span class="badge badge-muted">${me.role}</span></div>
-              <a href="#/account/bookings">My trips</a>
-              <a href="#/account/saved">Saved vans</a>
-              <a href="#/account/messages">Messages</a>
-              ${me.role === 'owner' ? App.h`<a href="#/owner">Owner dashboard</a><a href="#/owner/onboarding">Verification</a>` : ''}
-              ${me.role === 'admin' ? App.h`<a href="#/admin">Admin console</a>` : ''}
-              <a href="#/account/profile">Profile & privacy</a>
-              <button id="logout">Sign out</button>
+              <a href="#/account/bookings">${App.t('My trips')}</a>
+              <a href="#/account/saved">${App.t('Saved vans')}</a>
+              <a href="#/account/messages">${App.t('Messages')}</a>
+              ${me.role === 'owner' ? App.h`<a href="#/owner">${App.t('Owner dashboard')}</a><a href="#/owner/onboarding">${App.t('Verification')}</a>` : ''}
+              ${me.role === 'admin' ? App.h`<a href="#/admin">${App.t('Admin console')}</a>` : ''}
+              <a href="#/account/profile">${App.t('Profile & privacy')}</a>
+              <button id="logout">${App.t('Sign out')}</button>
             </div>
           </div>`
-        : App.h`<a class="btn btn-sm btn-ghost" href="#/login">Sign in</a><a class="btn btn-sm btn-primary hide-xs" href="#/signup">Sign up</a>`}
+        : App.h`<a class="btn btn-sm btn-ghost" href="#/login">${App.t('Sign in')}</a><a class="btn btn-sm btn-primary hide-xs" href="#/signup">${App.t('Sign up')}</a>`}
         </div>
-      <button class="icon-btn nav-toggle" aria-label="Menu" aria-controls="site-nav" aria-expanded="false" id="nav-toggle">☰</button>
+      <button class="icon-btn nav-toggle" aria-label="${App.t('Menu')}" aria-controls="site-nav" aria-expanded="false" id="nav-toggle">☰</button>
     </div>`);
   const $ = (id) => document.getElementById(id);
   const setMenu = (open) => {
@@ -184,7 +185,7 @@ App.renderHeader = () => {
     $('menu-scrim').classList.toggle('show', open);
     $('nav-toggle').textContent = open ? '✕' : '☰';
     $('nav-toggle').setAttribute('aria-expanded', open);
-    $('nav-toggle').setAttribute('aria-label', open ? 'Close menu' : 'Menu');
+    $('nav-toggle').setAttribute('aria-label', App.t(open ? 'Close menu' : 'Menu'));
   };
   App.closeMenu = () => setMenu(false);
   $('nav-toggle').onclick = (e) => { e.stopPropagation(); setMenu(!$('site-nav').classList.contains('open')); };
@@ -201,8 +202,8 @@ App.renderHeader = () => {
   toggle($('user-btn'), $('user-menu'));
   toggle($('bell'), $('notif-menu'), () => {
     const list = App.db.notifications.filter(n => n.userId === me.id).slice(0, 8);
-    $('notif-menu').innerHTML = String(App.h`<div class="menu-head row-between"><strong>Notifications</strong><button class="link" id="mark-read">Mark all read</button></div>
-      ${list.length ? list.map(n => App.h`<a href="${n.link || '#'}" class="notif ${n.read ? '' : 'unread'}" data-n="${n.id}"><span>${n.text}</span><small class="muted">${App.timeAgo(n.at)}</small></a>`) : App.h`<p class="muted pad">You’re all caught up.</p>`}`);
+    $('notif-menu').innerHTML = String(App.h`<div class="menu-head row-between"><strong>${App.t('Notifications')}</strong><button class="link" id="mark-read">${App.t('Mark all read')}</button></div>
+      ${list.length ? list.map(n => App.h`<a href="${n.link || '#'}" class="notif ${n.read ? '' : 'unread'}" data-n="${n.id}"><span>${n.text}</span><small class="muted">${App.timeAgo(n.at)}</small></a>`) : App.h`<p class="muted pad">${App.t('You’re all caught up.')}</p>`}`);
     $('mark-read').onclick = (e) => {
       e.stopPropagation();
       App.db.notifications.forEach(n => { if (n.userId === me.id) n.read = true; });
@@ -243,7 +244,7 @@ App.renderTabbar = (route) => {
   const path = '#' + (route.path.split('?')[0] || '/');
   const active = tabs.map(t => t[0]).filter(h => h === '#/' ? path === '#/' : path.startsWith(h)).sort((a, b) => b.length - a.length)[0]
     || (route.page === 'account' ? tabs.find(t => t[0].startsWith('#/account'))?.[0] : null);
-  bar.innerHTML = tabs.map(([href, label, icon, count]) => `<a href="${href}" class="${href === active ? 'active' : ''}" ${href === active ? 'aria-current="page"' : ''}>
+  bar.innerHTML = tabs.map(([href, label, icon, count]) => [href, App.t(label), icon, count]).map(([href, label, icon, count]) => `<a href="${href}" class="${href === active ? 'active' : ''}" ${href === active ? 'aria-current="page"' : ''}>
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${ICONS[icon]}</svg>${App.esc(label)}${count ? `<span class="tb-dot">${count}</span>` : ''}</a>`).join('');
   // Pages with their own bottom action bar or chat box hide the tab bar
   const own = ['van', 'book'].includes(route.page) || (['account', 'owner'].includes(route.page) && route.params.tab === 'messages' && route.params.id);
@@ -263,15 +264,16 @@ App.renderFooter = () => {
     <div class="container footer-grid">
       <div>
         <div class="logo logo-light"><span>Van<b>Yatra</b></span></div>
-        <p>India’s camper van marketplace. Every owner is ID-verified, every van is insured and safety-inspected.</p>
-        <p class="small">24×7 roadside help: <a href="tel:${App.C.supportPhone}">${App.C.supportPhone}</a> · Emergency: ${App.C.emergencyNumber}</p>
+        <p>${App.t('India’s camper van marketplace. Every owner is ID-verified, every van is insured and safety-inspected.')}</p>
+        <p class="small">${App.t('24×7 roadside help')}: <a href="tel:${App.C.supportPhone}">${App.C.supportPhone}</a> · ${App.t('Emergency')}: ${App.C.emergencyNumber}</p>
+        <p class="small">${App.langSwitch('footer-lang')}${App.lang === 'hi' ? App.h` <span class="lang-draft">${App.t('The Hindi translation is a draft, and some pages are still in English.')}</span>` : ''}</p>
       </div>
-      <div><h2 class="footer-h">Explore</h2><a href="#/destinations">Destinations</a><a href="#/search">All vans</a><a href="#/map">Map</a><a href="#/plan">Trip planner</a><a href="#/guide">First-timer’s guide</a><a href="#/search?family=1">Family trips</a></div>
-      <div><h2 class="footer-h">Owners</h2><a href="#/list-your-van">List your van</a><a href="#/owner">Owner dashboard</a><a href="#/help/owners">Owner requirements</a></div>
-      <div><h2 class="footer-h">Support</h2><a href="#/help/safety">Trust & safety</a><a href="#/help/faq">FAQs</a><a href="#/help/support">Contact support</a><a href="#/help/cancellation">Cancellation & refunds</a><a href="#/help/terms">Terms</a><a href="#/help/privacy">Privacy</a></div>
+      <div><h2 class="footer-h">${App.t('Explore')}</h2><a href="#/destinations">${App.t('Destinations')}</a><a href="#/search">${App.t('All vans')}</a><a href="#/map">${App.t('Map')}</a><a href="#/plan">${App.t('Trip planner')}</a><a href="#/guide">${App.t('First-timer’s guide')}</a><a href="#/search?family=1">${App.t('Family trips')}</a></div>
+      <div><h2 class="footer-h">${App.t('Owners')}</h2><a href="#/list-your-van">${App.t('List your van')}</a><a href="#/owner">${App.t('Owner dashboard')}</a><a href="#/help/owners">${App.t('Owner requirements')}</a></div>
+      <div><h2 class="footer-h">${App.t('Support')}</h2><a href="#/help/safety">${App.t('Trust & safety')}</a><a href="#/help/faq">${App.t('FAQs')}</a><a href="#/help/support">${App.t('Contact support')}</a><a href="#/help/cancellation">${App.t('Cancellation & refunds')}</a><a href="#/help/terms">${App.t('Terms')}</a><a href="#/help/privacy">${App.t('Privacy')}</a></div>
     </div>
     <div class="container footer-bottom"><span>© ${new Date().getFullYear()} VanYatra (demo prototype). Prices in ${App.C.currency}, incl. ${App.C.taxLabel} where shown.
-      ${App.backend === 'demo' ? App.h` · Demo mode: accounts, bookings and document checks (test mode) are saved in this browser only` : App.serverOnline ? App.h` · Document checks: ${App.verifyConfig.provider}` : ''}</span><button class="link" id="reset-demo">Reset demo data</button></div>`);
+      ${App.backend === 'demo' ? App.h` · Demo mode: accounts, bookings and document checks (test mode) are saved in this browser only` : App.serverOnline ? App.h` · Document checks: ${App.verifyConfig.provider}` : ''}</span><button class="link" id="reset-demo">${App.t('Reset demo data')}</button></div>`);
   document.getElementById('reset-demo').onclick = async () => {
     if (await App.confirm('Reset demo data?', 'This restores all vans, bookings and accounts to their original state and signs you out.', 'Reset')) {
       await App.api.logout(); App.resetDemo(); await App.syncMarket().catch(() => {}); App.runExpiryChecks(); App.toast('Demo data reset', 'good'); App.go('#/');
@@ -303,8 +305,8 @@ App.pages.notFound = (el) => {
     <div class="chips">${popular.map(d => App.h`<a class="chip" href="#/destinations/${d.id}">${d.name}</a>`)}</div>
     <h2 class="section-sub">Or go to</h2>
     <ul class="plain nf-links">
-      <li><a href="#/">Home</a></li><li><a href="#/search">All vans</a></li><li><a href="#/destinations">All destinations</a></li>
-      <li><a href="#/map">Map</a></li><li><a href="#/help">Help centre</a></li><li><a href="#/list-your-van">List your van</a></li>
+      <li><a href="#/">Home</a></li><li><a href="#/search">${App.t('All vans')}</a></li><li><a href="#/destinations">All destinations</a></li>
+      <li><a href="#/map">${App.t('Map')}</a></li><li><a href="#/help">Help centre</a></li><li><a href="#/list-your-van">${App.t('List your van')}</a></li>
     </ul>
     <p class="small muted">Followed a link from somewhere? <a href="#/help/support?topic=broken-link&amp;url=${encodeURIComponent(broken)}">Tell us it’s broken</a>.</p>
   </div>`);

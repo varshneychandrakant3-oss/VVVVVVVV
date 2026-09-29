@@ -57,8 +57,8 @@ window.App = window.App || {};
     if (bar) return;
     bar = document.createElement('div');
     bar.id = 'consent-bar'; bar.className = 'consent-bar'; bar.setAttribute('role', 'region'); bar.setAttribute('aria-label', 'Analytics choice');
-    bar.innerHTML = String(App.h`<p class="small">May we count anonymous page visits and booking steps to improve VanYatra? No ads, no third-party trackers. <a href="#/help/privacy">Privacy</a></p>
-      <div class="row gap"><button type="button" class="btn btn-sm btn-ghost" data-consent="denied">No thanks</button><button type="button" class="btn btn-sm btn-primary" data-consent="granted">Allow</button></div>`);
+    bar.innerHTML = String(App.h`<p class="small">${App.t('May we count anonymous page visits and booking steps to improve VanYatra? No ads, no third-party trackers.')} <a href="#/help/privacy">${App.t('Privacy')}</a></p>
+      <div class="row gap"><button type="button" class="btn btn-sm btn-ghost" data-consent="denied">${App.t('No thanks')}</button><button type="button" class="btn btn-sm btn-primary" data-consent="granted">${App.t('Allow')}</button></div>`);
     bar.querySelectorAll('[data-consent]').forEach(b => b.onclick = () => App.analytics.setConsent(b.dataset.consent));
     document.body.append(bar);
   };

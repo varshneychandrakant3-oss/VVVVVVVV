@@ -48,18 +48,18 @@ const socialProof = () => {
 
 /* Shared search form used on home and destination pages */
 const searchForm = (q = {}, compact = false) => h`
-  <form class="search-form ${compact ? 'compact' : ''}" id="search-form" role="search" aria-label="Find a camper van">
-    <label class="sf-field sf-dest"><span>Where to?</span>
+  <form class="search-form ${compact ? 'compact' : ''}" id="search-form" role="search" aria-label="${App.t('Find a camper van')}">
+    <label class="sf-field sf-dest"><span>${App.t('Where to?')}</span>
       <select name="dest">
-        <option value="">Anywhere in India</option>
+        <option value="">${App.t('Anywhere in India')}</option>
         ${App.db.destinations.map(d => h`<option value="${d.id}" ${q.dest === d.id ? 'selected' : ''}>${d.name}</option>`)}
       </select></label>
     <div class="sf-field sf-dates" data-start="${q.start || ''}" data-end="${q.end || ''}"></div>
-    <label class="sf-field sf-small"><span>Travellers</span>
+    <label class="sf-field sf-small"><span>${App.t('Travellers')}</span>
       <select name="guests">${[1, 2, 3, 4, 5, 6].map(n => h`<option value="${n}" ${+q.guests === n || (!q.guests && n === 2) ? 'selected' : ''}>${n}${n === 6 ? '+' : ''}</option>`)}</select></label>
-    <label class="sf-field"><span>Van type</span>
-      <select name="type"><option value="">Any type</option>${App.VAN_TYPES.map(t => h`<option ${q.type === t ? 'selected' : ''}>${t}</option>`)}</select></label>
-    <button class="btn btn-accent btn-lg" type="submit"><span aria-hidden="true">${App.icon('search')}</span> Search vans</button>
+    <label class="sf-field"><span>${App.t('Van type')}</span>
+      <select name="type"><option value="">${App.t('Any type')}</option>${App.VAN_TYPES.map(t => h`<option ${q.type === t ? 'selected' : ''}>${t}</option>`)}</select></label>
+    <button class="btn btn-accent btn-lg" type="submit"><span aria-hidden="true">${App.icon('search')}</span> ${App.t('Search vans')}</button>
   </form>`;
 
 const bindSearchForm = (el) => {
@@ -100,33 +100,33 @@ App.pages.home = (el) => {
     ${App.img(window.VY_HERO || 'photo-1534540378968-85a7b8fde19f', { w: 1600, sizes: '100vw', cls: 'hero-img', eager: true })}
     <div class="hero-shade"></div>
     <div class="container hero-inner">
-      <p class="eyebrow light">Camper van rentals across India</p>
-      <h1>Your home on wheels<br>for the <em>road trip</em> of a lifetime</h1>
-      <p class="hero-sub">Discover Himalayan passes, Goan beaches and Kerala backwaters. Book a verified, insured camper van in minutes — with transparent prices and no surprises.</p>
+      <p class="eyebrow light">${App.t('Camper van rentals across India')}</p>
+      ${App.lang === 'hi' ? h`<h1>पहियों पर आपका घर,<br>ज़िंदगी की सबसे यादगार <em>रोड ट्रिप</em> के लिए</h1>` : h`<h1>Your home on wheels<br>for the <em>road trip</em> of a lifetime</h1>`}
+      <p class="hero-sub">${App.t('Discover Himalayan passes, Goan beaches and Kerala backwaters. Book a verified, insured camper van in minutes — with transparent prices and no surprises.')}</p>
       ${searchForm({})}
       <ul class="hero-trust">
-        <li>✓ ${App.plural(vans.length, 'verified van')}</li><li>✓ Insurance included</li><li>✓ 24×7 roadside help</li><li>✓ Free cancellation on many vans</li>
+        <li>✓ ${App.tn(vans.length, 'verified van')}</li><li>✓ ${App.t('Insurance included')}</li><li>✓ ${App.t('24×7 roadside help')}</li><li>✓ ${App.t('Free cancellation on many vans')}</li>
       </ul>
     </div>
   </section>
 
   <section class="section container">
-    <div class="section-head"><div><p class="eyebrow">How it works</p><h2>From dream to driveway in three steps</h2></div></div>
+    <div class="section-head"><div><p class="eyebrow">${App.t('How it works')}</p><h2>${App.t('From dream to driveway in three steps')}</h2></div></div>
     <ol class="steps-3">
-      <li><span class="step-n">1</span><h3>Pick a destination</h3><p>Browse routes, best seasons, campsites and family tips for every region.</p></li>
-      <li><span class="step-n">2</span><h3>Choose your van</h3><p>Compare real photos, beds, amenities and live availability. Every owner is verified.</p></li>
-      <li><span class="step-n">3</span><h3>Book & hit the road</h3><p>Pay securely, see every rupee up front, and get your trip plan and pickup details instantly.</p></li>
+      <li><span class="step-n">1</span><h3>${App.t('Pick a destination')}</h3><p>${App.t('Browse routes, best seasons, campsites and family tips for every region.')}</p></li>
+      <li><span class="step-n">2</span><h3>${App.t('Choose your van')}</h3><p>${App.t('Compare real photos, beds, amenities and live availability. Every owner is verified.')}</p></li>
+      <li><span class="step-n">3</span><h3>${App.t('Book & hit the road')}</h3><p>${App.t('Pay securely, see every rupee up front, and get your trip plan and pickup details instantly.')}</p></li>
     </ol>
-    <p class="center"><a class="btn btn-primary" href="#/plan">${App.icon('route')} Plan a trip</a> <a class="btn btn-ghost" href="#/guide">New to van life? Start here</a> <a class="btn btn-ghost" href="#/deals">${App.icon('sparkles')} Deals</a></p>
+    <p class="center"><a class="btn btn-primary" href="#/plan">${App.icon('route')} ${App.t('Plan a trip')}</a> <a class="btn btn-ghost" href="#/guide">${App.t('New to van life? Start here')}</a> <a class="btn btn-ghost" href="#/deals">${App.icon('sparkles')} ${App.t('Deals')}</a></p>
   </section>
 
   <section class="section container">
-    <div class="section-head"><div><p class="eyebrow">In season now</p><h2>Where will the road take you?</h2></div><a class="link-arrow" href="#/destinations">All destinations →</a></div>
+    <div class="section-head"><div><p class="eyebrow">${App.t('In season now')}</p><h2>${App.t('Where will the road take you?')}</h2></div><a class="link-arrow" href="#/destinations">${App.t('All destinations →')}</a></div>
     <div class="dest-grid">${dests.slice(0, 5).map((d, i) => destCard(d, i === 0))}</div>
   </section>
 
   <section class="section container">
-    <div class="section-head"><div><p class="eyebrow">Top rated</p><h2>Loved by travellers</h2></div><a class="link-arrow" href="#/search">See all vans →</a></div>
+    <div class="section-head"><div><p class="eyebrow">${App.t('Top rated')}</p><h2>${App.t('Loved by travellers')}</h2></div><a class="link-arrow" href="#/search">${App.t('See all vans →')}</a></div>
     <div class="van-grid">${featured.map(v => App.vanCard(v))}</div>
   </section>
 
@@ -145,23 +145,23 @@ App.pages.home = (el) => {
 
   <section class="section container">
     <div class="trust-grid">
-      <div><span class="trust-ic">${App.icon('id-card')}</span><h3>Verified owners</h3><p>Government ID, vehicle ownership and legal permits checked by our team.</p></div>
-      <div><span class="trust-ic">${App.icon('shield-check')}</span><h3>Insured & inspected</h3><p>Commercial insurance and a 10-point safety inspection before any van goes live.</p></div>
-      <div><span class="trust-ic">${App.icon('credit-card')}</span><h3>Secure payments</h3><p>Pay on VanYatra only. Owners are paid after pickup; deposits are held, not spent.</p></div>
-      <div><span class="trust-ic">${App.icon('phone')}</span><h3>24×7 support</h3><p>Roadside assistance and a real human on the phone, day or night.</p></div>
+      <div><span class="trust-ic">${App.icon('id-card')}</span><h3>${App.t('Verified owners')}</h3><p>${App.t('Government ID, vehicle ownership and legal permits checked by our team.')}</p></div>
+      <div><span class="trust-ic">${App.icon('shield-check')}</span><h3>${App.t('Insured & inspected')}</h3><p>${App.t('Commercial insurance and a 10-point safety inspection before any van goes live.')}</p></div>
+      <div><span class="trust-ic">${App.icon('credit-card')}</span><h3>${App.t('Secure payments')}</h3><p>${App.t('Pay on VanYatra only. Owners are paid after pickup; deposits are held, not spent.')}</p></div>
+      <div><span class="trust-ic">${App.icon('phone')}</span><h3>${App.t('24×7 support')}</h3><p>${App.t('Roadside assistance and a real human on the phone, day or night.')}</p></div>
     </div>
   </section>
   ${socialProof()}
 
   <section class="section container">
-    <div class="section-head"><div><p class="eyebrow">Explore by map</p><h2>Vans and campsites near your route</h2></div><a class="link-arrow" href="#/map">Open full map →</a></div>
+    <div class="section-head"><div><p class="eyebrow">${App.t('Explore by map')}</p><h2>${App.t('Vans and campsites near your route')}</h2></div><a class="link-arrow" href="#/map">${App.t('Open full map →')}</a></div>
     <div class="map map-md" id="home-map" aria-label="Map of destinations"></div>
   </section>
 
   <section class="section container">
     <div class="owner-cta">
-      <div><p class="eyebrow light">For van owners</p><h2>Earn from your camper van</h2><p>List for free, set your own prices and rules, and get paid securely. Our step-by-step onboarding gets you verified and live.</p></div>
-      <a class="btn btn-accent btn-lg" href="#/list-your-van">Start listing</a>
+      <div><p class="eyebrow light">${App.t('For van owners')}</p><h2>${App.t('Earn from your camper van')}</h2><p>${App.t('List for free, set your own prices and rules, and get paid securely. Our step-by-step onboarding gets you verified and live.')}</p></div>
+      <a class="btn btn-accent btn-lg" href="#/list-your-van">${App.t('Start listing')}</a>
     </div>
   </section>`);
   bindSearchForm(el);
@@ -323,14 +323,14 @@ App.pages.search = (el, _p, q) => {
       <form id="filter-form">
         <label class="field"><span>Destination</span><select name="dest"><option value="">Anywhere</option>${App.db.destinations.map(d => h`<option value="${d.id}" ${state.dest === d.id ? 'selected' : ''}>${d.name}</option>`)}</select></label>
         <div class="field"><span id="f-dates-l">Dates</span><div id="f-dates" role="group" aria-labelledby="f-dates-l"></div></div>
-        <label class="field"><span>Travellers</span><input type="number" name="guests" min="1" max="8" value="${state.guests}"></label>
+        <label class="field"><span>${App.t('Travellers')}</span><input type="number" name="guests" min="1" max="8" value="${state.guests}"></label>
         <label class="field"><span>Pickup location</span><select name="pickup"><option value="">Anywhere</option>
           ${['city', 'airport', 'station', 'hotel'].map(t => placeList.some(p => p.type === t) ? h`<optgroup label="${{ city: 'Owner’s base', airport: 'Airports (delivery)', station: 'Stations (delivery)', hotel: 'Hotels (delivery)' }[t]}">${placeList.filter(p => p.type === t).map(p => h`<option value="${p.id}" ${state.pickup === p.id ? 'selected' : ''}>${p.name}</option>`)}</optgroup>` : '')}</select></label>
         <fieldset class="field"><legend>Price per night</legend>
           <div class="grid-2"><label class="small">Min<input type="number" name="min" step="500" min="0" value="${state.min}"></label><label class="small">Max<input type="number" name="max" step="500" min="0" value="${state.max}"></label></div>
           <input type="range" name="maxRange" min="2000" max="${maxP}" step="500" value="${state.max}" aria-label="Maximum price per night">
         </fieldset>
-        <fieldset class="field"><legend>Van type</legend>${App.VAN_TYPES.map(t => h`<label class="check"><input type="checkbox" name="types" value="${t}" ${state.types.includes(t) ? 'checked' : ''}> ${t}</label>`)}</fieldset>
+        <fieldset class="field"><legend>${App.t('Van type')}</legend>${App.VAN_TYPES.map(t => h`<label class="check"><input type="checkbox" name="types" value="${t}" ${state.types.includes(t) ? 'checked' : ''}> ${t}</label>`)}</fieldset>
         <fieldset class="field"><legend>Good to know</legend>
           <label class="check"><input type="checkbox" name="family" ${state.family ? 'checked' : ''}> ${App.icon('users')} Family friendly</label>
           <label class="check"><input type="checkbox" name="pets" ${state.pets ? 'checked' : ''}> ${App.icon('paw-print')} Pet friendly</label>
@@ -575,7 +575,7 @@ App.pages.van = (el, { id }, q) => {
         </section>
         ${van.instantBook ? h`<div class="callout">${App.icon('zap')} <strong>Instant book</strong> — your booking is confirmed straight away, no waiting.</div>` : h`<div class="callout">${App.icon('clock')} <strong>Request to book</strong> — the owner responds within 24 hours. You're only charged if they accept.</div>`}
         ${trustPanel(van)}
-        ${App.MOUNTAIN_REGIONS.includes(van.destinationId) ? h`<div class="callout promise-callout"><strong>${App.icon('mountain')} Mountain Promise included</strong> — if an official closure (landslide, pass closure, snow) blocks your route, change dates for free or take full credit. <a href="#/help/mountain-promise">How it works</a></div>` : ''}
+        ${App.MOUNTAIN_REGIONS.includes(van.destinationId) ? h`<div class="callout promise-callout"><strong>${App.icon('mountain')} Mountain Promise included</strong> — if an official closure (landslide, pass closure, snow) blocks your route, change dates for free or take full credit. <a href="#/help/mountain-promise">${App.t('How it works')}</a></div>` : ''}
         <section class="block"><h2>About this van</h2><p>${van.description}</p>${van.video ? h`<button type="button" class="btn btn-ghost" id="video-btn">${App.icon('camera')} Watch the video walkthrough</button>` : ''}</section>
         ${goodToKnow(van)}
         ${tripOptions(van)}

@@ -11,7 +11,7 @@
  * The files to cache are read from index.html, so there is no list to maintain.
  * Change VERSION on a release to prompt open tabs to refresh.
  */
-const VERSION = '2026-09-29.4';
+const VERSION = '2026-09-29.5';
 const SHELL = 'vanyatra-shell-' + VERSION;
 const IMAGES = 'vanyatra-images';
 const IMAGE_LIMIT = 150;
