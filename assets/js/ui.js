@@ -43,9 +43,9 @@ App.img = (src, { w = 640, sizes = '(min-width: 900px) 33vw, 100vw', alt = '', c
   if (!src) return '';
   const dims = width ? App.h` width="${width}" height="${height}"` : '';
   if (!src.startsWith('photo-')) return App.h`<img class="${cls}" src="${src}" alt="${alt}"${dims} ${eager ? '' : App.h`loading="lazy"`} decoding="async">`;
-  const widths = [320, 480, 640, 960, 1280, 1600].filter(x => x <= w * 2);
+  const widths = [320, 480, 640, 800, 960, 1280, 1600].filter(x => x <= w * 2);
   const srcset = widths.map(x => `${unsplash(src, x)} ${x}w`).join(', ');
-  return App.h`<img class="blur-up ${cls}" src="${unsplash(src, w)}" srcset="${srcset}" sizes="${sizes}" alt="${alt}"${dims} ${eager ? App.h`fetchpriority="high"` : App.h`loading="lazy"`} decoding="async" style="background-image:url('${unsplash(src, 24, '&q=20&blur=30')}')">`;
+  return App.h`<img class="blur-up ${cls}" src="${unsplash(src, w)}" srcset="${srcset}" sizes="${sizes}" alt="${alt}"${dims} ${eager ? App.h`fetchpriority="high"` : App.h`loading="lazy" fetchpriority="low"`} decoding="async" style="background-image:url('${unsplash(src, 24, '&q=20&blur=30')}')">`;
 };
 // Demo listings use sample photos; owner uploads are data URLs until object storage is connected
 App.samplePhotos = (van) => (van.photos || []).every(p => p.startsWith('photo-'));
@@ -422,11 +422,18 @@ App.mapCard = {
 };
 // India's official boundary (DataMeet "India composite", CC BY 4.0), loaded once
 App.loadIndiaBoundary = () => App._indiaP || (App._indiaP = fetch('assets/data/india-boundary.geojson').then(r => (r.ok ? r.json() : null)).catch(() => null));
+// Resolves once el is within a screen's height of the viewport (maps and other heavy widgets)
+App.nearView = (el) => new Promise(resolve => {
+  if (!('IntersectionObserver' in window)) return resolve();
+  const io = new IntersectionObserver((entries) => { if (entries.some(e => e.isIntersecting)) { io.disconnect(); resolve(); } }, { rootMargin: '600px 0px' });
+  io.observe(el);
+});
 /* markers: [{lat, lng, html, label, kind:'van'|'dest'|'camp', price}]  */
 App.mountMap = async (el, markers, { zoom = 5, center, circle, cluster = true } = {}) => {
   if (!el) return null;
   if (!el.firstChild) el.innerHTML = '<div class="map-loading" role="status"><span class="spinner" aria-hidden="true"></span> Loading map…</div>';
   try {
+    await App.nearView(el);
     const L = await App.loadLeaflet();
     if (!el.isConnected) return null;
     el.innerHTML = '';

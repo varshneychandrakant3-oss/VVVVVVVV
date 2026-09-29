@@ -9,29 +9,6 @@
 (() => {
 const { h, money, photo } = App;
 
-App.ONBOARDING_STEPS = [
-  { id: 'account', scope: 'owner', title: 'Account & contact verification', blurb: 'Verify your email and mobile number.' },
-  { id: 'kyc', scope: 'owner', title: 'Identity verification (KYC)', blurb: 'Aadhaar via DigiLocker, PAN and a live selfie.' },
-  { id: 'business', scope: 'owner', title: 'Business & contact details', blurb: 'How travellers and our team reach you.' },
-  { id: 'ownership', scope: 'van', title: 'Vehicle ownership', blurb: 'Checked against the VAHAN registry.' },
-  { id: 'registration', scope: 'van', title: 'Registration & legal documents', blurb: 'RC, rental licence, PUC, fitness and permits.' },
-  { id: 'insurance', scope: 'van', title: 'Insurance', blurb: 'Commercial cover for self-drive rental.' },
-  { id: 'inspection', scope: 'van', title: 'Safety inspection', blurb: 'Roadworthiness and habitation checks.' },
-  { id: 'photos', scope: 'van', title: 'Photos & specifications', blurb: 'Show travellers what they’re booking.' },
-  { id: 'listing', scope: 'van', title: 'Pricing, availability & rules', blurb: 'Prices, seasons and deals, blocked dates, extras, driver and delivery, deposit, rules.' },
-  { id: 'payout', scope: 'owner', title: 'Payout setup', blurb: 'Bank account checked with a ₹1 deposit.' },
-  { id: 'review', scope: 'van', title: 'Platform review', blurb: 'Our team checks everything (≈2 business days).' },
-  { id: 'publish', scope: 'van', title: 'Publish listing', blurb: 'Go live and start taking bookings.' }
-];
-
-App.stepStatus = (step, ownerId, van) => {
-  const o = App.db.owners[ownerId] || {};
-  if (step.scope === 'owner') return o[step.id]?.status || 'not_started';
-  if (!van) return 'not_started';
-  if (step.id === 'publish') return van.status === 'published' ? 'verified' : van.status === 'suspended' ? 'action_required' : 'not_started';
-  return van.verification?.[step.id] || 'not_started';
-};
-
 /* ---------- Small helpers ---------- */
 const fileField = (name, label, required = true) => h`<label class="field"><span>${label}${required ? '' : ' (optional)'}</span><input type="file" name="${name}" accept=".pdf,image/jpeg,image/png" ${required ? 'required' : ''}><small class="muted">PDF, JPG or PNG up to 10 MB. Only our verification team can view it.</small></label>`;
 const checkFile = (input) => {
@@ -40,15 +17,6 @@ const checkFile = (input) => {
   if (f.size > 10 * 1024 * 1024) throw new Error('Files must be under 10 MB.');
   if (!/(pdf|jpe?g|png)$/i.test(f.name)) throw new Error('Upload a PDF, JPG or PNG.');
   return f.name;
-};
-const OUTCOME = { verified: ['good', '✓ Verified'], review: ['warn', '! Needs review'], failed: ['bad', '✕ Failed'] };
-App.checkResultBox = (r) => {
-  if (!r) return '';
-  const [tone, label] = OUTCOME[r.status] || ['muted', r.status];
-  return h`<div class="check-result check-${tone}" role="status">
-    <div class="row-between wrap"><strong>${label}</strong><span class="small muted">${r.source} · ${App.fmtDateTime(r.checkedAt)}</span></div>
-    <ul>${(r.reasons || []).map(x => h`<li class="lvl-${x.level}">${x.level === 'ok' ? '✓' : x.level === 'review' ? '!' : '✕'} ${x.text}</li>`)}</ul>
-  </div>`;
 };
 const testHint = (text) => App.verifyConfig?.testMode ? h`<p class="test-hint">${App.icon('flask-conical')} <strong>Test mode</strong> — no real government check is made. ${text}</p>` : '';
 // Run an async action with a busy button; server errors become toasts

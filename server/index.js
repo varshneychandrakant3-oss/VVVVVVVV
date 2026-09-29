@@ -3,6 +3,8 @@
 import http from 'node:http';
 import fs from 'node:fs';
 import path from 'node:path';
+import crypto from 'node:crypto';
+import zlib from 'node:zlib';
 import { fileURLToPath } from 'node:url';
 import { config, validateConfig, ROOT } from './config.js';
 import { HttpError, sendJson, redirect, readJson, clientIp, SECURITY_HEADERS } from './lib/http.js';
@@ -19,6 +21,8 @@ const TYPES = { '.html': 'text/html; charset=utf-8', '.css': 'text/css; charset=
 const PUBLIC_FILES = ['index.html', 'sw.js', '404.html', 'sitemap.xml', 'robots.txt'];
 const PUBLIC_DIRS = ['assets/', 'vans/', 'destinations/', 'help/', 'guide/', 'deals/'];
 
+const gzipCache = new Map();
+
 function serveStatic(req, res, pathname) {
   // Only index.html and /assets/ are public; everything else (server/, data/, .env) is not
   let rel = pathname === '/' ? 'index.html' : pathname.slice(1);
@@ -29,7 +33,16 @@ function serveStatic(req, res, pathname) {
   if (!PUBLIC_DIRS.some(d => full.startsWith(path.join(ROOT, d))) && !PUBLIC_FILES.some(f => full === path.join(ROOT, f))) throw new HttpError(404, 'Not found');
   let data;
   try { data = fs.readFileSync(full); } catch { throw new HttpError(404, 'Not found'); }
-  res.writeHead(200, { 'Content-Type': TYPES[path.extname(full)] || 'application/octet-stream', 'Cache-Control': 'no-cache', ...SECURITY_HEADERS });
+  const type = TYPES[path.extname(full)] || 'application/octet-stream';
+  const etag = '"' + crypto.createHash('sha1').update(data).digest('base64url').slice(0, 20) + '"';
+  const headers = { 'Content-Type': type, 'Cache-Control': 'no-cache', ETag: etag, Vary: 'Accept-Encoding', ...SECURITY_HEADERS };
+  if (req.headers['if-none-match'] === etag) { res.writeHead(304, headers); return res.end(); }
+  if (/text|json|xml|javascript|svg|manifest/.test(type) && data.length > 1024 && /\bgzip\b/.test(req.headers['accept-encoding'] || '')) {
+    data = gzipCache.get(etag) || zlib.gzipSync(data, { level: 9 });
+    gzipCache.set(etag, data);
+    headers['Content-Encoding'] = 'gzip';
+  }
+  res.writeHead(200, headers);
   res.end(data);
 }
 

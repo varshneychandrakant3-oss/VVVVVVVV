@@ -79,7 +79,7 @@ const bindSearchForm = (el) => {
 const destCard = (d, big = false) => {
   const count = publishedVans().filter(v => v.destinationId === d.id).length;
   return h`<a class="dest-card ${big ? 'big' : ''}" href="#/destinations/${d.id}">
-    <img src="${photo(d.hero, big ? 1200 : 700)}" alt="${d.name}" loading="lazy">
+    ${App.img(d.hero, { w: big ? 960 : 640, alt: d.name, sizes: big ? '(min-width: 900px) 50vw, 100vw' : '(min-width: 900px) 25vw, (min-width: 600px) 50vw, 100vw' })}
     <div class="dest-card-overlay">
       <span class="eyebrow">${d.region}</span>
       <h3>${d.name}</h3>
@@ -97,7 +97,7 @@ App.pages.home = (el) => {
   const dests = [...inSeason, ...App.db.destinations.filter(d => !inSeason.includes(d))];
   el.innerHTML = String(h`
   <section class="hero">
-    <img class="hero-img" src="${photo('photo-1534540378968-85a7b8fde19f', 1800)}" alt="" fetchpriority="high">
+    ${App.img(window.VY_HERO || 'photo-1534540378968-85a7b8fde19f', { w: 1600, sizes: '100vw', cls: 'hero-img', eager: true })}
     <div class="hero-shade"></div>
     <div class="container hero-inner">
       <p class="eyebrow light">Camper van rentals across India</p>
@@ -139,7 +139,7 @@ App.pages.home = (el) => {
         <div class="chip-row">${App.db.destinations.filter(d => d.familyScore >= 5).map(d => h`<a class="chip chip-link" href="#/destinations/${d.id}">${d.name}</a>`)}</div>
         <a class="btn btn-primary" href="#/search?family=1">Browse family-friendly vans</a>
       </div>
-      <img class="rounded-img" src="${photo('photo-1477512076069-d31eb021716f', 900)}" alt="Family relaxing at a lakeside campsite" loading="lazy">
+      ${App.img('photo-1477512076069-d31eb021716f', { w: 900, cls: 'rounded-img', alt: 'Family relaxing at a lakeside campsite', sizes: '(min-width: 900px) 45vw, 100vw' })}
     </div>
   </section>
 
@@ -228,7 +228,7 @@ App.pages.destination = (el, { id }) => {
   const monthNames = ['J', 'F', 'M', 'A', 'M', 'J', 'J', 'A', 'S', 'O', 'N', 'D'];
   el.innerHTML = String(h`
   <section class="hero hero-dest">
-    <img class="hero-img" src="${photo(d.hero, 1800)}" alt="${d.name}">
+    ${App.img(d.hero, { w: 1600, sizes: '100vw', cls: 'hero-img', alt: d.name, eager: true })}
     <div class="hero-shade"></div>
     <div class="container hero-inner">
       <nav class="crumbs light" aria-label="Breadcrumb"><a href="#/destinations">Destinations</a> / <span>${d.name}</span></nav>
@@ -252,7 +252,7 @@ App.pages.destination = (el, { id }) => {
       ${beforeYouGo(d)}
       <section class="block"><h2>Top attractions</h2><div class="chip-row">${d.attractions.map(a => h`<span class="chip">${App.icon('map-pin')} ${a}</span>`)}</div></section>
       <section class="block"><h2>Things to do</h2><div class="chip-row">${d.activities.map(a => h`<span class="chip">${a}</span>`)}</div></section>
-      <section class="block"><h2>Photos</h2><div class="photo-strip">${d.gallery.map(g => h`<img src="${photo(g, 600)}" alt="${d.name} scenery" loading="lazy">`)}</div></section>
+      <section class="block"><h2>Photos</h2><div class="photo-strip">${d.gallery.map(g => h`${App.img(g, { w: 600, alt: `${d.name} scenery`, sizes: '(min-width: 900px) 30vw, 80vw' })}`)}</div></section>
       <section class="block"><h2>Campsites & van-friendly spots</h2>
         <div class="map map-md" id="dest-map"></div>
         <ul class="camp-list">${d.campsites.map(c => h`<li>${App.icon('tent')} <strong>${c.name}</strong> <span class="badge badge-muted">${c.type}</span><div class="small muted">${c.facilities.join(' · ')}</div></li>`)}${(App.TRIP_GUIDES[d.id]?.spots || []).map(s => h`<li>${App.icon(App.SPOT_TYPES[s.type][1])} <strong>${s.name}</strong> <span class="badge badge-muted">${App.SPOT_TYPES[s.type][0]}</span>${s.note ? h`<div class="small muted">${s.note}</div>` : ''}</li>`)}</ul>

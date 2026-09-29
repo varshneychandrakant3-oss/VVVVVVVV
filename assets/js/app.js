@@ -58,6 +58,21 @@ App.parseHash = () => {
 
 App.go = (hash) => { if (location.hash === hash) App.render(); else location.hash = hash; };
 
+// Owner and admin screens (about a fifth of the code) load the first time they're opened
+const STAFF_PAGES = ['owner', 'admin', 'onboarding'];
+App.loadStaff = () => App._staffP || (App._staffP = new Promise((resolve, reject) => {
+  const srcs = [...(document.getElementById('staff-scripts')?.content.querySelectorAll('script') || [])].map(s => s.getAttribute('src'));
+  let left = srcs.length;
+  if (!left) return resolve();
+  srcs.forEach(src => {
+    const s = document.createElement('script');
+    s.src = src; s.async = false; // keep their order
+    s.onload = () => { if (!--left) resolve(); };
+    s.onerror = () => { App._staffP = null; reject(new Error('Couldn’t load ' + src)); };
+    document.body.append(s);
+  });
+}));
+
 App.render = () => {
   const route = App.parseHash();
   const me = App.me();
@@ -71,6 +86,13 @@ App.render = () => {
     }
   }
   App.renderHeader();
+  if (STAFF_PAGES.includes(route.page) && !App.pages[route.page]) {
+    main.innerHTML = '<div class="boot-loading" role="status"><span><span class="spinner" aria-hidden="true"></span> Loading…</span></div>';
+    const hash = location.hash;
+    App.loadStaff().then(() => { if (location.hash === hash) App.render(); })
+      .catch(e => { main.innerHTML = String(App.emptyState('📶', 'Couldn’t open this page', e.message + ' Check your connection and try again.', App.h`<a class="btn btn-primary" href="${hash}">Try again</a>`)); });
+    return;
+  }
   main.innerHTML = '';
   main.className = 'page page-' + route.page;
   const fn = App.pages[route.page] || App.pages.notFound;
@@ -86,7 +108,7 @@ App.render = () => {
   const dnav = main.querySelector('.dash-nav nav'), act = dnav && dnav.querySelector('a.active');
   if (act) dnav.scrollLeft = act.offsetLeft - dnav.clientWidth / 2 + act.clientWidth / 2;
   const h1 = main.querySelector('h1');
-  document.title = (h1 ? h1.innerText.replace(/\s+/g, ' ').trim() + ' · ' : '') + 'VanYatra — Camper van rentals in India';
+  document.title = (h1 ? h1.textContent.replace(/\s+/g, ' ').trim() + ' · ' : '') + 'VanYatra — Camper van rentals in India';
   App.setMeta(route, main);
 };
 
@@ -98,7 +120,7 @@ App.setMeta = (route, main) => {
   const van = route.page === 'van' && App.get.van(route.params.id), dest = route.page === 'destination' && App.get.dest(route.params.id);
   const desc = van ? `${van.type} in ${van.pickup.city}: sleeps ${van.sleeps}, from ${App.fmt.money(van.pricePerNight)} a night. ${van.description.slice(0, 90)}…`
     : dest ? `${dest.tagline}. Best time: ${dest.bestTime}.`
-    : (main.querySelector('p.lead, .hero-sub, main p')?.innerText || 'Discover destinations, find verified camper vans and book your road trip across India with transparent pricing.').slice(0, 160);
+    : (main.querySelector('p.lead, .hero-sub, main p')?.textContent.replace(/\s+/g, ' ').trim() || 'Discover destinations, find verified camper vans and book your road trip across India with transparent pricing.').slice(0, 160);
   set('meta[name="description"]', 'content', desc);
   set('meta[property="og:title"]', 'content', document.title, ['meta', { property: 'og:title' }]);
   set('meta[property="og:description"]', 'content', desc, ['meta', { property: 'og:description' }]);
@@ -244,9 +266,9 @@ App.renderFooter = () => {
         <p>India’s camper van marketplace. Every owner is ID-verified, every van is insured and safety-inspected.</p>
         <p class="small">24×7 roadside help: <a href="tel:${App.C.supportPhone}">${App.C.supportPhone}</a> · Emergency: ${App.C.emergencyNumber}</p>
       </div>
-      <div><h4>Explore</h4><a href="#/destinations">Destinations</a><a href="#/search">All vans</a><a href="#/map">Map</a><a href="#/plan">Trip planner</a><a href="#/guide">First-timer’s guide</a><a href="#/search?family=1">Family trips</a></div>
-      <div><h4>Owners</h4><a href="#/list-your-van">List your van</a><a href="#/owner">Owner dashboard</a><a href="#/help/owners">Owner requirements</a></div>
-      <div><h4>Support</h4><a href="#/help/safety">Trust & safety</a><a href="#/help/faq">FAQs</a><a href="#/help/support">Contact support</a><a href="#/help/cancellation">Cancellation & refunds</a><a href="#/help/terms">Terms</a><a href="#/help/privacy">Privacy</a></div>
+      <div><h2 class="footer-h">Explore</h2><a href="#/destinations">Destinations</a><a href="#/search">All vans</a><a href="#/map">Map</a><a href="#/plan">Trip planner</a><a href="#/guide">First-timer’s guide</a><a href="#/search?family=1">Family trips</a></div>
+      <div><h2 class="footer-h">Owners</h2><a href="#/list-your-van">List your van</a><a href="#/owner">Owner dashboard</a><a href="#/help/owners">Owner requirements</a></div>
+      <div><h2 class="footer-h">Support</h2><a href="#/help/safety">Trust & safety</a><a href="#/help/faq">FAQs</a><a href="#/help/support">Contact support</a><a href="#/help/cancellation">Cancellation & refunds</a><a href="#/help/terms">Terms</a><a href="#/help/privacy">Privacy</a></div>
     </div>
     <div class="container footer-bottom"><span>© ${new Date().getFullYear()} VanYatra (demo prototype). Prices in ${App.C.currency}, incl. ${App.C.taxLabel} where shown.
       ${App.backend === 'demo' ? App.h` · Demo mode: accounts, bookings and document checks (test mode) are saved in this browser only` : App.serverOnline ? App.h` · Document checks: ${App.verifyConfig.provider}` : ''}</span><button class="link" id="reset-demo">Reset demo data</button></div>`);

@@ -169,7 +169,7 @@ App.pages.ownerLanding = (el) => {
   const avg = 6200, nights = 12;
   el.innerHTML = String(h`
   <section class="hero hero-owner">
-    <img class="hero-img" src="${photo('photo-1591091221408-63351f26777a', 1800)}" alt="">
+    ${App.img('photo-1591091221408-63351f26777a', { w: 1600, sizes: '100vw', cls: 'hero-img', eager: true })}
     <div class="hero-shade"></div>
     <div class="container hero-inner">
       <p class="eyebrow light">For camper van owners</p>

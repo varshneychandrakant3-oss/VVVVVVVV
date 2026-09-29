@@ -47,7 +47,7 @@ App.dateRangeField = (host, opts = {}) => {
       <span class="drf-arrow" aria-hidden="true">→</span>
       <span class="drf-part"><span class="drf-label">${o.labels[1]}</span><span class="drf-val ${state.end ? '' : 'is-empty'}">${state.end ? fmt.date(state.end) : o.placeholder}</span></span>
       ${nights() ? App.h`<span class="drf-nights">${fmt.nights(nights())}</span>` : ''}`);
-    btn.setAttribute('aria-label', state.start && state.end ? `${o.labels[0]} ${longLabel(state.start)}, ${o.labels[1].toLowerCase()} ${longLabel(state.end)}, ${fmt.nights(nights())}. Change dates` : `Choose ${o.labels[0].toLowerCase()} and ${o.labels[1].toLowerCase()} dates`);
+    btn.setAttribute('aria-label', state.start && state.end ? `${o.labels[0]} ${longLabel(state.start)}, ${o.labels[1].toLowerCase()} ${longLabel(state.end)}, ${fmt.nights(nights())}. Change dates` : `${o.labels[0]} ${o.placeholder}, ${o.labels[1]} ${o.placeholder}: choose ${o.labels[0].toLowerCase()} and ${o.labels[1].toLowerCase()} dates`);
   };
   const commit = () => {
     inStart.value = state.start; inEnd.value = state.end;

@@ -36,7 +36,7 @@ const ctx = {
 ctx.window = ctx; ctx.globalThis = ctx;
 vm.createContext(ctx);
 const html = fs.readFileSync(path.join(ROOT, 'index.html'), 'utf8');
-const scripts = [...html.matchAll(/<script src="(assets\/js\/[^"]+)"><\/script>/g)].map(m => m[1]).filter(s => !/\/(app|pwa)\.js$/.test(s));
+const scripts = [...html.matchAll(/<script src="(assets\/js\/[^"]+)"(?: defer)?><\/script>/g)].map(m => m[1]).filter(s => !/\/(app|pwa|boot)\.js$/.test(s));
 for (const f of scripts) vm.runInContext(fs.readFileSync(path.join(ROOT, f), 'utf8'), ctx, { filename: f });
 const App = ctx.App;
 App.db = App.buildSeed();

@@ -1,4 +1,5 @@
 // Small HTTP helpers: JSON bodies, responses, cookies, security headers.
+import zlib from 'node:zlib';
 
 export const SECURITY_HEADERS = {
   'Content-Security-Policy': "default-src 'self'; script-src 'self' https://cdnjs.cloudflare.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://cdnjs.cloudflare.com; font-src https://fonts.gstatic.com; img-src 'self' data: blob: https://images.unsplash.com https://server.arcgisonline.com https://cdnjs.cloudflare.com; connect-src 'self'; frame-src https://www.youtube-nocookie.com https://player.vimeo.com; frame-ancestors 'none'; base-uri 'self'; form-action 'self'",
@@ -13,8 +14,12 @@ export class HttpError extends Error {
 }
 
 export function sendJson(res, status, body, headers = {}) {
-  res.writeHead(status, { 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'no-store', ...SECURITY_HEADERS, ...headers });
-  res.end(JSON.stringify(body));
+  let data = JSON.stringify(body);
+  const h = { 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'no-store', Vary: 'Accept-Encoding', ...SECURITY_HEADERS, ...headers };
+  // Large responses (the market data) are gzipped; small ones aren't worth it
+  if (data.length > 2048 && /gzip/.test(res.req?.headers['accept-encoding'] || '')) { data = zlib.gzipSync(data); h['Content-Encoding'] = 'gzip'; }
+  res.writeHead(status, h);
+  res.end(data);
 }
 
 export function redirect(res, location, headers = {}) {
