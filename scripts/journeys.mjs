@@ -146,9 +146,12 @@ const JOURNEYS = {
     const checkoutTotal = T.rupees((T.text('.book-summary').match(/Total\s*₹[\d,]+/) || [''])[0]);
     T.assert(checkoutTotal === quote, 'Checkout total ' + checkoutTotal + ' ≠ quote ' + quote);
     T.noOverflow();
+    // Step 1 → 2 (defaults) → 3 → 4
+    T.$('#book-form').requestSubmit(); await T.until(() => T.$('.prot-table'), 6000, 'protection & extras step');
     T.$('#book-form').requestSubmit(); await T.until(() => T.$('#book-form [name=phone]'), 6000, 'driver step');
     T.assert(!T.$('#book-form [name=licence]'), 'Verified traveller was asked for their licence again');
-    T.$('#book-form').requestSubmit(); await T.until(() => T.$('[name=payMethod]'), 6000, 'payment step');
+    T.$('#book-form').requestSubmit(); await T.until(() => T.$('[name=payMethod]'), 6000, 'review & pay step');
+    T.noOverflow();
     T.$('#book-form').agree.checked = true; T.$('#book-form').requestSubmit();
     await T.clickModal('failed'); await T.until(() => T.$('.alert-bad'), 6000, 'payment failure message');
     const before = App.db.bookings.length;
@@ -217,12 +220,86 @@ const JOURNEYS = {
     return 'range ' + App.fmt.dateRange(start, end);
   },
 
+  // Checkout options: a guest prices a trip, signs in, and pays 25% with a driver, delivery,
+  // one-way drop-off, Standard protection, extras, a km package and a UPI deposit
+  async checkout() {
+    await App.api.logout();
+    const [s, e] = T.futureRange(70, 5);
+    const van = App.db.vans.find(v => v.status === 'published' && v.instantBook && App.driverFor(v) && v.delivery?.oneWay?.length && App.isAvailable(v.id, s, e) && v.minNights <= 5)
+      || App.db.vans.find(v => v.status === 'published' && App.driverFor(v) && v.delivery?.oneWay?.length && App.isAvailable(v.id, s, e) && v.minNights <= 5);
+    T.assert(van, 'No demo van with a driver and one-way option');
+    await T.go('#/book/' + van.id + '?start=' + s + '&end=' + e + '&adults=2&children=1');
+    T.assert(T.$('.book-progress') && T.$$('.stepper li').length === 4, 'Checkout should have 4 steps and a progress bar');
+    // Step 1 as a guest: with driver, delivered to the first point, dropped in another city
+    const f1 = T.$('#book-form');
+    const pick = (name, value) => { const r = f1.querySelector(`[name="${name}"][value="${value}"]`); r.checked = true; r.dispatchEvent(new Event('change', { bubbles: true })); };
+    pick('drive', 'driver'); await T.wait(150);
+    pick('delivery', van.delivery.points[0].id); await T.wait(150);
+    pick('oneWay', van.delivery.oneWay[0].id); await T.wait(150);
+    T.$('#book-form').requestSubmit(); await T.until(() => T.$('.prot-table'), 6000, 'step 2');
+    // Step 2: Standard protection, an extra, the 400 km package
+    const f2 = () => T.$('#book-form');
+    const set = (sel) => { const x = f2().querySelector(sel); x.checked = true; x.dispatchEvent(new Event('change', { bubbles: true })); };
+    set('[name=protection][value=standard]'); await T.wait(150);
+    set('[name=km][value=plus]'); await T.wait(150);
+    set('[name=addOns][value=bedding]'); await T.wait(150);
+    const opts = { addOns: ['bedding'], protection: 'standard', km: 'plus', driver: true, delivery: van.delivery.points[0].id, oneWay: van.delivery.oneWay[0].id, zeroDeposit: false };
+    const quote = App.quote(van, s, e, opts);
+    T.assert(T.rupees((T.text('.book-summary').match(/Total\s*₹[\d,]+/) || [''])[0]) === quote.total, 'Summary total differs from the quote with options');
+    T.assert(/Standard protection/.test(T.text('.book-summary')) && /Driver/.test(T.text('.book-summary')) && /One-way/.test(T.text('.book-summary')), 'Summary is missing chosen options');
+    T.noOverflow();
+    // Step 3 as a guest: must sign in; choices survive the sign-in
+    T.$('#book-form').requestSubmit(); await T.until(() => /Sign in to continue/.test(T.text()), 6000, 'sign-in prompt');
+    const next = T.$$('main a').find(a => a.innerText.trim() === 'Sign in').getAttribute('href');
+    location.hash = next; await T.until(() => T.$('main form [name=email]'), 6000, 'login form');
+    const lf = T.$('main form'); lf.email.value = 'traveller@vanyatra.in'; lf.password.value = 'demo1234'; lf.requestSubmit();
+    await T.until(() => location.hash.startsWith('#/book/'), 8000, 'return to checkout');
+    await T.until(() => T.$('#book-form'), 6000, 'checkout after sign-in');
+    T.assert(T.$$('.stepper li')[2].classList.contains('current'), 'Did not resume at the driver step');
+    T.assert(T.rupees((T.text('.book-summary').match(/Total\s*₹[\d,]+/) || [''])[0]) === quote.total, 'Options were lost across sign-in');
+    // With a driver, no licence is asked
+    T.assert(!T.$('[name=licence]') && /Your driver/.test(T.text()), 'With-driver trip asked for a licence');
+    T.$('#book-form').requestSubmit(); await T.until(() => T.$('[name=payPlan]'), 6000, 'review & pay');
+    // Step 4: 25% now, deposit by UPI, EMI offered
+    set('[name=payPlan][value=part]'); await T.wait(150);
+    set('[name=depositMethod][value=upi]'); await T.wait(150);
+    const plan = App.paymentPlan(quote, s, { plan: 'part', deposit: 'upi' });
+    T.assert(plan.type === 'part' && T.text('.book-summary').includes('Due now') && T.rupees((T.text('.book-summary').match(/Due now\s*₹[\d,]+/) || [''])[0]) === plan.chargeNow, 'Due-now amount wrong');
+    T.assert(T.$('[name=payMethod][value=emi]'), 'EMI not offered for a large amount');
+    T.assert(T.$$('[data-goto]').length >= 3, 'Review should link back to earlier steps');
+    T.noOverflow();
+    T.$('#book-form').agree.checked = true; T.$('#book-form').requestSubmit();
+    await T.clickModal('successful'); await T.until(() => /confirmed/.test(location.hash), 8000, 'confirmation');
+    const b = App.db.bookings.at(-1);
+    T.assert(b.pricing.total === quote.total && b.payment.plan.type === 'part' && b.payment.plan.paid === plan.dueNow && b.depositMethod === 'upi' && b.driver.provided, 'Booking did not store the plan and options');
+    T.assert(/charged automatically/.test(T.text()) && /paid by UPI/.test(T.text()), 'Confirmation does not explain the plan and deposit');
+    T.assert(!localStorage.getItem('vanyatra.checkout.v1'), 'Saved checkout not cleared after booking');
+    // The balance is charged automatically when due; the UPI deposit comes back after the trip
+    if (b.status === 'confirmed') {
+      b.payment.plan.balanceDueOn = App.addDays(App.today(), -1); App.save();
+      App.runExpiryChecks();
+      T.assert(b.payment.plan.balance === 0 && b.payment.plan.paid === quote.total && b.paymentStatus === 'paid', 'Balance was not charged');
+      b.start = App.addDays(App.today(), -6); b.end = App.addDays(App.today(), -1); App.save();
+      App.runExpiryChecks();
+      T.assert(b.status === 'completed' && b.depositStatus === 'refunded', 'UPI deposit not refunded after the trip');
+    }
+    // Owner cancellation guarantee: full refund of what was paid plus a rebooking credit
+    const [s2, e2] = T.futureRange(120, 4);
+    const van2 = App.db.vans.find(v => v.status === 'published' && App.isAvailable(v.id, s2, e2) && v.minNights <= 4);
+    const b2 = App.api.createBooking({ vanId: van2.id, start: s2, end: e2, adults: 2, children: 0, options: {}, driver: { name: 'Priya Sharma', age: 30, licence: 'XXXX2345', phone: '9876543210', check: { status: 'verified' } }, payment: { method: 'upi', label: 'UPI', plan: { type: 'part', depositMethod: 'upi' } }, specialRequests: '' });
+    const creditBefore = App.me().credit || 0;
+    App.api.cancelBooking(b2.id, 'owner', 'Van broke down');
+    T.assert(b2.refund === b2.payment.plan.paid && b2.depositStatus !== 'paid' && (App.me().credit || 0) === creditBefore + App.C.rebookCredit && b2.rebook?.search.includes(s2), 'Owner cancellation guarantee not applied');
+    return b.id + ' ' + App.fmt.money(quote.total) + ' · 25% ' + App.fmt.money(plan.dueNow);
+  },
+
   // An unverified traveller can't pay until identity is verified
   async gate() {
     await T.login('sam@example.com', '/');
     const [s, e] = T.futureRange(60, 4);
     const van = App.db.vans.find(v => v.status === 'published' && App.isAvailable(v.id, s, e) && v.minNights <= 4);
     await T.go('#/book/' + van.id + '?start=' + s + '&end=' + e + '&adults=2&children=0');
+    T.$('#book-form').requestSubmit(); await T.until(() => T.$('.prot-table'), 6000, 'step 2');
     T.$('#book-form').requestSubmit(); await T.wait(500);
     T.assert(!T.$('[name=phone]') && T.$$('main a').some(a => a.innerText.includes('Verify now')), 'Unverified traveller was not asked to verify');
     T.noOverflow();

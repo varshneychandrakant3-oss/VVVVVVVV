@@ -11,7 +11,8 @@ const ROUTES = [
   ['/search', 'search'],
   ['/map', 'map'],
   ['/vans/:id', 'van'],
-  ['/book/:id', 'book', ['customer', 'owner', 'admin']],
+  // Guests can price a trip; checkout asks them to sign in at the driver step
+  ['/book/:id', 'book'],
   ['/booking/:id/confirmed', 'bookingConfirmed', ['customer', 'owner', 'admin']],
   ['/login', 'login'],
   ['/signup', 'signup'],

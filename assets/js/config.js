@@ -30,6 +30,8 @@ App.COUNTRY_PROFILES = {
     // Listing photos: at least this many, and one must be the outside of the van
     minPhotos: 5,
     depositReleaseDays: 7,
+    // Credit given when an owner cancels, towards rebooking a similar van
+    rebookCredit: 2000,
     expiryWarningDays: 30,
     supportPhone: '1800-120-4455',
     emergencyNumber: '112',

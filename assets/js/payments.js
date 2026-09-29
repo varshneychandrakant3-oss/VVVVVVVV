@@ -16,7 +16,13 @@ window.App = window.App || {};
   const h = (...a) => App.h(...a);
   // Deterministic stand-in for the gateway's HMAC signature
   const sign = (orderId, paymentId) => 'demo_sig_' + App.hashPassword(orderId + '|' + paymentId).split('$')[1];
-  const METHOD_LABEL = { upi: 'UPI', card: 'Card •• 4242', netbanking: 'Net banking' };
+  const METHOD_LABEL = { upi: 'UPI', card: 'Card •• 4242', netbanking: 'Net banking', emi: 'Card EMI, 6 months' };
+  const METHOD_HINT = {
+    upi: ['smartphone', 'Approve the request in your UPI app'],
+    card: ['credit-card', 'Card entered on the gateway’s secure page, verified with 3-D Secure OTP'],
+    netbanking: ['landmark', 'Redirect to your bank to approve'],
+    emi: ['credit-card', 'Choose a bank and tenure (3, 6 or 9 months) on the gateway’s page']
+  };
 
   App.payments = {
     provider: 'demo',
@@ -34,7 +40,7 @@ window.App = window.App || {};
         body: h`<div class="gateway">
           <p class="small muted">In production this is the payment gateway’s hosted checkout (UPI collect, cards with 3-D Secure, net banking). No real payment details are taken here.</p>
           <div class="gw-amount"><span>${description || 'Amount'}</span><strong>${App.money(order.amount)}</strong></div>
-          <div class="gw-method">${App.icon(method === 'upi' ? 'smartphone' : method === 'card' ? 'credit-card' : 'landmark')} ${method === 'upi' ? 'Approve the request in your UPI app' : method === 'card' ? 'Card entered on the gateway’s secure page, verified with 3-D Secure OTP' : 'Redirect to your bank to approve'}</div>
+          <div class="gw-method">${App.icon((METHOD_HINT[method] || METHOD_HINT.upi)[0])} ${(METHOD_HINT[method] || METHOD_HINT.upi)[1]}</div>
           <p class="small muted">Order ${order.id}</p>
         </div>`,
         actions: [
@@ -45,7 +51,7 @@ window.App = window.App || {};
       });
       if (!choice || choice === 'cancel') return { status: 'cancelled' };
       await new Promise(r => setTimeout(r, 500));
-      if (choice === 'fail') return { status: 'failed', reason: method === 'upi' ? 'The UPI request was declined in your app.' : method === 'card' ? 'Your bank declined the card (3-D Secure failed).' : 'Your bank didn’t confirm the payment.' };
+      if (choice === 'fail') return { status: 'failed', reason: method === 'upi' ? 'The UPI request was declined in your app.' : method === 'card' || method === 'emi' ? 'Your bank declined the card (3-D Secure failed).' : 'Your bank didn’t confirm the payment.' };
       const paymentId = 'pay_demo_' + Math.random().toString(36).slice(2, 12);
       return { status: 'paid', paymentId, signature: sign(order.id, paymentId), method, label: METHOD_LABEL[method] || method };
     },
@@ -54,6 +60,17 @@ window.App = window.App || {};
     async verify(order, payment) {
       await new Promise(r => setTimeout(r, 200));
       return payment.status === 'paid' && payment.signature === sign(order.id, payment.paymentId);
+    },
+
+    // A later charge on the saved payment mandate (UPI AutoPay / card on file), e.g. the
+    // balance of a 25% reservation. Live: a server job with the gateway's recurring API.
+    charge({ amount, reason }) {
+      return { status: 'paid', paymentId: 'pay_demo_' + Math.random().toString(36).slice(2, 12), amount: Math.round(amount), reason, at: new Date().toISOString() };
+    },
+
+    // Refunds go back to the original method (UPI refunds usually arrive within a day)
+    refund({ paymentId, amount, reason }) {
+      return { status: 'refunded', refundId: 'rfnd_demo_' + Math.random().toString(36).slice(2, 12), paymentId, amount: Math.round(amount), reason, at: new Date().toISOString() };
     }
   };
 })();

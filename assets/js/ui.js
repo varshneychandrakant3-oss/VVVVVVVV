@@ -133,21 +133,29 @@ App.priceLines = (p, { deposit = true, detail = false } = {}) => {
   return App.h`<dl class="price-lines">
     ${nightLines}
     ${p.discount ? App.h`<div class="good"><dt>${p.discountPct}% ${p.nights >= 28 ? 'monthly' : 'weekly'} discount</dt><dd>−${money(p.discount)}</dd></div>` : ''}
+    ${p.protection?.amount ? App.h`<div><dt>${p.protection.label} protection</dt><dd>${money(p.protection.amount)}</dd></div>` : ''}
     ${detail && p.addOnLines?.length ? p.addOnLines.map(a => App.h`<div><dt>${a.label} <span class="muted small">(${a.detail})</span></dt><dd>${money(a.amount)}</dd></div>`)
-      : p.addOns ? App.h`<div><dt>Extras</dt><dd>${money(p.addOns)}</dd></div>` : ''}
+      : p.addOns ? App.h`<div><dt>Extras${p.addOnLines?.length ? ` (${p.addOnLines.length})` : ''}</dt><dd>${money(p.addOns)}</dd></div>` : ''}
+    ${p.km?.amount ? App.h`<div><dt>${p.km.label}</dt><dd>${money(p.km.amount)}</dd></div>` : ''}
+    ${p.driver ? App.h`<div><dt>Driver, ${App.fmt.plural(p.driver.days, 'day')}${detail ? App.h` <span class="muted small">(fee ${money(p.driver.fee)}, bata ${money(p.driver.bata)}${p.driver.stay ? `, stay ${money(p.driver.stay)}` : ''})</span>` : ''}</dt><dd>${money(p.driver.amount)}</dd></div>` : ''}
+    ${p.delivery ? App.h`<div><dt>Delivery & collection: ${p.delivery.label}</dt><dd>${money(p.delivery.amount)}</dd></div>` : ''}
+    ${p.oneWay ? App.h`<div><dt>One-way drop-off: ${p.oneWay.label}</dt><dd>${money(p.oneWay.amount)}</dd></div>` : ''}
     <div><dt>Cleaning fee</dt><dd>${money(p.cleaning)}</dd></div>
     <div><dt>Service fee</dt><dd>${money(p.service)}</dd></div>
+    ${p.zeroDepositFee ? App.h`<div><dt>Zero-deposit fee <span class="muted small">(non-refundable)</span></dt><dd>${money(p.zeroDepositFee)}</dd></div>` : ''}
     <div><dt>${App.C.taxLabel} (${Math.round(App.C.taxRate * 100)}%)</dt><dd>${money(p.tax)}</dd></div>
     <div class="total"><dt>Total</dt><dd>${money(p.total)}</dd></div>
-    ${deposit ? App.h`<div class="muted"><dt>Refundable security deposit <span class="small">(held, not part of the total)</span></dt><dd>${money(p.deposit)}</dd></div>` : ''}
-    ${detail && p.kmIncluded ? App.h`<div class="muted"><dt>Distance included</dt><dd>${App.fmt.km(p.kmIncluded)}</dd></div>` : ''}
+    ${deposit ? (p.depositWaived ? App.h`<div class="muted"><dt>Security deposit</dt><dd>${money(0)} <span class="small">(waived)</span></dd></div>`
+      : App.h`<div class="muted"><dt>Refundable security deposit <span class="small">(not part of the total)</span></dt><dd>${money(p.deposit)}</dd></div>`) : ''}
+    ${detail ? App.h`<div class="muted"><dt>Distance included</dt><dd>${p.kmIncluded ? App.fmt.km(p.kmIncluded) : p.km?.id === 'unlimited' ? 'Unlimited' : '—'}</dd></div>` : ''}
   </dl>`;
 };
 
 // Full breakdown with what each line means, from any card or page
-App.priceDrawer = (van, start, end, { addOnIds = [] } = {}) => {
-  const addOns = App.ADD_ONS.filter(a => addOnIds.includes(a.id));
-  const q = App.quote(van, start, end, { addOns });
+// options: the trip options passed to App.quote (extras, protection, km, driver, delivery…)
+App.priceDrawer = (van, start, end, options = {}) => {
+  const q = App.quote(van, start, end, options);
+  const plan = App.PROTECTION.find(p => p.id === q.protection.id);
   const { money } = App.fmt;
   return App.modal({
     title: 'Price breakdown',
@@ -158,9 +166,10 @@ App.priceDrawer = (van, start, end, { addOnIds = [] } = {}) => {
         <li><strong>Cleaning fee.</strong> Set by the owner, charged once per trip.</li>
         <li><strong>Service fee.</strong> ${Math.round(App.C.serviceFeeRate * 100)}% of the rental and extras. Covers 24×7 roadside and trip support, secure payments and verification.</li>
         <li><strong>${App.C.taxLabel}.</strong> ${Math.round(App.C.taxRate * 100)}% on the rental, extras and fees, shown on your tax invoice.</li>
-        <li><strong>Distance.</strong> ${App.fmt.km(q.kmIncluded)} included (${App.fmt.km(q.kmPerDay)} a day). Extra kilometres are ${money(q.extraKmFee)}/km, settled at return.</li>
-        <li><strong>Security deposit.</strong> ${money(q.deposit)}, refundable. It isn’t part of the total: it’s held at pickup and released within ${App.C.depositReleaseDays} days of return if there’s no damage.</li>
-        <li><strong>Protection.</strong> 24×7 roadside assistance is included. Damage cover to reduce your deposit liability is optional at checkout.</li>
+        <li><strong>Distance.</strong> ${q.kmIncluded ? `${App.fmt.km(q.kmIncluded)} included (${App.fmt.km(q.kmPerDay)} a day). Extra kilometres are ${money(q.extraKmFee)}/km, settled at return.` : 'Unlimited kilometres.'}</li>
+        ${q.driver ? App.h`<li><strong>Driver.</strong> A verified driver for ${App.fmt.plural(q.driver.days, 'day')}: daily fee, bata (food allowance) and a night-stay allowance, paid through VanYatra.</li>` : ''}
+        <li><strong>Security deposit.</strong> ${q.depositWaived ? `Waived with the zero-deposit option (a non-refundable ${money(q.zeroDepositFee)}).` : `${money(q.deposit)}, refundable. It isn’t part of the total, and is released within ${App.C.depositReleaseDays} days of return if there’s no damage.`}</li>
+        <li><strong>Protection: ${plan.label}.</strong> ${plan.blurb} Your damage liability is capped at ${money(plan.liability)}.</li>
       </ul>
       <p class="small muted">No other charges are added at checkout.</p>`
   });
@@ -172,7 +181,9 @@ document.addEventListener('click', (e) => {
   if (!b) return;
   e.preventDefault();
   const van = App.get.van(b.dataset.priceVan);
-  if (van && b.dataset.start && b.dataset.end) App.priceDrawer(van, b.dataset.start, b.dataset.end, { addOnIds: (b.dataset.addons || '').split(',').filter(Boolean) });
+  let options = {};
+  try { options = JSON.parse(b.dataset.options || '{}'); } catch (err) { /* ignore */ }
+  if (van && b.dataset.start && b.dataset.end) App.priceDrawer(van, b.dataset.start, b.dataset.end, options);
 });
 
 // Delegated handler for save (heart) buttons anywhere on the page

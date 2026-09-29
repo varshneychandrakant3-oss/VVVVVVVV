@@ -329,6 +329,27 @@ App.buildSeed = function () {
   };
   const sleepText = { 2: '1 double bed', 3: '1 double + 1 single', 4: '1 double + 2 bunks', 5: '1 double + 1 convertible dinette + 1 bunk', 6: '1 queen + 1 double + convertible dinette' };
 
+  // Delivery points near each base (km one way) and one-way drop-off cities with their fee
+  const HUBS = {
+    ladakh: { points: [['leh-airport', 'Leh airport (IXL)', 'airport', 6], ['leh-hotels', 'Your hotel in Leh', 'hotel', 4]], oneWay: [['manali', 'Manali', 16000]] },
+    spiti: { points: [['kaza-bus', 'Kaza bus stand', 'station', 2]], oneWay: [['manali', 'Manali', 9000], ['shimla', 'Shimla', 12000]] },
+    goa: { points: [['goa-dabolim', 'Goa airport, Dabolim (GOI)', 'airport', 28], ['goa-mopa', 'Mopa airport (GOX)', 'airport', 35], ['madgaon', 'Madgaon railway station', 'station', 20]], oneWay: [['mumbai', 'Mumbai', 14000], ['bengaluru', 'Bengaluru', 16000]] },
+    kerala: { points: [['cok', 'Kochi airport (COK)', 'airport', 30], ['ernakulam', 'Ernakulam Junction station', 'station', 8]], oneWay: [['bengaluru', 'Bengaluru', 13000]] },
+    rajasthan: { points: [['jai-airport', 'Jaipur airport (JAI)', 'airport', 12], ['jaipur-jn', 'Jaipur Junction station', 'station', 6]], oneWay: [['delhi', 'Delhi', 11000], ['udaipur', 'Udaipur', 9000]] },
+    himachal: { points: [['bhuntar', 'Bhuntar airport, Kullu (KUU)', 'airport', 50], ['manali-bus', 'Manali bus stand', 'station', 3]], oneWay: [['delhi', 'Delhi', 12000], ['chandigarh', 'Chandigarh', 8000]] },
+    rishikesh: { points: [['dehradun', 'Dehradun airport (DED)', 'airport', 22], ['haridwar', 'Haridwar Junction station', 'station', 25]], oneWay: [['delhi', 'Delhi', 7000]] },
+    coorg: { points: [['mysuru', 'Mysuru Junction station', 'station', 118]], oneWay: [['bengaluru', 'Bengaluru', 8000]] },
+    meghalaya: { points: [['guwahati', 'Guwahati airport (GAU)', 'airport', 115], ['shillong-hotels', 'Your hotel in Shillong', 'hotel', 5]], oneWay: [['guwahati-city', 'Guwahati', 6000]] }
+  };
+  const deliveryFor = (dest, i) => {
+    const hub = HUBS[dest];
+    if (!hub || i % 4 === 3) return null; // some owners don't deliver
+    return { perKm: 20, points: hub.points.map(([id, name, type, km]) => ({ id, name, type, km })), oneWay: i % 3 === 0 ? hub.oneWay.map(([id, name, fee]) => ({ id, name, fee })) : [] };
+  };
+  // Drivers: every motorhome, plus some vans in the mountains
+  const driverFor = (type, dest, i) => (type === 'Motorhome' || (['ladakh', 'spiti', 'himachal'].includes(dest) && i % 2 === 0)
+    ? { available: true, feePerDay: type === 'Motorhome' ? 2200 : 1800, bataPerDay: 400, stayPerNight: 600, languages: ['Hindi', 'English'], verified: true } : { available: false });
+
   const vans = vanDefs.map((v, i) => {
     const [id, ownerId, name, type, destinationId, city, lat, lng, price, sleeps, seats, make, model, year, fuel, transmission, amenities, familyFriendly, instantBook, cancellation, published] = v;
     const photos = photosFor(type, i);
@@ -338,6 +359,8 @@ App.buildSeed = function () {
       pricePerNight: price, weekendPrice: Math.round(price * 1.15 / 100) * 100, cleaningFee: type === 'Motorhome' ? 2000 : 1200,
       deposit: price >= 9000 ? 25000 : 15000, minNights: type === '4x4 Overlander' ? 3 : 2,
       discounts: { weekly: 10, monthly: 20 }, kmPerDay: 250, extraKmFee: 12,
+      kmPackages: { plus: price >= 9000 ? 600 : 450, unlimited: price >= 9000 ? 1200 : 900 },
+      driver: driverFor(type, destinationId, i), delivery: deliveryFor(destinationId, i),
       beds: sleepText[sleeps], length: type === 'Motorhome' ? '7.2 m' : type === 'Pop-top' ? '4.5 m' : '5.9 m',
       licence: type === 'Motorhome' ? 'LMV (Transport) licence' : 'Standard LMV car licence',
       mileage: fuel === 'Diesel' ? '11 km/l' : '15 km/l',

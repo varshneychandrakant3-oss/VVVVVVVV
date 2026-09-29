@@ -33,45 +33,7 @@ App.hashPassword = (pw) => {
   return 'fnv1a$' + (h >>> 0).toString(16);
 };
 
-/* ---------------- Pricing ---------------- */
-App.quote = (van, start, end, extras = {}) => {
-  const C = App.C;
-  const nights = App.nightsBetween(start, end);
-  // Friday and Saturday nights use the weekend rate
-  const weekdayRate = van.pricePerNight, weekendRate = van.weekendPrice || van.pricePerNight;
-  let weekendNights = 0;
-  for (let i = 0; i < nights; i++) {
-    const dow = App.parseDate(App.addDays(start, i)).getDay();
-    if (dow === 5 || dow === 6) weekendNights++;
-  }
-  const weekdayNights = nights - weekendNights;
-  const base = weekdayNights * weekdayRate + weekendNights * weekendRate;
-  const discountPct = nights >= 28 ? (van.discounts?.monthly || 0) : nights >= 7 ? (van.discounts?.weekly || 0) : 0;
-  const discount = Math.round(base * discountPct / 100);
-  const rental = base - discount;
-  const addOnLines = (extras.addOns || []).map(a => ({ id: a.id, label: a.label, amount: a.price * (a.perNight ? nights : 1), detail: a.perNight ? `${App.fmt.money(a.price)} × ${App.fmt.nights(nights)}` : 'per trip' }));
-  const addOns = addOnLines.reduce((s, a) => s + a.amount, 0);
-  const cleaning = van.cleaningFee || 0;
-  const service = Math.round((rental + addOns) * C.serviceFeeRate);
-  const tax = Math.round((rental + addOns + cleaning + service) * C.taxRate);
-  const total = rental + addOns + cleaning + service + tax;
-  const commission = Math.round((rental + addOns) * C.ownerCommissionRate);
-  return {
-    nights, base, discountPct, discount, rental, addOns, addOnLines, cleaning, service, tax, total,
-    weekdayNights, weekendNights, weekdayRate, weekendRate,
-    kmIncluded: (van.kmPerDay || 0) * nights, kmPerDay: van.kmPerDay || 0, extraKmFee: van.extraKmFee || 0,
-    deposit: van.deposit || 0, commission, ownerPayout: rental + addOns + cleaning - commission,
-    avgNight: nights ? Math.round(base / nights) : van.pricePerNight
-  };
-};
-
-App.ADD_ONS = [
-  { id: 'bedding', label: 'Bedding & towels pack', price: 800, perNight: false },
-  { id: 'kit', label: 'Camping kit (chairs, table, BBQ)', price: 300, perNight: true },
-  { id: 'kids', label: 'Child car seat', price: 200, perNight: true },
-  { id: 'unlimited', label: 'Unlimited kilometres', price: 900, perNight: true },
-  { id: 'cover', label: 'Damage cover — reduce deposit liability by 80%', price: 650, perNight: true }
-];
+/* Pricing and trip options: assets/js/core/pricing.js (App.quote, App.PROTECTION, App.addOnsFor …) */
 
 /* ---------------- Store ---------------- */
 App.load = () => {
@@ -158,10 +120,15 @@ App.refundFor = (booking, when = new Date()) => {
   else for (const t of policy.tiers) { if (daysBefore >= t.daysBefore) { pct = t.refund; break; } }
   if (booking.status === 'requested') pct = 1; // nothing captured yet
   const p = booking.pricing;
-  // Rental is refunded by policy %; cleaning and service fees only on a full refund; tax follows the refunded amount
-  const taxable = (p.rental + p.addOns) * pct + (pct === 1 ? p.cleaning + p.service : 0);
-  const amount = pct === 1 ? p.total : Math.round(taxable * (1 + App.C.taxRate));
-  return { pct, daysBefore, amount, policy, withinGrace };
+  // Rental and trip options are refunded by policy %; cleaning, service and zero-deposit
+  // fees only on a full refund; tax follows the refunded amount
+  const options = (p.addOns || 0) + (p.protection?.amount || 0) + (p.km?.amount || 0) + (p.driver?.amount || 0) + (p.delivery?.amount || 0) + (p.oneWay?.amount || 0);
+  const taxable = (p.rental + options) * pct + (pct === 1 ? p.cleaning + p.service + (p.zeroDepositFee || 0) : 0);
+  let amount = pct === 1 ? p.total : Math.round(taxable * (1 + App.C.taxRate));
+  // Never more than has actually been paid (e.g. only the 25% reservation so far)
+  const paid = booking.payment?.plan ? booking.payment.plan.paid : p.total;
+  amount = Math.min(amount, paid);
+  return { pct, daysBefore, amount, paid, policy, withinGrace };
 };
 
 /* ---------------- Traveller verification ----------------
@@ -228,11 +195,34 @@ App.audit = (action, target) => {
 App.runExpiryChecks = () => {
   const today = App.today();
   let changed = false;
-  // Move trips past their end date to completed and release deposits
+  const tx = (b, type, amount, note, status) => App.db.transactions.unshift({ id: App.uid('tx'), type, bookingId: b.id, customerId: b.customerId, ownerId: b.ownerId, amount, at: new Date().toISOString(), status, method: b.payment?.label, note });
   for (const b of App.db.bookings) {
+    const plan = b.payment?.plan;
+    // 25% reservations: remind 3 days before the balance is due, then charge it (live: a server job)
+    if (b.status === 'confirmed' && plan?.type === 'part' && plan.balance > 0) {
+      if (today >= App.addDays(plan.balanceDueOn, -3) && !plan.reminded) {
+        plan.reminded = true;
+        App.notify(b.customerId, `Reminder: the balance of ${App.money(plan.balance)} for ${b.id} will be charged on ${App.fmtDate(plan.balanceDueOn)}.`, '#/account/payments');
+        changed = true;
+      }
+      if (today >= plan.balanceDueOn) {
+        const charge = App.payments.charge({ amount: plan.balance, reason: 'Balance for ' + b.id });
+        tx(b, 'payment', plan.balance, 'Balance (auto-charged)', 'captured');
+        plan.paid += plan.balance; plan.balance = 0; plan.balancePaymentId = charge.paymentId;
+        b.paymentStatus = 'paid';
+        App.notify(b.customerId, `We've charged the balance of ${App.money(charge.amount)} for ${b.id}. Your trip is fully paid.`, '#/account/payments');
+        changed = true;
+      }
+    }
+    // Finished trips: deposits paid by UPI come back automatically; card holds are released
     if (b.status === 'confirmed' && b.end < today) {
       b.status = 'completed';
-      b.depositStatus = 'released';
+      if (b.depositStatus === 'paid' && !b.dispute) {
+        const r = App.payments.refund({ paymentId: b.payment?.paymentId, amount: b.pricing.deposit, reason: 'Deposit ' + b.id });
+        tx(b, 'refund', r.amount, 'Deposit refunded automatically', 'refunded');
+        b.depositStatus = 'refunded';
+        App.notify(b.customerId, `Your ${App.money(r.amount)} deposit for ${b.id} is on its way back to your UPI account.`, '#/account/payments');
+      } else if (b.depositStatus !== 'none') b.depositStatus = 'released';
       changed = true;
     }
   }
@@ -401,7 +391,7 @@ App.api = {
     App.save();
     return i < 0;
   },
-  createBooking({ vanId, start, end, adults, children, addOnIds, driver, payment, specialRequests }) {
+  createBooking({ vanId, start, end, adults, children, addOnIds = [], options, driver, payment, specialRequests }) {
     const me = App.me();
     const van = App.get.van(vanId);
     if (!me) throw new Error('Please sign in to book.');
@@ -411,26 +401,34 @@ App.api = {
     if (nights < van.minNights) throw new Error(`Minimum stay is ${van.minNights} nights.`);
     if (adults + children > van.sleeps) throw new Error(`This van sleeps up to ${van.sleeps}.`);
     if (driver.age < App.C.minDriverAge) throw new Error(`Main driver must be at least ${App.C.minDriverAge}.`);
-    const addOns = App.ADD_ONS.filter(a => addOnIds.includes(a.id));
-    const pricing = App.quote(van, start, end, { addOns });
+    // The same quote the traveller saw: extras, protection, km package, driver, delivery, deposit choice
+    const pricing = App.quote(van, start, end, options || { addOns: addOnIds });
+    const addOns = pricing.addOnLines;
     const risk = App.riskCheck(me, van, pricing, driver);
     const trav = App.travellerRecord(me);
     const elig = App.core.travellerEligibility(trav, end);
     if (!elig.ok) throw new Error(elig.blockers[0]);
     const status = van.instantBook && elig.instant && risk.score < 50 ? 'confirmed' : 'requested';
+    // How it's paid: in full or 25% now, and the deposit by UPI or a card hold (see App.paymentPlan)
+    const plan = App.paymentPlan(pricing, start, { plan: payment.plan?.type, deposit: payment.plan?.depositMethod });
     let id;
     do { id = 'VY' + (1000 + Math.floor(Math.random() * 9000)); } while (App.get.booking(id));
     const b = {
       id, vanId, ownerId: van.ownerId, customerId: me.id,
       start, end, nights, adults, children, travelers: adults + children, addOns: addOns.map(a => a.id), pricing, status,
-      paymentStatus: status === 'confirmed' ? 'paid' : 'authorised', depositStatus: status === 'confirmed' ? 'held' : 'none',
-      driver: { name: driver.name, age: driver.age, licenceMasked: 'XXXXXXXX' + driver.licence.slice(-4), check: driver.check || null },
-      payment: { method: payment.method, label: payment.label, orderId: payment.orderId || null, paymentId: payment.paymentId || null }, specialRequests,
+      paymentStatus: status === 'confirmed' ? (plan.type === 'part' ? 'part-paid' : 'paid') : 'authorised',
+      // Deposit: paid by UPI now (refunded automatically), held on a card at pickup, or waived (zero-deposit)
+      depositMethod: plan.depositMethod, depositStatus: plan.depositMethod === 'upi' ? (status === 'confirmed' ? 'paid' : 'authorised') : plan.depositMethod === 'hold' ? 'at-pickup' : 'none',
+      options: pricing.options,
+      driver: { name: driver.name, age: driver.age, licenceMasked: driver.provided ? '' : 'XXXXXXXX' + String(driver.licence || '').slice(-4), provided: !!driver.provided, licencePhoto: driver.licencePhoto || null, check: driver.check || null },
+      payment: { method: payment.method, label: payment.label, orderId: payment.orderId || null, paymentId: payment.paymentId || null,
+        plan: { type: plan.type, dueNow: plan.dueNow, balance: plan.balance, balanceDueOn: plan.balanceDueOn, paid: plan.dueNow, depositPaid: plan.depositNow } }, specialRequests,
       createdAt: new Date().toISOString(), risk, itinerary: [],
       traveller: { level: App.core.travellerLevel(trav), identity: trav.identity.status, idMethod: trav.identity.method || null, licence: trav.licence.status, licenceKind: trav.licence.kind || null }
     };
     App.db.bookings.push(b);
-    App.db.transactions.unshift({ id: App.uid('tx'), type: 'payment', bookingId: b.id, customerId: me.id, ownerId: van.ownerId, amount: pricing.total, at: b.createdAt, status: status === 'confirmed' ? 'captured' : 'authorised', method: payment.label });
+    App.db.transactions.unshift({ id: App.uid('tx'), type: 'payment', bookingId: b.id, customerId: me.id, ownerId: van.ownerId, amount: plan.dueNow, at: b.createdAt, status: status === 'confirmed' ? 'captured' : 'authorised', method: payment.label, note: plan.type === 'part' ? '25% reservation' : '' });
+    if (plan.depositNow) App.db.transactions.unshift({ id: App.uid('tx'), type: 'deposit', bookingId: b.id, customerId: me.id, ownerId: van.ownerId, amount: plan.depositNow, at: b.createdAt, status: status === 'confirmed' ? 'captured' : 'authorised', method: payment.label, note: 'Refundable deposit' });
     let t = App.db.threads.find(x => x.vanId === vanId && x.customerId === me.id);
     if (!t) { t = { id: App.uid('t'), vanId, customerId: me.id, ownerId: van.ownerId, messages: [] }; App.db.threads.push(t); }
     t.bookingId = b.id;
@@ -450,9 +448,11 @@ App.api = {
     const b = App.get.booking(bookingId);
     const van = App.get.van(b.vanId);
     if (accept) {
-      b.status = 'confirmed'; b.paymentStatus = 'paid'; b.depositStatus = 'held';
-      const tx = App.db.transactions.find(t => t.bookingId === b.id && t.type === 'payment');
-      if (tx) tx.status = 'captured';
+      b.status = 'confirmed';
+      b.paymentStatus = b.payment?.plan?.type === 'part' ? 'part-paid' : 'paid';
+      if (b.depositMethod === 'upi') b.depositStatus = 'paid';
+      else if (!b.depositMethod) b.depositStatus = 'held';
+      App.db.transactions.filter(t => t.bookingId === b.id && ['payment', 'deposit'].includes(t.type)).forEach(t => { t.status = 'captured'; });
       App.notify(b.customerId, `Great news! ${van.name} is confirmed for ${App.fmtDate(b.start)}. Booking ${b.id}.`, '#/account/bookings');
     } else {
       b.status = 'declined'; b.paymentStatus = 'voided'; b.declineReason = reason;
@@ -463,12 +463,26 @@ App.api = {
   },
   cancelBooking(bookingId, by = 'customer', reason = '') {
     const b = App.get.booking(bookingId);
-    const r = by === 'customer' ? App.refundFor(b) : { amount: b.pricing.total, pct: 1 };
+    const van = App.get.van(b.vanId);
+    const paid = b.payment?.plan ? b.payment.plan.paid : b.pricing.total;
+    // Owner or VanYatra cancels: everything paid comes back at once (owner-cancellation guarantee)
+    const r = by === 'customer' ? App.refundFor(b) : { amount: paid, pct: 1 };
     b.status = 'cancelled'; b.cancelledBy = by; b.cancelReason = reason;
-    b.refund = r.amount; b.paymentStatus = r.amount >= b.pricing.total ? 'refunded' : r.amount > 0 ? 'partially_refunded' : 'paid';
-    b.depositStatus = 'released';
-    if (r.amount > 0) App.db.transactions.unshift({ id: App.uid('tx'), type: 'refund', bookingId: b.id, customerId: b.customerId, ownerId: b.ownerId, amount: r.amount, at: new Date().toISOString(), status: 'refunded' });
-    App.notify(b.customerId, `Booking ${b.id} cancelled. Refund: ${App.money(r.amount)} (5–7 business days).`, '#/account/payments');
+    b.refund = r.amount; b.paymentStatus = r.amount >= paid ? 'refunded' : r.amount > 0 ? 'partially_refunded' : 'paid';
+    if (b.payment?.plan) b.payment.plan.balance = 0; // no later charge for a cancelled trip
+    // A deposit paid by UPI is always returned in full when a trip is cancelled
+    const depositBack = b.depositStatus === 'paid' ? b.pricing.deposit : 0;
+    b.depositStatus = depositBack ? 'refunded' : 'released';
+    const now = new Date().toISOString();
+    if (r.amount > 0) App.db.transactions.unshift({ id: App.uid('tx'), type: 'refund', bookingId: b.id, customerId: b.customerId, ownerId: b.ownerId, amount: r.amount, at: now, status: 'refunded', note: by === 'customer' ? '' : 'Full refund: cancelled by the ' + by });
+    if (depositBack) App.db.transactions.unshift({ id: App.uid('tx'), type: 'refund', bookingId: b.id, customerId: b.customerId, ownerId: b.ownerId, amount: depositBack, at: now, status: 'refunded', note: 'Deposit returned' });
+    if (by !== 'customer') {
+      // Help rebooking: a credit and a search for similar vans on the same dates
+      const cust = App.get.user(b.customerId);
+      if (cust) cust.credit = (cust.credit || 0) + App.C.rebookCredit;
+      b.rebook = { credit: App.C.rebookCredit, search: `#/search?dest=${van?.destinationId || ''}&start=${b.start}&end=${b.end}&guests=${b.travelers}` };
+      App.notify(b.customerId, `Sorry — the owner cancelled ${b.id}. You've been refunded ${App.money(r.amount)}${depositBack ? ' plus your deposit' : ''} in full, and we've added ${App.money(App.C.rebookCredit)} credit towards a similar van for the same dates.`, b.rebook.search);
+    } else App.notify(b.customerId, `Booking ${b.id} cancelled. Refund: ${App.money(r.amount)}${depositBack ? ` + deposit ${App.money(depositBack)}` : ''} (UPI refunds usually arrive within a day; cards take 5–7 business days).`, '#/account/payments');
     App.notify(b.ownerId, `Booking ${b.id} was cancelled by the ${by}. Those dates are open again.`, '#/owner/bookings');
     App.audit('booking.cancel', `${b.id} by ${by}`);
     App.save();
