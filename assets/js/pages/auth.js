@@ -12,7 +12,7 @@ App.pages.login = (el, _p, q) => {
   const demo = [['Traveller', 'traveller@vanyatra.in'], ['Van owner', 'owner@vanyatra.in'], ['New owner (KYC pending)', 'karan@vanyatra.in'], ['Admin', 'admin@vanyatra.in']];
   el.innerHTML = String(h`
   <div class="auth-wrap">
-    <div class="auth-art"><img src="${photo('photo-1649851706700-56d3751fa9b1', 1000)}" alt=""><div class="auth-quote">“Best trip we have ever done.”<span>— Neha & Vikram, Pune</span></div></div>
+    <div class="auth-art"><img src="${photo('photo-1580389915880-318c2c8af95d', 1000)}" alt="A road through Spiti Valley, Himachal Pradesh"><div class="auth-quote">“Best trip we have ever done.”<span>— Neha & Vikram, Pune</span></div></div>
     <div class="auth-card">
       <h1>Welcome back</h1>
       <p class="muted">Sign in to book vans, message owners and manage your trips.</p>
@@ -48,7 +48,7 @@ App.pages.signup = (el, _p, q) => {
   const inviter = q.ref && App.db.users.find(x => App.referralCode(x) === String(q.ref).toUpperCase());
   el.innerHTML = String(h`
   <div class="auth-wrap">
-    <div class="auth-art"><img src="${photo('photo-1530541930197-ff16ac917b0e', 1000)}" alt=""><div class="auth-quote">Join 10,000+ travellers exploring India by van.</div></div>
+    <div class="auth-art"><img src="${photo('photo-1515444744559-7be63e1600de', 1000)}" alt="A tent under the night sky at Korlai, Maharashtra"><div class="auth-quote">Join 10,000+ travellers exploring India by van.</div></div>
     <div class="auth-card">
       <h1>Create your account</h1>
       ${inviter ? h`<div class="callout good-bg">${App.icon('sparkles')} ${inviter.name.split(' ')[0]} invited you — get ${App.money(App.C.referralCredit)} off your first trip.</div>` : ''}
@@ -169,7 +169,7 @@ App.pages.ownerLanding = (el) => {
   const avg = 6200, nights = 12;
   el.innerHTML = String(h`
   <section class="hero hero-owner">
-    ${App.img('photo-1591091221408-63351f26777a', { w: 1600, sizes: '100vw', cls: 'hero-img', eager: true })}
+    ${App.img('photo-1641319626759-cc9ea5b18107', { w: 1600, sizes: '100vw', cls: 'hero-img', eager: true })}
     <div class="hero-shade"></div>
     <div class="container hero-inner">
       <p class="eyebrow light">For camper van owners</p>

@@ -5,7 +5,7 @@
 const { h, money, photo, fmtDate } = App;
 
 // What a van photo shows, from the owner's tags (photo guide)
-const photoCaption = (van, i) => App.PHOTO_GUIDE.find(g => g.id === van.photoLabels?.[i])?.label || `Photo ${i + 1}`;
+const photoCaption = (van, i) => van.photoPlaces?.[i] || App.PHOTO_GUIDE.find(g => g.id === van.photoLabels?.[i])?.label || `Photo ${i + 1}`;
 
 const publishedVans = () => App.db.vans.filter(v => v.status === 'published');
 
@@ -97,7 +97,7 @@ App.pages.home = (el) => {
   const dests = [...inSeason, ...App.db.destinations.filter(d => !inSeason.includes(d))];
   el.innerHTML = String(h`
   <section class="hero">
-    ${App.img(window.VY_HERO || 'photo-1534540378968-85a7b8fde19f', { w: 1600, sizes: '100vw', cls: 'hero-img', eager: true })}
+    ${App.img(window.VY_HERO || 'photo-1670644654521-6fbfffeaba87', { w: 1600, sizes: '100vw', cls: 'hero-img', eager: true })}
     <div class="hero-shade"></div>
     <div class="container hero-inner">
       <p class="eyebrow light">${App.t('Camper van rentals across India')}</p>
@@ -139,7 +139,7 @@ App.pages.home = (el) => {
         <div class="chip-row">${App.db.destinations.filter(d => d.familyScore >= 5).map(d => h`<a class="chip chip-link" href="#/destinations/${d.id}">${d.name}</a>`)}</div>
         <a class="btn btn-primary" href="#/search?family=1">Browse family-friendly vans</a>
       </div>
-      ${App.img('photo-1477512076069-d31eb021716f', { w: 900, cls: 'rounded-img', alt: 'Family relaxing at a lakeside campsite', sizes: '(min-width: 900px) 45vw, 100vw' })}
+      ${App.img('photo-1503265192943-9d7eea6fc77a', { w: 900, cls: 'rounded-img', alt: 'Tents at a mountain campsite near Dharamshala, Himachal Pradesh', sizes: '(min-width: 900px) 45vw, 100vw' })}
     </div>
   </section>
 

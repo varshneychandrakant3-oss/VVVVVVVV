@@ -152,6 +152,30 @@ Reported in review: the home page looked crowded, with the buttons under "How it
 - **New `spacing` journey:** checks 40 pages at every width, including the owner and admin dashboards. It fails if buttons in a row are out of line or touching, or if a block is glued to the card, grid, form or list above it.
 - `npm run journeys -- --full --screens out/ "#/…"` saves whole-page screenshots in tiles for visual review.
 
+### After P2: real photos of each place (29 Sep 2026)
+Reported in review: van cards didn't show the places they're named after. For example, "Chopta Trail Pop-top" showed a van in American red-rock desert.
+
+- **How photos were checked:** every place photo now comes from Unsplash with a free licence, and the photographer's recorded location (or "in <place>" in the description) is that place. Each one was also looked at, to leave out portraits, pets, paintings and collages.
+- **Van listings open with where the van is based:**
+  - The cover and the last photo are of the place in the van's name or its town. Examples: the road to Chopta, a car beside Pangong Lake, the Hunder dunes in Nubra, the Khardung La sign, Abbey Falls, the Dawki river, and the dead trees in Periyar Lake at Thekkady.
+  - The photo caption names the place.
+- **The van's own photos** (outside, interior, kitchen) are still sample photos. Very few campervans on Unsplash were photographed in India, so only neutral shots are kept. Removed:
+  - recognisably foreign backdrops: red-rock desert, snowy Alps, aurora, sea cliffs, American RV parks
+  - posed photos of people in bed
+
+  Listings still show the "Sample photos · demo listing" tag.
+- **Destinations:** the cover and gallery of all 9 destinations were replaced with location-checked photos, for example Pangong Lake, Key Monastery, Palolem, the Alappuzha backwaters, Jaisalmer Fort and Manali.
+- **Site photos:**
+  - home page: a road in Lahaul & Spiti
+  - owner page: Ladakh
+  - sign-in: a Spiti road
+  - sign-up: a campsite at Korlai
+  - family section: tents near Dharamshala
+- **Existing demo data:**
+  - Vans that still have sample photos get the new set on next load (server seed v5, demo backend v3). Photos an owner uploaded are kept.
+  - Destination photos are refreshed in saved browser data.
+- **TODO:** replace the sample van photos with each owner's real photos when listings go live (the photo guide and "Real photos verified" check already exist). Photo credits are recorded on Unsplash; add a credits page if the licence terms need one at launch.
+
 ### Open TODOs from P2
 - **Performance ≥ 90 is not reached yet.** The build step is done (see above). The next steps are listed there, plus self-hosting a Latin subset of the font.
 - **Hindi:** have a native speaker review it. Then extract strings for search results, the van page, checkout and account.

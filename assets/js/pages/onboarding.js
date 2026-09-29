@@ -405,7 +405,7 @@ const STEPS = {
         x.label = sel.value; draw();
       });
       c.querySelector('#sample').onclick = () => {
-        items = [['photo-1584198775168-cd76729ac207', 'exterior'], ['photo-1773123441753-e87f821ec76d', 'bed'], ['photo-1645099815537-cea03d831528', 'kitchen'], ['photo-1558724065-2f80d1ae6002', 'dashboard'], ['photo-1773762159864-59966f6f82c7', 'storage']].map(([src, label]) => ({ src, label }));
+        items = [['photo-1626439613007-dffa9b69f7e0', 'exterior'], ['photo-1773123441753-e87f821ec76d', 'bed'], ['photo-1645099815537-cea03d831528', 'kitchen'], ['photo-1557854588-d0a7bb40a50d', 'other'], ['photo-1773762159864-59966f6f82c7', 'storage']].map(([src, label]) => ({ src, label }));
         draw();
       };
       const f = c.querySelector('#f');

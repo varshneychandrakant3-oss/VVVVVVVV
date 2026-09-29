@@ -39,11 +39,21 @@ App.hashPassword = (pw) => {
 App.load = () => {
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
-    if (raw) { App.db = JSON.parse(raw); return; }
+    if (raw) {
+      App.db = JSON.parse(raw);
+      // Destination photos were replaced with ones checked to be of each place
+      if ((App.db.photosVersion || 1) < 2) {
+        const seed = App.buildSeed();
+        for (const d of App.db.destinations || []) { const n = seed.destinations.find(x => x.id === d.id); if (n) Object.assign(d, { hero: n.hero, gallery: n.gallery }); }
+        App.db.photosVersion = 2; App.save();
+      }
+      return;
+    }
     // Demo data from an older version: start fresh rather than mixing shapes
     for (const k of Object.keys(localStorage)) if (k.startsWith('vanyatra.db.') && k !== STORAGE_KEY) localStorage.removeItem(k);
   } catch (e) { console.warn('Could not read saved data, resetting demo.', e); }
   App.db = App.buildSeed();
+  App.db.photosVersion = 2;
   App.save();
 };
 App.save = () => {

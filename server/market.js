@@ -12,7 +12,7 @@ import { accounts, findAccount } from './lib/auth.js';
 export const C = App.C;
 
 // Bump when the demo data gains new vans/owners; existing servers get them merged in
-const SEED_VERSION = 4;
+const SEED_VERSION = 5;
 
 const uid = (p) => p + crypto.randomBytes(6).toString('hex');
 const now = () => new Date().toISOString();

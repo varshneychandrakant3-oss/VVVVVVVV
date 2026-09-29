@@ -3,8 +3,8 @@
 (function () {
   // Scripts are on: pre-rendered pages show the loader rather than the static copy (see app.css)
   document.documentElement.classList.add('js');
-  // The home page hero photo (public.js shows it)
-  var HERO = window.VY_HERO = 'photo-1534540378968-85a7b8fde19f';
+  // The home page hero photo (public.js shows it): a road in Lahaul & Spiti, Himachal Pradesh
+  var HERO = window.VY_HERO = 'photo-1670644654521-6fbfffeaba87';
   // Ask which backend this is while the app's scripts download (App.detectBackend uses it)
   if (window.fetch && location.protocol !== 'file:') {
     window.VY_PROBE = fetch('assets/backend.json', { credentials: 'same-origin', cache: 'no-store' }).then(function (r) { return r.json(); });

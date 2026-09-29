@@ -13,7 +13,7 @@ window.App = window.App || {};
 (() => {
   const KEY = 'vanyatra.demobackend.v1';
   // Bump when demo data gains fields that returning visitors should get
-  const DEMO_VERSION = 2;
+  const DEMO_VERSION = 3;
   const core = App.core;
   let st = null;
 

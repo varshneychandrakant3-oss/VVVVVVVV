@@ -19,7 +19,7 @@ App.buildSeed = function () {
     {
       id: 'ladakh', name: 'Ladakh', region: 'Ladakh (UT)', lat: 34.1526, lng: 77.5771,
       tagline: 'High passes, turquoise lakes and monasteries on the roof of the world',
-      hero: 'photo-1635255506105-b74adbd94026', gallery: ['photo-1619837374214-f5b9eb80876d', 'photo-1600356033695-a003690a6351', 'photo-1641319626759-cc9ea5b18107'],
+      hero: 'photo-1652204597589-962156b9483d', gallery: ['photo-1636800877579-b69375ae9532', 'photo-1536295243470-d7cba4efab7b', 'photo-1709554565257-6eeea817ea82'],
       bestTime: 'June – September', bestMonths: [6, 7, 8, 9], familyScore: 3,
       familyNotes: 'Stunning but high altitude (3,500 m+). Plan 2 acclimatisation days in Leh; best for kids 8+.',
       highlights: ['Pangong Tso at sunrise', 'Khardung La, one of the highest motorable passes', 'Star-gazing in Hanle dark-sky reserve', 'Nubra Valley sand dunes and Bactrian camels'],
@@ -38,7 +38,7 @@ App.buildSeed = function () {
     {
       id: 'spiti', name: 'Spiti Valley', region: 'Himachal Pradesh', lat: 32.2461, lng: 78.0349,
       tagline: 'A cold desert of cliff-top monasteries and fossil villages',
-      hero: 'photo-1653844573020-71f77a0ccb8c', gallery: ['photo-1746093846930-ab89242b9fb9', 'photo-1628782379401-4fff9cdcbbfe', 'photo-1637314995939-7560a94b1495'],
+      hero: 'photo-1653844573020-71f77a0ccb8c', gallery: ['photo-1628782379401-4fff9cdcbbfe', 'photo-1617159156637-dfb8655c9f95', 'photo-1746093846930-ab89242b9fb9'],
       bestTime: 'May – October', bestMonths: [5, 6, 7, 8, 9, 10], familyScore: 3,
       familyNotes: 'Remote with long driving days and limited medical facilities. Great for adventurous families with older kids.',
       highlights: ['Key Monastery perched on a hill', 'Chandratal “Moon Lake”', 'Fossil hunting in Langza', 'World’s highest post office at Hikkim'],
@@ -56,7 +56,7 @@ App.buildSeed = function () {
     {
       id: 'goa', name: 'Goa', region: 'Goa', lat: 15.2993, lng: 74.1240,
       tagline: 'Palm-fringed beaches, Portuguese lanes and sunset shacks',
-      hero: 'photo-1614082242765-7c98ca0f3df3', gallery: ['photo-1646748019039-e908f7e41282', 'photo-1652820330085-82a0c2b88d78', 'photo-1727499031382-407906c7e208'],
+      hero: 'photo-1614082242765-7c98ca0f3df3', gallery: ['photo-1652820330085-82a0c2b88d78', 'photo-1653928359063-13eb336a4196', 'photo-1727499031382-407906c7e208'],
       bestTime: 'November – March', bestMonths: [11, 12, 1, 2, 3], familyScore: 5,
       familyNotes: 'Short drives, calm beaches in the south and plenty of family-friendly campsites.',
       highlights: ['Quiet southern beaches like Agonda and Palolem', 'Old Goa churches (UNESCO)', 'Dudhsagar waterfalls', 'Fontainhas Latin quarter'],
@@ -75,7 +75,7 @@ App.buildSeed = function () {
     {
       id: 'kerala', name: 'Kerala', region: 'Kerala', lat: 9.9312, lng: 76.2673,
       tagline: 'Backwaters, tea hills and misty spice country',
-      hero: 'photo-1602216056096-3b40cc0c9944', gallery: ['photo-1627370778723-4d26700cd972', 'photo-1704365159747-1f7b8913044f', 'photo-1624554305378-0f440dd3a8c1'],
+      hero: 'photo-1506461883276-594a12b11cf3', gallery: ['photo-1661174607003-d9d36388c916', 'photo-1609828913552-f9138ed9e42d', 'photo-1704365159747-1f7b8913044f'],
       bestTime: 'September – March', bestMonths: [9, 10, 11, 12, 1, 2, 3], familyScore: 5,
       familyNotes: 'Easy roads, lots of nature and wildlife. Monsoon (June–Aug) is lush but wet.',
       highlights: ['Alleppey backwater houseboat day', 'Munnar tea estates', 'Wildlife at Periyar', 'Varkala cliffs and beach'],
@@ -93,7 +93,7 @@ App.buildSeed = function () {
     {
       id: 'rajasthan', name: 'Rajasthan', region: 'Rajasthan', lat: 26.9124, lng: 75.7873,
       tagline: 'Forts, palaces and golden desert nights',
-      hero: 'photo-1477587458883-47145ed94245', gallery: ['photo-1599661046289-e31897846e41', 'photo-1615836245337-f5b9b2303f10', 'photo-1638904998527-a451c1fbd1cb'],
+      hero: 'photo-1713349881676-594b95a5742b', gallery: ['photo-1654245363109-b873bb61b2fa', 'photo-1709620220232-12ecd7ca33a8', 'photo-1600871215197-c68059ada01a'],
       bestTime: 'October – March', bestMonths: [10, 11, 12, 1, 2, 3], familyScore: 5,
       familyNotes: 'Wide highways, forts kids love and desert camps with folk music. Avoid April–June heat.',
       highlights: ['Amber Fort in Jaipur', 'Sam sand dunes near Jaisalmer', 'Lake palaces of Udaipur', 'Blue city of Jodhpur'],
@@ -111,7 +111,7 @@ App.buildSeed = function () {
     {
       id: 'himachal', name: 'Manali & Kullu', region: 'Himachal Pradesh', lat: 32.2432, lng: 77.1892,
       tagline: 'Pine forests, rivers and snowy passes within easy reach',
-      hero: 'photo-1597167231350-d057a45dc868', gallery: ['photo-1607836046730-3317bd58a31b', 'photo-1652501834567-937de29c4533', 'photo-1620720970374-5b7e67e1e610'],
+      hero: 'photo-1597167231350-d057a45dc868', gallery: ['photo-1712388430474-ace0c16051e2', 'photo-1609920658906-8223bd289001', 'photo-1593181629936-11c609b8db9b'],
       bestTime: 'March – June, October', bestMonths: [3, 4, 5, 6, 10], familyScore: 4,
       familyNotes: 'Good mix of easy nature walks and adventure. Mountain roads — drive in daylight.',
       highlights: ['Solang Valley adventure sports', 'Old Manali cafés', 'Hot springs of Manikaran', 'Atal Tunnel to Lahaul'],
@@ -129,7 +129,7 @@ App.buildSeed = function () {
     {
       id: 'rishikesh', name: 'Rishikesh & Garhwal', region: 'Uttarakhand', lat: 30.0869, lng: 78.2676,
       tagline: 'Ganga river camps, yoga and Himalayan foothills',
-      hero: 'photo-1712510817140-917938f92e5b', gallery: ['photo-1603867106100-0d2039fc8757', 'photo-1720819029162-8500607ae232', 'photo-1718383537411-6f9e727ae0bb'],
+      hero: 'photo-1650341259809-9314b0de9268', gallery: ['photo-1720819029162-8500607ae232', 'photo-1607406374368-809f8ec7f118', 'photo-1699214101672-610e95f1e8d3'],
       bestTime: 'September – November, February – May', bestMonths: [2, 3, 4, 5, 9, 10, 11], familyScore: 4,
       familyNotes: 'Riverside beaches and gentle rafting for kids 12+. Short drive from Delhi.',
       highlights: ['Ganga Aarti at Triveni Ghat', 'White-water rafting', 'Chopta meadows and Tungnath', 'Rajaji National Park'],
@@ -147,7 +147,7 @@ App.buildSeed = function () {
     {
       id: 'coorg', name: 'Coorg & Chikmagalur', region: 'Karnataka', lat: 12.3375, lng: 75.8069,
       tagline: 'Coffee estates, waterfalls and rainforest roads',
-      hero: 'photo-1529057299613-a565b7ce93aa', gallery: ['photo-1569996980833-901b5cd2eb70', 'photo-1634874634941-78abc0a00298', 'photo-1710612198146-77512950a4b7'],
+      hero: 'photo-1661492359562-419ba0ebaece', gallery: ['photo-1529057299613-a565b7ce93aa', 'photo-1710612198146-77512950a4b7', 'photo-1710891437634-85ad1b1f0a88'],
       bestTime: 'October – April', bestMonths: [10, 11, 12, 1, 2, 3, 4], familyScore: 5,
       familyNotes: 'Easy weekend from Bengaluru, cool weather and plantation stays kids enjoy.',
       highlights: ['Coffee plantation walks', 'Abbey Falls', 'Dubare elephant camp (observation only)', 'Mullayanagiri peak'],
@@ -164,7 +164,7 @@ App.buildSeed = function () {
     {
       id: 'meghalaya', name: 'Meghalaya', region: 'Meghalaya', lat: 25.5788, lng: 91.8933,
       tagline: 'Living root bridges, crystal rivers and the cloud kingdom',
-      hero: 'photo-1609276804051-8c5e906cc430', gallery: ['photo-1593813738953-fb3c93e0769d', 'photo-1552978534-9d01e1f91517', 'photo-1686472886489-1d2d7e08ff9c'],
+      hero: 'photo-1625826415766-001bd75aaf52', gallery: ['photo-1593813738953-fb3c93e0769d', 'photo-1686472886489-1d2d7e08ff9c', 'photo-1521437620269-f477f5437820'],
       bestTime: 'October – April', bestMonths: [10, 11, 12, 1, 2, 3, 4], familyScore: 4,
       familyNotes: 'Short drives between sights; some root-bridge treks have 3,000+ steps.',
       highlights: ['Double-decker living root bridge', 'Glass-clear Umngot river at Dawki', 'Mawlynnong, “cleanest village in Asia”', 'Nohkalikai Falls'],
@@ -214,59 +214,82 @@ App.buildSeed = function () {
     u_owner4: { account: { status: 'verified' }, kyc: { status: 'pending', data: { aadhaarLast4: '9034', pan: 'BQRPS5521L' } }, business: { status: 'verified' }, payout: { status: 'pending', data: { bank: 'State Bank of India', last4: '0452', ifsc: 'SBIN0004567' } } }
   };
 
-  // Photo pools (Unsplash). Exteriors are matched to the van type; every van gets a
-  // unique cover plus a second exterior, two interiors, a kitchen and a campsite shot.
+  // Where each van is based: a cover photo and a second photo of that place. Every one was
+  // checked on Unsplash (free licence; the photographer's recorded location is the place named).
+  const VAN_PLACE = {
+    "v1":[["photo-1712758178352-2a2651153bf3","Manali"],["photo-1726266140602-c3ad6fc83f57","Manali"]],
+    "v2":[["photo-1592058879796-8378fba3961f","Kullu valley"],["photo-1594102552386-793e5a27ad10","Kullu valley"]],
+    "v3":[["photo-1607144113358-9d8dd893a647","Spiti Valley"],["photo-1718900215143-9ee163f66038","Kaza, Spiti"]],
+    "v4":[["photo-1719581827279-e9a8d8fce924","Rishikesh"],["photo-1645032289041-1a0ab46ab2d5","Triveni Ghat, Rishikesh"]],
+    "v5":[["photo-1696966358836-c91d84d0a4e5","Marine Drive, Kochi"],["photo-1667317332530-ab236f824894","Kochi"]],
+    "v6":[["photo-1634714465560-57e9bf8feb88","Panaji, Goa"],["photo-1638797841332-1e5210f670d9","Fontainhas, Panaji"]],
+    "v7":[["photo-1690107637567-9586da628c42","Munnar"],["photo-1592726129841-f6bb08ad3bad","Munnar"]],
+    "v8":[["photo-1720593445778-1cc3a6a498cc","Pangong Lake, Ladakh"],["photo-1660303954454-cc270a0d48c4","Pangong Lake, Ladakh"]],
+    "v9":[["photo-1636800877555-27dfdbf1ae6c","Near Leh, Ladakh"],["photo-1663316037756-f0ecdcf62dac","Near Leh, Ladakh"]],
+    "v10":[["photo-1735554439342-494515577b4d","Coorg"],["photo-1692367725833-032abb79d56a","Mandalpatti, Coorg"]],
+    "v11":[["photo-1541058785992-8e0abb090ea6","Near Shillong"],["photo-1648979053795-d8fc09998569","Shillong"]],
+    "v12":[["photo-1477587458883-47145ed94245","Hawa Mahal Road, Jaipur"],["photo-1599661046289-e31897846e41","Amber, Jaipur"]],
+    "v13":[["photo-1673815994546-9913f4d76b77","Parvati Valley, Kasol"],["photo-1681176323164-bd4eeb724b81","Kasol"]],
+    "v14":[["photo-1616942986550-ea6469c08530","Solang Valley road"],["photo-1677820915325-d8ce3184c2a4","Solang Valley"]],
+    "v15":[["photo-1681811128270-28c13d07d106","Kaza, Spiti"],["photo-1619282401041-56e69dcc5335","Kaza, Spiti"]],
+    "v16":[["photo-1784388781354-a9a0fca72174","Chandratal, Spiti"],["photo-1781875394545-3269d093ef5a","Chandratal, Spiti"]],
+    "v17":[["photo-1652131812743-07bc5dde8b91","Key Monastery, Spiti"],["photo-1746037299553-2134e1aa2e43","Key Monastery, Spiti"]],
+    "v18":[["photo-1712510817140-917938f92e5b","Ganga at Rishikesh"],["photo-1730793415965-4856f826a599","Near Rishikesh"]],
+    "v19":[["photo-1781434704859-2e66fa41b0bc","Road to Chopta"],["photo-1628430793098-3d0b0e9ba959","Chopta meadows"]],
+    "v20":[["photo-1660791601899-f79f14cc427d","Dehradun"],["photo-1606586593596-5308e16d0a48","Mussoorie hills"]],
+    "v21":[["photo-1688867115849-f1d6d4fa04ac","Varkala Cliff"],["photo-1677216713977-50421d083abf","Varkala"]],
+    "v22":[["photo-1765635311503-c314839cbcdf","Periyar Lake, Thekkady"],["photo-1633285023431-4332a39517db","Idukki"]],
+    "v23":[["photo-1594801001182-99ee8f8d5db9","Palolem, Goa"],["photo-1609516903996-cf2ed8e5992a","Palolem, Goa"]],
+    "v24":[["photo-1710952356679-1eff1cb5ba64","Cabo de Rama, South Goa"],["photo-1663848018507-accf7c6a2ebb","Cabo de Rama, South Goa"]],
+    "v25":[["photo-1646748019039-e908f7e41282","Anjuna, Goa"],["photo-1723989888773-e89030f3726c","Vagator, Goa"]],
+    "v26":[["photo-1638360447329-2a97bf6a3d5c","Hunder dunes, Nubra"],["photo-1641599592732-0028d03116bf","Nubra Valley"]],
+    "v27":[["photo-1636790132872-6319f4b378ad","Khardung La"],["photo-1667296659532-9670a076adeb","Khardung La"]],
+    "v28":[["photo-1699819847996-a5bd6365778a","Abbey Falls, Coorg"],["photo-1700843375853-9075ed09ddcf","Madikeri"]],
+    "v29":[["photo-1634874706682-3468a6e421ba","Chikmagalur"],["photo-1680092338119-444efe802f1e","Chikmagalur"]],
+    "v30":[["photo-1570788399982-cc106a4965ec","Kabini"],["photo-1622036623363-dff8798c5794","Kabini"]],
+    "v31":[["photo-1689089526066-c7e6e95ee265","Cherrapunji (Sohra)"],["photo-1707219004247-0657a598a23d","Kynrem Falls, Cherrapunji"]],
+    "v32":[["photo-1552978534-9d01e1f91517","Umngot river, Dawki"],["photo-1698429358150-4237f30a2532","Dawki"]],
+    "v33":[["photo-1742494267580-e026d3737f65","Living root bridge, Nongriat"],["photo-1698429357860-1322a462bead","Meghalaya"]],
+    "v34":[["photo-1616693139578-f1c17deb0d4f","Thar Desert, Jaisalmer"],["photo-1605944087400-8a5992d7b066","Thar Desert"]],
+    "v35":[["photo-1686825780583-8be7c349a4b4","Jodhpur"],["photo-1590090750575-17b2cd4ceb85","Blue City, Jodhpur"]],
+    "v36":[["photo-1589901164570-f9de6556e1c1","City Palace, Udaipur"],["photo-1695956353120-54ce5e91632b","Lake Pichola, Udaipur"]]
+  };
+  // Photo pools (Unsplash) for the van itself: exteriors matched to the van type, interiors
+  // and kitchens. Every listing opens with its place, then the van. Only neutral shots are
+  // used: no recognisably foreign landscapes behind the vans, and no posed portraits.
   const PHOTOS = {
     van: [
-      'photo-1576793048000-494aaa93d160', 'photo-1584198775168-cd76729ac207', 'photo-1649851706700-56d3751fa9b1', 'photo-1534540378968-85a7b8fde19f',
-      'photo-1645099815537-cea03d831528', 'photo-1521014710171-f44dfe788ece', 'photo-1571235663358-c402973503af', 'photo-1515876305430-f06edab8282a',
-      'photo-1594495894542-a46cc73e081a', 'photo-1625492995811-646c41068abe', 'photo-1469854523086-cc02fe5d8800', 'photo-1532115298834-4c70d11ec8f3',
-      'photo-1634109725557-d2b8ac9f6c5c', 'photo-1626439613007-dffa9b69f7e0', 'photo-1626439613014-b367890c70cb', 'photo-1596470693312-9a3686a0af0f',
-      'photo-1655827268198-aee7f7ace729', 'photo-1626327547387-b2663804dd50', 'photo-1628132261841-cf77e5f0e246', 'photo-1627386172764-1d1b7ea90b66',
-      'photo-1652093932112-3fbc369da1f3', 'photo-1549194898-60fd030ecc0f', 'photo-1595251823086-930f6265cccc', 'photo-1670326457662-d981e6788945',
-      'photo-1764067218398-e568ff9dccaa', 'photo-1781630079309-56fe5a17d369', 'photo-1766083639110-ec7c4ad90490', 'photo-1764565689057-e94475ef873c',
-      'photo-1548378043-2b0571e7d0ce', 'photo-1624355761500-f00bb5cfb5a1', 'photo-1593914370442-49d414beca24', 'photo-1536294295328-fddf6da9d47e',
-      'photo-1528759335187-3b683174c86a', 'photo-1513350949-6bd4ab6ff7f8', 'photo-1619317190381-643a6b28d6e6', 'photo-1770752575355-a9d90d5644bb',
-      'photo-1770752575348-a064d4477761', 'photo-1721931248510-9d3e07c6b522', 'photo-1721220300289-b12765c054b6', 'photo-1564657536900-e6118c5e25f0',
-      'photo-1773762159818-d929964ab226', 'photo-1628132260719-00bd4b2902ec'
+      'photo-1649851706700-56d3751fa9b1', 'photo-1645099815537-cea03d831528', 'photo-1515876305430-f06edab8282a', 'photo-1625492995811-646c41068abe',
+      'photo-1626439613007-dffa9b69f7e0', 'photo-1626439613014-b367890c70cb', 'photo-1626327547387-b2663804dd50', 'photo-1652093932112-3fbc369da1f3',
+      'photo-1670326457662-d981e6788945', 'photo-1624355761500-f00bb5cfb5a1', 'photo-1593914370442-49d414beca24', 'photo-1513350949-6bd4ab6ff7f8'
     ],
     rv: [
-      'photo-1626680114529-3f6ffa002b80', 'photo-1629222247198-00b164054719', 'photo-1613142078060-88d5609458c4', 'photo-1591091221408-63351f26777a',
-      'photo-1515172128886-07c606bb4eb3', 'photo-1511533910568-be3ffdc229bb', 'photo-1574260031597-bcd9eb192b4f', 'photo-1658257654756-cc6ba6490ea9',
-      'photo-1629222247196-d38d47441a1b', 'photo-1597327190279-43b91807c7a5', 'photo-1513311068348-19c8fbdc0bb6', 'photo-1596470689657-bcfc0e24f4e0',
-      'photo-1563783850023-077d97825802', 'photo-1523987355523-c7b5b0dd90a7', 'photo-1592351763700-b9b35a6465ea', 'photo-1566847838496-c670dd0ec05e',
-      'photo-1599889917438-211ac4924647', 'photo-1527542902003-a675625fb1eb', 'photo-1591447722629-2d3ecd3b2d62', 'photo-1635787501769-10b8e23b3ded'
+      'photo-1626680114529-3f6ffa002b80', 'photo-1629222247198-00b164054719', 'photo-1629222247196-d38d47441a1b', 'photo-1563783850023-077d97825802',
+      'photo-1592351763700-b9b35a6465ea', 'photo-1599889917438-211ac4924647', 'photo-1591447722629-2d3ecd3b2d62', 'photo-1635787501769-10b8e23b3ded'
     ],
     overland: [
-      'photo-1663679931361-19938f30c979', 'photo-1782192176298-5fb589feb539', 'photo-1519443933981-c665c4a62ad4', 'photo-1757286916917-ea71f0fc9a4d',
-      'photo-1779226347538-ca1a725ae550', 'photo-1636138105085-3e9381a8e438', 'photo-1643716353701-130855d55e35'
+      'photo-1663679931361-19938f30c979', 'photo-1519443933981-c665c4a62ad4', 'photo-1757286916917-ea71f0fc9a4d', 'photo-1643716353701-130855d55e35'
     ],
     interior: [
-      'photo-1773123441753-e87f821ec76d', 'photo-1785184949143-112301fcd809', 'photo-1557854135-779395816fbe', 'photo-1789043551317-048afedffa8e',
-      'photo-1692279952778-00ce5c3ce02c', 'photo-1789043549866-ea7ff893df9f', 'photo-1557855226-e63c7f07d9fb', 'photo-1649284538754-8d69dfa984cc',
-      'photo-1683582160988-5809b4886adc', 'photo-1633362501620-447ba5b52a82', 'photo-1783731127141-b159143d5828', 'photo-1557854588-d0a7bb40a50d',
-      'photo-1587061118028-b80b3547f924', 'photo-1533176403861-b654cad1ecf1', 'photo-1546556407-5a1b85d0a2cb', 'photo-1694530482596-48425885be98',
-      'photo-1496864317203-ec844065153b', 'photo-1587061117940-d7724587dc5a', 'photo-1624903041761-f31cf79f810c'
+      'photo-1773123441753-e87f821ec76d', 'photo-1785184949143-112301fcd809', 'photo-1557854135-779395816fbe', 'photo-1692279952778-00ce5c3ce02c',
+      'photo-1557855226-e63c7f07d9fb', 'photo-1649284538754-8d69dfa984cc', 'photo-1683582160988-5809b4886adc', 'photo-1557854588-d0a7bb40a50d',
+      'photo-1546556407-5a1b85d0a2cb', 'photo-1624903041761-f31cf79f810c'
     ],
     kitchen: [
       'photo-1773762159604-0ec52bcdf918', 'photo-1767052879108-65dee83a5887', 'photo-1773762159808-510a225fcaa1', 'photo-1773762159864-59966f6f82c7',
       'photo-1681400803605-8dc103e102e7', 'photo-1783522277767-b3fbe3296a70'
-    ],
-    camp: [
-      'photo-1477512076069-d31eb021716f', 'photo-1530541930197-ff16ac917b0e', 'photo-1558724065-2f80d1ae6002', 'photo-1596470692500-66cbc5daea08',
-      'photo-1748251741266-1c5dfae05b92', 'photo-1590812505525-f3e96521e7ce', 'photo-1782150042524-53c5dd17c204', 'photo-1596470692137-ead1053a1e5c',
-      'photo-1618772446265-3f9f8e6f8487'
     ]
   };
   const coverCount = { van: 0, rv: 0, overland: 0 };
-  const photosFor = (type, i) => {
+  const photosFor = (id, type, i) => {
     const pool = type === 'Motorhome' || type === 'Caravan' ? 'rv' : type === '4x4 Overlander' ? 'overland' : 'van';
     const list = PHOTOS[pool], n = coverCount[pool]++;
     const at = (arr, k) => arr[k % arr.length];
+    const [cover, second] = VAN_PLACE[id];
     const set = [
-      at(list, n), at(list, n + Math.ceil(list.length / 2)),
-      at(PHOTOS.interior, i * 2), at(PHOTOS.interior, i * 2 + 1),
-      at(PHOTOS.kitchen, i), at(PHOTOS.camp, i)
+      [cover[0], 'area', cover[1]], [at(list, n), 'exterior'],
+      [at(PHOTOS.interior, i * 2), 'other'], [at(PHOTOS.interior, i * 2 + 1), 'other'],
+      [at(PHOTOS.kitchen, i), 'kitchen'], [second[0], 'area', second[1]]
     ];
     return i % 3 === 2 ? set.slice(0, 5) : set; // a mix of 5- and 6-photo listings
   };
@@ -352,7 +375,7 @@ App.buildSeed = function () {
 
   const vans = vanDefs.map((v, i) => {
     const [id, ownerId, name, type, destinationId, city, lat, lng, price, sleeps, seats, make, model, year, fuel, transmission, amenities, familyFriendly, instantBook, cancellation, published] = v;
-    const photos = photosFor(type, i);
+    const shots = photosFor(id, type, i), photos = shots.map(x => x[0]);
     return {
       id, ownerId, name, type, destinationId, city, sleeps, seats, make, model, year, fuel, transmission, amenities,
       familyFriendly, petFriendly: amenities.includes('pets'), instantBook, cancellation,
@@ -372,7 +395,9 @@ App.buildSeed = function () {
       description: descs[type],
       photos,
       // Demo listings use sample photos; the first is the outside of the van
-      photoLabels: photos.map((_, i) => (i === 0 ? 'exterior' : 'other')),
+      photoLabels: shots.map(x => x[1]),
+      // Where the place photos were taken (shown as their captions)
+      photoPlaces: Object.fromEntries(shots.map((x, k) => [k, x[2]]).filter(x => x[1])),
       blocked: [{ start: d(35 + i * 9), end: d(37 + i * 9), note: 'Service' }],
       status: published ? 'published' : 'in_review',
       verification: published

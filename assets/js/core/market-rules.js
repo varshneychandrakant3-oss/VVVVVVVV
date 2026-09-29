@@ -52,6 +52,13 @@
     if (!cur || !seedVan || cur.ownerId !== seedVan.ownerId) return false;
     let changed = false;
     for (const k of core.DEMO_FIELDS) if (cur[k] === undefined && seedVan[k] !== undefined) { cur[k] = JSON.parse(JSON.stringify(seedVan[k])); changed = true; }
+    // Sample photos are replaced by the current set, which opens with where the van is based
+    // (photos an owner uploaded are kept)
+    const sample = (cur.photos || []).every(p => String(p).startsWith('photo-'));
+    if (sample && seedVan.photos && JSON.stringify(cur.photos) !== JSON.stringify(seedVan.photos)) {
+      for (const k of ['photos', 'photoLabels', 'photoPlaces']) cur[k] = JSON.parse(JSON.stringify(seedVan[k] ?? null));
+      changed = true;
+    }
     return changed;
   };
   core.fromOutcome = (o) => (o === 'verified' ? 'verified' : o === 'review' ? 'pending' : 'action_required');
