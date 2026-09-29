@@ -112,6 +112,9 @@ App.render = () => {
   App.setMeta(route, main);
 };
 
+// The site's root URL, read before the router changes the address (a pre-rendered page's
+// <base href="../../"> would otherwise resolve against the new address)
+const SITE_ROOT = new URL(document.querySelector('base')?.href || '.', location.href).href;
 // Description, canonical and share tags for the current screen (pre-rendered pages
 // start with the same values, so crawlers and link previews agree with visitors)
 const PRE = { van: (p) => `vans/${p.id}/`, destination: (p) => `destinations/${p.id}/`, destinations: () => 'destinations/', help: (p) => (p.topic ? `help/${p.topic}/` : 'help/'), guide: () => 'guide/', deals: (p) => (p.id ? '' : 'deals/'), home: () => '' };
@@ -127,8 +130,7 @@ App.setMeta = (route, main) => {
   const pic = van ? van.photos[0] : dest ? dest.hero : null;
   if (pic) set('meta[property="og:image"]', 'content', App.photo(pic, 1200), ['meta', { property: 'og:image' }]);
   const clean = PRE[route.page] && PRE[route.page](route.params);
-  const siteRoot = new URL(document.querySelector('base')?.href || '.', location.href);
-  if (clean !== undefined && clean !== null) set('link[rel="canonical"]', 'href', new URL(clean, siteRoot).href, ['link', { rel: 'canonical' }]);
+  if (clean !== undefined && clean !== null) set('link[rel="canonical"]', 'href', new URL(clean, SITE_ROOT).href, ['link', { rel: 'canonical' }]);
 };
 
 App.renderHeader = () => {
