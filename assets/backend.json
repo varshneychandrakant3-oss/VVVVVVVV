@@ -1,0 +1,1 @@
+{ "backend": "demo", "note": "Static hosting (e.g. GitHub Pages) serves this file, so the app runs its in-browser demo backend. The VanYatra Node server answers this path with {\"backend\": \"server\"} instead." }

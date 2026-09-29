@@ -1,19 +1,215 @@
-# VVVVVVVV
+# VanYatra — camper van rental marketplace
 
-My first repository, set up with Claude Code.
+A working prototype of a camper van marketplace for India: travellers discover destinations and book vans, owners get verified and manage their fleet, and admins run verification, payments and moderation.
 
-## Getting started
+The web app is plain HTML, CSS and JavaScript. A small build step (`npm run build`, esbuild) joins and minifies it for the live site; the source files also run as they are from `app.html`. A small Node.js server (no third-party packages) handles:
+- **Sign-in**
+- **Government document verification:** Aadhaar through DigiLocker, and PAN, GSTIN, vehicle RC/insurance/PUC/permit, driving licence and bank-account checks through an authorised verification provider
+- **Everything that affects trust:** vans and their verification status, documents, owner verification steps, admin decisions, owner notifications and the audit log
 
-Clone the repository:
+The server decides every status. Browsers can only display it and ask for changes, and every admin sees the same queue. Bookings, messages and reviews are still demo data in each browser's `localStorage` (`assets/js/db.js`).
+
+## Run it
+
+You need [Node.js](https://nodejs.org) 20 or newer.
 
 ```bash
-git clone https://github.com/varshneychandrakant3-oss/VVVVVVVV.git
-cd VVVVVVVV
+npm start
 ```
 
-## Contributing
+Then open http://localhost:8080. It starts in **test mode**: every check returns realistic results without contacting any government system, so you can click through every flow for free.
 
-1. Create a branch: `git checkout -b my-change`
-2. Commit your changes: `git commit -m "Describe the change"`
-3. Push the branch: `git push -u origin my-change`
-4. Open a pull request on GitHub.
+Traveller extras worth trying: the four-step checkout (protection, extras, driver, delivery, 25% reservation), `#/plan` (trip planner), `#/guide`, and pre-check-in and inspections from **My trips**.
+
+Also try:
+- `#/deals`: seasonal deals
+- **हिन्दी** in the menu or footer: a draft Hindi translation
+- **Help → Chat with us**
+- trip memories after a completed trip
+- working offline: open **My trips**, then turn off the network
+
+Checks (run all three with `npm run check`):
+
+```bash
+npm test          # server unit and API tests
+npm run lint      # ESLint (install once with npm install)
+npm run journeys  # headless Chrome at 360px: crawl, renter, dates, verification gate, owner, admin
+```
+
+### Building
+
+Edit the source files (`app.html`, `assets/js/`, `assets/css/`), never `index.html` or `assets/build/`. Then:
+
+```bash
+npm run build
+```
+
+This writes `index.html` (the page that ships) and minified, content-hashed bundles in `assets/build/`:
+- `app.<hash>.js`: every page script in the order `app.html` lists them
+- `staff.<hash>.js`: the owner and admin screens, loaded when first opened
+- `app.<hash>.css` and `boot.<hash>.js`
+
+A bundle's name changes only when its content does, so browsers can cache them for a year. To debug with the original files, open http://localhost:8080/app.html. `npm run journeys -- --shell app.html` runs the journeys on the source files.
+
+`npm run check` runs `npm run build`, then `npm run prerender`. That writes the search-engine pages (`vans/`, `destinations/`, `help/`, `guide/`, `deals/`), `sitemap.xml`, `robots.txt` and `404.html` from the app's data; commit them, along with `index.html` and `assets/build/`, with your changes. GitHub Pages serves the committed files, so there is nothing to build on the server. The site URL comes from `homepage` in package.json (or `SITE_URL`).
+
+The journeys need Chrome or Edge installed (or set `CHROME_PATH`). Add `--width 1280` for desktop, or `--screens out/ "#/vans/v1"` to save screenshots. Planning documents are in `docs/`: an audit, the roadmap and a changelog.
+
+### Demo accounts
+
+All passwords are `demo1234`. The sign-in page has one-click buttons for each.
+
+| Role | Email | What to try |
+|---|---|---|
+| Traveller | traveller@vanyatra.in | Verified traveller. Upcoming Ladakh trip, itinerary planner, cancel with refund preview, messages, reviews. Books without re-entering a licence. |
+| Unverified traveller | sam@example.com | Has to verify (DigiLocker + licence) before booking |
+| Visitor from abroad | tourist@vanyatra.in | Passport, visa and International Driving Permit waiting for admin review; can only send booking requests |
+| Van owner | owner@vanyatra.in | 5 vans, booking requests, calendar blocking, earnings, expiring document alerts |
+| New owner | karan@vanyatra.in | Onboarding with KYC still pending. Try "Verify with DigiLocker". |
+| Admin | admin@vanyatra.in | Verification queue, the **Government checks log**, VAHAN re-checks, listing approval, disputes, audit log |
+
+Use **Reset demo data** in the footer to start over.
+
+### Without the server (GitHub Pages, or opening the files directly)
+
+If `/api/config` doesn't answer, the site switches to an **in-browser demo backend** (`assets/js/mock-server.js`). It answers the same API routes as the Node server, using the same rules, and keeps its data in `localStorage`. Every flow still works, including owner onboarding, test-mode government checks, the DigiLocker consent screen and admin decisions. The footer says when this mode is active.
+
+## Government document verification
+
+| Document | Where it's checked | What happens |
+|---|---|---|
+| Aadhaar | UIDAI eAadhaar via **DigiLocker** (OAuth 2.0 + PKCE) | The owner approves sharing in DigiLocker. We keep only name, date of birth, gender and the last 4 digits. The XML is checked with DigiLocker's HMAC, then discarded, and the access token is revoked. |
+| PAN | Income Tax Department | Name and date of birth are matched and Aadhaar–PAN linking is checked. Only a masked PAN is stored. |
+| GSTIN | GST Network | The check digit is validated locally first. Then status (must be Active), legal name, and whether the PAN inside the GSTIN matches the owner's PAN. |
+| Vehicle RC | MoRTH **VAHAN** | Registered owner vs verified identity, RC status and validity, blacklist, and commercial vs private registration |
+| Insurance, PUC, permit | VAHAN (same lookup) | Expiry dates come straight from the registry. Insurance also needs a person to confirm the policy schedule covers self-drive rental, because the registry can't show that. |
+| Traveller identity | Aadhaar via **DigiLocker**, or passport + visa for visitors (checked by a person) | Needed before any booking. Passport or visa must be valid until the trip ends. |
+| Driving licence (travellers) | MoRTH **SARATHI**, or a foreign licence + International Driving Permit (checked by a person) | Saved once on the traveller's profile, in their verified name, and reused while it's valid for the whole trip. Anyone else driving is checked at booking. The name must match and the licence must be valid until the trip ends. |
+| Bank account | Penny drop (₹1) | The account must exist and the name at the bank must match the owner's verified name. Only the last 4 digits are kept. |
+
+Names are matched across all documents, allowing for initials, titles, word order and small spelling differences. Each check ends as **Verified** (approved automatically), **Needs review** (goes to the admin queue) or **Failed** (the owner is told why). If a government source is down, the check falls back to manual review instead of blocking the owner.
+
+**Traveller verification** lives under **My account → Verification**. A traveller whose identity or licence is still under review can only send booking requests (no instant book), and owners see a *Verified traveller* or *ID verified* badge on each request, never the documents. Admins review visitors' documents under **KYC & documents → Travellers**. Licence, passport and visa expiry get the same 30-day reminders as owner documents.
+
+**What still needs a person:** visitors' passports, visas and International Driving Permits, the selfie-to-Aadhaar photo match, rent-a-cab licence, fitness certificate, NOCs, the insurance rental-cover check and the safety inspection. No government API covers these.
+
+**Safeguards:**
+- Every check needs a signed-in user with the right role and an explicit consent tick. Consent is enforced by the server.
+- Checks are rate-limited per user, because each one costs money.
+- Every check is recorded server-side (`data/verifications.json`) and in an audit log (`data/audit.jsonl`). Admins see it under **KYC & documents → Government checks log**.
+- Admins can re-check any vehicle with VAHAN, one at a time or in bulk for expiring documents, to pick up renewals.
+- **Statuses can't be faked from a browser.** Check results feed straight into the server's records (`server/market.js`, stored in `data/market.json`). There is no endpoint that sets a status directly. Owners can only submit details and files. Only admins decide on documents and listings, and the server enforces the order: all 10 steps verified before approval, approval before publishing.
+- **Document expiry** is a server job (run at startup and hourly). Owners get reminders 30 days ahead. A listing is suspended when a required document expires, and reinstated automatically once renewed documents are verified.
+
+### Test-mode values
+
+In test mode the ending of an identifier decides the outcome, so you can try every path:
+
+| Check | Outcome |
+|---|---|
+| Vehicle reg. number | `…0000` not found · `…1111` insurance expired · `…2222` different owner · `…3333` blacklisted · `…4444` private vehicle · `…5555` PUC expired · `…9999` registry down |
+| PAN | last letter `X` = not found · 5th letter `Z` = name mismatch |
+| GSTIN | any valid check digit (use **Fill test GSTIN**) · 13th character `9` = cancelled |
+| Driving licence | `…0000` not found · `…1111` expired |
+| Bank account | `…0000` invalid · `…2222` name mismatch |
+| DigiLocker | a test consent screen where you choose the name on "Aadhaar" |
+
+### Going live with real verification
+
+1. **Sign up with the verification provider.** The adapter included is for Cashfree Secure ID (`server/providers/cashfree.js`), written against their v2 API reference. You'll need a registered business, KYC and a signed agreement. Ask them to enable PAN, GSTIN, Vehicle RC, Driving Licence and Bank Account Verification, and whitelist your server's IP address. Another provider can be added by writing one adapter file with the same five functions.
+2. **Register as a DigiLocker partner** (Requester) on the DigiLocker partner portal. Register the redirect URI `https://<your-domain>/api/digilocker/callback` and request eAadhaar plus issued-documents access. Approval is done by MeitY and can take several weeks.
+3. **Configure the server.** Copy `.env.example` to `.env` and set:
+   - `SESSION_SECRET`
+   - `PUBLIC_URL`, which must be `https://`
+   - `VERIFY_PROVIDER=cashfree`, `CASHFREE_ENV=production`, and the client ID and secret
+   - `DIGILOCKER_MODE=live`, and the DigiLocker client ID, secret and redirect URI
+
+   The server refuses to start with real credentials unless these are set.
+4. **Legal and privacy:**
+   - Publish consent text and a privacy notice that meet the Digital Personal Data Protection Act, 2023.
+   - Appoint a grievance officer.
+   - Set retention periods for verification records.
+   - Have counsel confirm the document list in `assets/js/config.js` for each state you operate in.
+5. **Run a pilot:** test with your own PAN, vehicle and bank account in the provider's sandbox before switching to production.
+
+## What's included
+
+**Travellers**
+- Home page with a destination, dates, travellers and van-type search
+- Destination guides: highlights, attractions, suggested routes, best months, family suitability, activities and campsites on a map
+- Search with filters (price, destination, dates, travellers, van type, amenities, family-friendly, pet-friendly, instant book, transmission) and list and map views
+- Van page: photo gallery, specifications, sleeping arrangements, amenities, availability calendar, approximate pickup location, house rules, cancellation policy, deposit and reviews
+- Booking flow: extras → driver details with licence check → availability re-check → payment → confirmation → My trips, with GST, fees and the deposit shown up front. The test checkout lets you simulate a failed or successful payment. A failed payment creates no booking.
+- Van page also shows what VanYatra verified: host identity, ownership, and RC, insurance, PUC and inspection validity
+- Maps cluster nearby pins. Clicking a pin opens a preview card for the van, destination or campsite.
+- Account: trips, itinerary planner and packing list, saved vans, messages, payments and receipts, reviews, and profile. Profile covers verification, password change, data export and account deletion.
+
+**Owners**
+- 12-step onboarding wizard with automatic government checks. Each step shows Pending / Verified / Action required / Rejected. The pricing step also sets blocked dates.
+- Dashboard: vans, requests, calendar and pricing, earnings and payouts, messages, review replies, document expiry and analytics
+
+**Admins**
+- Users, listing approval, KYC and document review with source tags, the government checks log, VAHAN re-checks, bookings with risk flags (including licence status), disputes and refunds, review moderation, destinations, analytics, announcements, audit log
+
+**Other trust and safety rules**
+- Document expiry reminders 30 days ahead. Listings are suspended automatically when required documents lapse.
+- Booking fraud scoring. Contact details are hidden in messages before confirmation. Reviews with contact details are auto-flagged. Cancellation tiers come with a 24-hour grace period.
+
+## Security
+
+- Passwords are hashed with scrypt on the server, and sign-in takes the same time whether or not the email exists.
+- Sessions use random IDs in `HttpOnly`, `SameSite=Lax` cookies signed with `SESSION_SECRET` (`Secure` on https). Changing your password signs out your other sessions.
+- The server blocks cross-site POSTs by checking the `Origin` header. It sends a strict Content-Security-Policy and other security headers.
+- Only the app files (`index.html`, `app.html`, `sw.js`, `assets/` and the pre-rendered pages) are served, so `.env`, `data/` and `server/` can never be downloaded.
+- Sign-in, sign-up and verification are rate-limited. Request bodies are size-limited.
+- Server data files are written with owner-only permissions.
+
+## Project structure
+
+```
+app.html                   App shell (source): lists every script in load order
+index.html                 Built from app.html by scripts/build.mjs (don't edit)
+assets/build/              Built bundles (don't edit)
+sw.js                      Service worker (offline app, trip data, update prompt)
+404.html, sitemap.xml      Generated by scripts/prerender.mjs, along with vans/ destinations/ help/ guide/ deals/
+package.json               npm start / npm test
+.env.example               Settings template (copy to .env)
+server/index.js            HTTP server: static files, auth, verification API, DigiLocker callback
+server/verify.js           Checks, cross-document name matching, outcomes, records
+server/market.js           Vans, documents, owner verification, admin decisions, expiry job
+server/digilocker.js       DigiLocker OAuth + PKCE, eAadhaar parsing, test-mode consent page
+server/providers/          cashfree.js (real) and sandbox.js (test mode)
+server/core.js             Loads the shared rules from assets/js/core into Node
+server/lib/                auth (scrypt, sessions), rate limits, store
+server/test/               Unit and end-to-end API tests (node --test)
+assets/js/core/            Shared rules used by BOTH the server and the in-browser demo backend:
+                           validation and name matching, test-mode provider, verification outcomes,
+                           marketplace rules (onboarding steps, approvals, expiry, trust summary)
+assets/js/mock-server.js   In-browser demo backend (used when there is no server)
+assets/js/payments.js      Payment service: createOrder / checkout / verify (test checkout today)
+assets/js/                 Web app (config, seed data, UI, pages)
+assets/js/i18n.js          App.t() and the draft Hindi strings
+assets/js/boot.js          First script: font and hero preload (the rest are deferred)
+assets/css/app.css         Styles (mobile-first, light + dark)
+_headers                   Security headers for static hosting
+```
+
+## Still to do before a real launch
+
+- **Bookings, messages, reviews and trip records:** still per-browser demo data (bookings, inspections, road closures, saved searches, trip plans). Move them to the server the same way vans and documents were moved; this also makes booking rules (eligibility, credit, the 48-hour deposit-claim window) server-enforced.
+- **Database:** the server stores JSON files, which is fine for a single-server pilot. Swap `server/lib/store.js` for Postgres or similar before running more than one server.
+- **Payments:** `assets/js/payments.js` has the same three steps as Razorpay and Cashfree PG: create an order, open hosted checkout, verify the signature. To go live:
+  - Add a server endpoint that creates the order with the gateway's secret key.
+  - Add a server endpoint that verifies the payment signature and creates the booking. Don't let the browser decide a payment succeeded.
+  - Replace the test checkout dialog with the gateway's checkout script.
+  - Implement `charge()` for 25% reservations with a recurring mandate (UPI AutoPay or a saved card), run it from a daily server job, and retry failures with reminders.
+  - Implement `refund()` for UPI deposits and cancellations, card pre-authorisation for "hold at pickup", EMI through the gateway, marketplace payouts (Route or Easy Split) and webhooks.
+  - The shared price rules (`assets/js/core/pricing.js`) already run on the server; compute the order amount there, never from the browser.
+- **Notifications:** in-app notifications work today, and WhatsApp messages (opt-in) are queued by `App.sendWhatsApp` (see the admin outbox). Connect the WhatsApp Business API with approved templates (`booking_confirmed`, `pickup_reminder`, `trip_tips`, `closure_alert`), plus email and DLT-registered SMS.
+- **Inspection photos and calendar sync:** inspection photos are resized data URLs in the browser; store them in encrypted object storage. Calendar import works from `.ics` files; add a server job to fetch other sites' calendar links.
+- **Document storage:** uploaded files need encrypted object storage with access logging. Today only file names are kept.
+- **Face match:** compare the selfie with the Aadhaar photo through the provider's face-match and liveness APIs.
+- **Scheduled jobs:** re-check VAHAN nightly for documents close to expiry, and send email and SMS through a provider.
+- **Maps:** the maps use Esri satellite imagery, which has no country borders, and draw **India's official boundary** on top (`assets/data/india-boundary.geojson`). That file is simplified from [DataMeet's India composite boundary](https://github.com/datameet/maps/blob/master/Country/india-composite.geojson) (CC BY 4.0, credited on the map). Don't switch back to OpenStreetMap or similar street maps: they show the de facto lines in Jammu & Kashmir and Ladakh. For labelled street maps at launch, use Survey-of-India-compliant tiles such as Mappls (MapmyIndia), and check Esri's terms for production use of its imagery.
+- **Images:** serve photos through object storage and a CDN at scale.
+- **Campsites:** `assets/js/data/campsites.js` lists only campsites whose website was checked (see the file header for the rules), with positions from OpenStreetMap (© OpenStreetMap contributors, ODbL; credited on the maps). If you extend or redistribute that list as a database, the ODbL share-alike terms apply. Re-check the links before launch.
