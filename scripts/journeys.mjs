@@ -43,7 +43,7 @@ async function startStatic() {
   const server = http.createServer((req, res) => {
     const rel = decodeURIComponent(new URL(req.url, 'http://x').pathname).replace(/^\/+/, '') || 'index.html';
     const file = path.join(ROOT, rel);
-    if (!file.startsWith(ROOT) || !(rel === 'index.html' || rel.startsWith('assets/')) || !fs.existsSync(file) || fs.statSync(file).isDirectory()) { res.writeHead(404); return res.end('Not found'); }
+    if (!file.startsWith(ROOT) || !(rel === 'index.html' || rel === 'sw.js' || rel.startsWith('assets/')) || !fs.existsSync(file) || fs.statSync(file).isDirectory()) { res.writeHead(404); return res.end('Not found'); }
     res.writeHead(200, { 'Content-Type': TYPES[path.extname(file)] || 'application/octet-stream' });
     fs.createReadStream(file).pipe(res);
   }).listen(port);
@@ -617,6 +617,24 @@ const JOURNEYS = {
     return 'help, chat, SOS ok';
   },
 
+  // Offline (part 1): the service worker caches the app; then the runner cuts the network (part 2 below)
+  async offline() {
+    T.assert('serviceWorker' in navigator, 'No service worker support');
+    await Promise.race([navigator.serviceWorker.ready, T.wait(8000)]);
+    await T.until(() => navigator.serviceWorker.controller || true, 1000);
+    const keys = await caches.keys();
+    const shell = keys.find(k => k.startsWith('vanyatra-shell-'));
+    T.assert(shell, 'App shell not cached: ' + keys.join(','));
+    const c = await caches.open(shell);
+    for (const p of ['./index.html', './assets/js/app.js', './assets/css/app.css', './assets/js/pages/booking.js']) T.assert(await c.match(p), 'Not cached: ' + p);
+    await T.login('traveller@vanyatra.in', '/account/bookings');
+    await T.go('#/account/bookings');
+    window.__tripIds = T.$$('.trip-card .eyebrow').map(x => x.innerText);
+    localStorage.setItem('journey.tripIds', JSON.stringify(window.__tripIds));
+    T.assert(window.__tripIds.length, 'No trips to check offline');
+    return 'cached ' + (await c.keys()).length + ' files';
+  },
+
   // An unverified traveller can't pay until identity is verified
   async gate() {
     await T.login('sam@example.com', '/');
@@ -718,6 +736,20 @@ const JOURNEYS = {
   }
 };
 
+// Second halves run after the network is cut (see the runner)
+const OFFLINE_CHECKS = {
+  offline: async function () {
+    await T.until(() => window.App && App.backend && document.querySelector('main') && !document.querySelector('.boot-loading'), 10000, 'app start offline');
+    await T.until(() => T.$$('.trip-card').length, 6000, 'trips offline');
+    const want = JSON.parse(localStorage.getItem('journey.tripIds') || '[]');
+    const got = T.$$('.trip-card .eyebrow').map(x => x.innerText);
+    T.assert(want.length && want.every(id => got.includes(id)), 'Trips missing offline: ' + got.join(','));
+    T.assert(!navigator.onLine && /You’re offline/.test(T.text()), 'Offline notice missing: onLine=' + navigator.onLine + ' text=' + T.text().slice(0, 200));
+    await T.go('#/account/trips/' + got[0]); T.assert(T.$('main h1'), 'Itinerary did not open offline');
+    return got.length + ' trips readable';
+  }
+};
+
 /* ---------- Runner ---------- */
 async function run(mode) {
   // Server mode gets a fresh server (and data) per journey, so sign-in rate limits and
@@ -755,6 +787,20 @@ async function run(mode) {
       else detail = String(r.result.value ?? '');
     } catch (e) { ok = false; detail = e.message; }
     await sleep(200);
+    // Offline phase: cut the network, reload, and check the cached app still shows the traveller's trips
+    if (ok && OFFLINE_CHECKS[name]) {
+      if (problems.length) { ok = false; detail += ' · ' + [...new Set(problems)].slice(0, 5).join(' | '); }
+      await chrome.send('Network.enable');
+      await chrome.send('Network.emulateNetworkConditions', { offline: true, latency: 0, downloadThroughput: -1, uploadThroughput: -1 });
+      await chrome.send('Page.reload', {});
+      await sleep(2500);
+      const r2 = await chrome.send('Runtime.evaluate', { expression: `(${OFFLINE_CHECKS[name].toString()})()`, awaitPromise: true, returnByValue: true });
+      if (r2.exceptionDetails) { ok = false; detail += ' · offline: ' + (r2.exceptionDetails.exception?.description?.split('\n')[0] || r2.exceptionDetails.text); }
+      else detail += ' · offline: ' + r2.result.value;
+      await chrome.send('Network.emulateNetworkConditions', { offline: false, latency: 0, downloadThroughput: -1, uploadThroughput: -1 });
+      // Expected while offline: requests that can't reach the network
+      problems.splice(0, problems.length, ...problems.filter(p => !/ERR_INTERNET_DISCONNECTED|Failed to fetch|NetworkError/.test(p)));
+    }
     if (problems.length) { ok = false; detail += (detail ? ' · ' : '') + [...new Set(problems)].slice(0, 5).join(' | '); }
     results.push({ mode, name, ok, detail, ms: Date.now() - t0 });
     console.log(`${ok ? '✓' : '✗'} [${mode}] ${name.padEnd(8)} ${String(Date.now() - t0).padStart(5)}ms  ${detail}`);

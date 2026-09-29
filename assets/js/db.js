@@ -243,6 +243,7 @@ App.filterContact = (text) => {
 /* ---------------- Notifications & audit ---------------- */
 App.notify = (userId, text, link = '', email = true) => {
   App.db.notifications.unshift({ id: App.uid('n'), userId, text, link, at: new Date().toISOString(), read: false });
+  if (App.me()?.id === userId) App.deviceNotify && App.deviceNotify(text, link);
   const u = App.get.user(userId);
   if (email && u) App.db.outbox.unshift({ id: App.uid('m'), to: u.email, subject: text.slice(0, 70), body: text, at: new Date().toISOString() });
 };
@@ -363,10 +364,16 @@ App.detectBackend = async () => {
   try {
     const probe = await fetch('assets/backend.json', { credentials: 'same-origin', cache: 'no-store' }).then(r => r.json());
     if (probe.backend === 'server') {
-      const res = await fetch('/api/config', { credentials: 'same-origin' });
-      if (res.ok) { App.backend = 'server'; return await res.json(); }
+      try {
+        const res = await fetch('/api/config', { credentials: 'same-origin' });
+        if (res.ok) { App.backend = 'server'; return await res.json(); }
+      } catch (err) {
+        // Offline with a real server: keep its (cached) data and work read-only
+        App.backend = 'server'; App.offline = true;
+        throw err;
+      }
     }
-  } catch (e) { /* opened from disk, or the server is unreachable */ }
+  } catch (e) { if (App.offline) throw e; /* opened from disk, or the server is unreachable */ }
   App.backend = 'demo';
   return App.mockServer.handle('GET', '/api/config');
 };

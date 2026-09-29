@@ -19,6 +19,10 @@ export default [
     }
   },
   {
+    files: ['sw.js'],
+    languageOptions: { ecmaVersion: 2023, sourceType: 'script', globals: { ...globals.serviceworker } }
+  },
+  {
     // Journey functions are serialised and run inside the page
     files: ['scripts/journeys.mjs'],
     languageOptions: { globals: { ...globals.browser, T: 'readonly', App: 'readonly' } }

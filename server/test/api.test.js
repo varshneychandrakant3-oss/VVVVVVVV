@@ -55,6 +55,7 @@ test('static allow-list never exposes secrets or server code', async () => {
   const c = client();
   assert.equal((await c.get('/')).status, 200);
   assert.equal((await c.get('/assets/js/app.js')).status, 200);
+  assert.equal((await c.get('/sw.js')).status, 200);
   for (const p of ['/.env', '/.env.example', '/server/index.js', '/data/accounts.json', '/package.json', '/assets/../server/config.js', '/%2e%2e/server/config.js']) {
     assert.equal((await c.get(p)).status, 404, p);
   }

@@ -17,9 +17,10 @@ const TYPES = { '.html': 'text/html; charset=utf-8', '.css': 'text/css; charset=
 function serveStatic(req, res, pathname) {
   // Only index.html and /assets/ are public; everything else (server/, data/, .env) is not
   const rel = pathname === '/' ? 'index.html' : pathname.slice(1);
-  if (rel !== 'index.html' && !rel.startsWith('assets/')) throw new HttpError(404, 'Not found');
+  // Public files: the app shell, its assets, and the service worker (which must sit at the root)
+  if (rel !== 'index.html' && rel !== 'sw.js' && !rel.startsWith('assets/')) throw new HttpError(404, 'Not found');
   const full = path.resolve(ROOT, rel);
-  if (!full.startsWith(path.join(ROOT, 'assets')) && full !== path.join(ROOT, 'index.html')) throw new HttpError(404, 'Not found');
+  if (!full.startsWith(path.join(ROOT, 'assets')) && full !== path.join(ROOT, 'index.html') && full !== path.join(ROOT, 'sw.js')) throw new HttpError(404, 'Not found');
   let data;
   try { data = fs.readFileSync(full); } catch { throw new HttpError(404, 'Not found'); }
   res.writeHead(200, { 'Content-Type': TYPES[path.extname(full)] || 'application/octet-stream', 'Cache-Control': 'no-cache', ...SECURITY_HEADERS });

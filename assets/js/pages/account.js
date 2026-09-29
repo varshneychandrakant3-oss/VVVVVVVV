@@ -77,6 +77,7 @@ const tripsTab = (m, me, mine) => {
   ];
   const level = App.core.travellerLevel(App.travellerRecord(me));
   m.innerHTML = String(h`<h1>My trips</h1>
+    ${!navigator.onLine ? h`<div class="callout">${App.icon('wifi')} You’re offline. Your trips, pickup details, itinerary and plans are saved on this device; changes need a connection.</div>` : ''}
     ${level !== 'verified' ? h`<div class="alert alert-warn">${level === 'none' ? 'Verify your ID and driving licence once to book faster — and to use instant book.' : 'Add your driving licence to your profile so you don’t have to enter it for every booking.'} <a href="#/account/verification">Get verified</a></div>` : ''}
     ${!me.phoneVerified || !me.emailVerified ? h`<div class="alert alert-warn">Verify your email and mobile to get booking updates. <a href="#/account/verification">Verify now</a></div>` : ''}
     ${mine.length ? groups.filter(g => g[1].length).map(([t, list]) => h`<h2 class="section-sub">${t}</h2><div class="trip-list">${list.map(tripCard)}</div>`)
@@ -304,6 +305,7 @@ const profileTab = (m, me) => {
       <button class="btn">Update password</button></form>
     <div class="card"><h2>Notifications</h2>
       ${[['email', 'Booking updates by email', true], ['whatsapp', 'WhatsApp: booking confirmation, pickup reminder with map pin, trip-day tips', false], ['sms', 'Trip reminders by SMS', true], ['marketing', 'Trip ideas & offers', false]].map(([k, l, d]) => h`<label class="check"><input type="checkbox" data-pref="${k}" ${(me.prefs?.[k] ?? d) ? 'checked' : ''}> ${l}</label>`)}</div>
+    <div class="card"><h2>Trip alerts on this device</h2><p class="small muted">Get booking updates, pickup reminders and closure alerts as notifications on this phone or computer.</p><button type="button" class="btn btn-sm" id="device-alerts">${'Notification' in window && Notification.permission === 'granted' ? 'Alerts are on' : 'Turn on alerts'}</button></div>
     <div class="card"><h2>Analytics</h2><label class="check"><input type="checkbox" id="analytics-ok" ${App.analytics.consent() === 'granted' ? 'checked' : ''}> Help improve VanYatra by counting anonymous page visits and booking steps (no ads, no third-party trackers)</label></div>
     <div class="card"><h2>Your data</h2><p class="small muted">Download a copy of everything we hold about you, or ask us to delete your account.</p>
       <div class="row gap wrap"><button class="btn" id="export">${App.icon('download')} Download my data</button><button class="btn btn-danger" id="delete">Request account deletion</button></div></div>`);
@@ -321,6 +323,7 @@ const profileTab = (m, me) => {
     }
     App.audit('user.password_change', me.email); App.save(); e.target.reset(); App.toast('Password updated. Other devices were signed out.', 'good');
   };
+  m.querySelector('#device-alerts').onclick = async (e) => { try { await App.enableDeviceAlerts(); e.target.textContent = 'Alerts are on'; App.toast('Trip alerts turned on for this device', 'good'); } catch (err) { App.toast(err.message, 'bad'); } };
   m.querySelector('#analytics-ok').onchange = (e) => { App.analytics.setConsent(e.target.checked ? 'granted' : 'denied'); App.toast(e.target.checked ? 'Thanks — analytics on' : 'Analytics off; collected events deleted', 'good'); };
   m.querySelectorAll('[data-pref]').forEach(c => c.onchange = () => { me.prefs = { ...(me.prefs || {}), [c.dataset.pref]: c.checked }; App.save(); App.toast('Preferences saved', 'good'); });
   m.querySelector('#export').onclick = () => {
