@@ -461,6 +461,13 @@ const analytics = (m) => {
       <div class="kpi"><span>Customers</span><strong>${db.users.filter(u => u.role === 'customer').length}</strong></div>
       <div class="kpi"><span>Owners</span><strong>${db.users.filter(u => u.role === 'owner').length}</strong><small>${db.users.filter(u => u.role === 'owner' && App.get.ownerVerified(u.id)).length} verified</small></div>
     </div>
+    <section class="card"><h2>Booking funnel</h2>
+      ${(() => { const f = App.analytics.funnel(), top = f[0].sessions || 1; const ev = App.db.events || [];
+        return ev.length ? h`<p class="small muted">Visitor sessions reaching each step (from ${App.plural(ev.length, 'event')} recorded in this browser, only for visitors who allowed analytics).</p>
+          <ol class="funnel">${f.map((st, i) => h`<li><span class="fl-label">${st.label}</span><span class="fl-bar"><span style="width:${Math.max(2, st.sessions / top * 100)}%"></span></span><span class="fl-n">${st.sessions}${i ? h` <span class="small muted">(${f[i - 1].sessions ? Math.round(st.sessions / f[i - 1].sessions * 100) : 0}%)</span>` : ''}</span></li>`)}</ol>
+          <p class="small">Top filters: ${Object.entries(ev.filter(e => e.name === 'filter_use').reduce((a, e) => ({ ...a, [e.props.filter]: (a[e.props.filter] || 0) + 1 }), {})).sort((a, b) => b[1] - a[1]).slice(0, 5).map(([k, n]) => `${k} (${n})`).join(', ') || '—'}</p>`
+          : h`<p class="muted small">No events yet. Events are recorded only after a visitor chooses “Allow” on the analytics notice.</p>`; })()}
+    </section>
     <section class="card"><h2>Bookings by month</h2>${App.barChart(App.monthly(paid, 'start', () => 1), { label: 'Bookings by month' })}</section>
     <section class="card"><h2>Platform revenue by month</h2>${App.barChart(App.monthly(paid, 'start', b => b.pricing.service + b.pricing.commission), { format: compact, label: 'Platform revenue by month' })}</section>
     <section class="card"><h2>Top destinations</h2><div class="table-wrap"><table class="table"><thead><tr><th>Destination</th><th class="num">Bookings</th><th class="num">GMV</th></tr></thead><tbody>

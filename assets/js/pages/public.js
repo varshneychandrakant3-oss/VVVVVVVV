@@ -334,10 +334,12 @@ App.pages.search = (el, _p, q) => {
       fuel: f.fuel || '', driver: !!f.driver, delivery: !!f.delivery, pickup: f.pickup || ''
     });
   };
-  let map = null;
+  let map = null, lastSearch = '';
   const draw = () => {
     const validDates = state.start && state.end && state.end > state.start;
     let list = publishedVans().filter(v => App.searchMatches(v, state));
+    const sig = JSON.stringify([state.dest, state.start, state.end, state.guests]);
+    if (sig !== lastSearch) { lastSearch = sig; App.track('search', { dest: state.dest || 'anywhere', dates: !!validDates, guests: state.guests }); }
     const avail = validDates ? list.filter(v => App.isAvailable(v.id, state.start, state.end)) : list;
     const sorters = {
       recommended: (a, b) => (App.get.ratingScore(b.id) * 10 + (b.instantBook ? 5 : 0)) - (App.get.ratingScore(a.id) * 10 + (a.instantBook ? 5 : 0)),
@@ -379,7 +381,7 @@ App.pages.search = (el, _p, q) => {
   };
   const drawChips = (active) => {
     el.querySelector('#chips').innerHTML = String(h`${CHIPS.map(([id, label, icon, isOn]) => h`<button type="button" class="fchip ${isOn() ? 'on' : ''}" data-chip="${id}" aria-pressed="${isOn()}">${App.icon(icon)} ${label}</button>`)}`);
-    el.querySelectorAll('[data-chip]').forEach(b => b.onclick = () => { const c = CHIPS.find(x => x[0] === b.dataset.chip); c[4](!c[3]()); syncForm(); draw(); });
+    el.querySelectorAll('[data-chip]').forEach(b => b.onclick = () => { const c = CHIPS.find(x => x[0] === b.dataset.chip); c[4](!c[3]()); App.track('filter_use', { filter: c[0], on: c[3]() }); syncForm(); draw(); });
     el.querySelector('#active-count').textContent = active ? `${App.plural(active, 'filter')} on` : '';
     el.querySelector('#chips-clear').hidden = !active;
   };
@@ -419,6 +421,7 @@ App.pages.search = (el, _p, q) => {
   };
   el.querySelector('#save-search').onclick = saveSearch;
   el.querySelector('#chips-clear').onclick = clear;
+  form.addEventListener('change', (e) => { if (e.target.name && !['start', 'end'].includes(e.target.name)) App.track('filter_use', { filter: e.target.name }); });
   form.addEventListener('input', (e) => {
     if (e.target.name === 'maxRange') form.max.value = e.target.value;
     if (e.target.name === 'max') form.maxRange.value = e.target.value;
@@ -481,6 +484,7 @@ App.pages.map = (el, _p, q) => {
 /* ================= VAN DETAIL ================= */
 App.pages.van = (el, { id }, q) => {
   const van = App.get.van(id);
+  if (van) App.track('van_view', { van: id, dest: van.destinationId });
   const me = App.me();
   const isOwnerOrAdmin = me && (me.id === van?.ownerId || me.role === 'admin');
   if (!van || (van.status !== 'published' && !isOwnerOrAdmin)) return App.pages.notFound(el);

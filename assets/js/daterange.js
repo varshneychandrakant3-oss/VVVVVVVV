@@ -54,6 +54,7 @@ App.dateRangeField = (host, opts = {}) => {
     drawButton();
     for (const input of [inStart, inEnd]) { input.dispatchEvent(new Event('input', { bubbles: true })); input.dispatchEvent(new Event('change', { bubbles: true })); }
     o.onChange && o.onChange(state.start, state.end);
+    if (state.start && state.end) App.track('date_select', { nights: App.nightsBetween(state.start, state.end), lead: App.nightsBetween(App.today(), state.start), van: o.vanId || null });
   };
 
   /* ---------- Popover ---------- */

@@ -37,6 +37,7 @@ App.pages.book = (el, { id }, q) => {
     driver: { name: me?.name || '', licence: '', phone: me?.phone || '' }
   };
   const driverOffer = App.driverFor(van);
+  App.track('begin_checkout', { van: van.id, resumed: !!resume });
   if (!driverOffer) s.options.driver = false;
   const quote = () => App.quote(van, s.start, s.end, s.options);
   // Credit (e.g. from an owner cancellation) pays part of what's due now
@@ -244,7 +245,7 @@ App.pages.book = (el, { id }, q) => {
   };
 
   /* ---------- Behaviour ---------- */
-  const go = (n) => { s.step = n; draw(); window.scrollTo({ top: 0, behavior: 'instant' }); el.querySelector('#book-form h2')?.focus?.(); };
+  const go = (n) => { s.step = n; App.track('checkout_step', { step: n, van: van.id }); draw(); window.scrollTo({ top: 0, behavior: 'instant' }); el.querySelector('#book-form h2')?.focus?.(); };
 
   const bind = (qte, plan) => {
     const f = el.querySelector('#book-form');
@@ -351,12 +352,14 @@ App.pages.book = (el, { id }, q) => {
     btn.disabled = true; btn.innerHTML = '<span class="spinner" aria-hidden="true"></span> Starting secure checkout…';
     try {
       const request = !instantNow();
+      App.track('payment_attempt', { method: s.payMethod, plan: plan.type, deposit: plan.depositMethod });
       // Fully covered by credit: nothing to send to the gateway
       const covered = plan.chargeNow <= 0;
       const order = covered ? { id: 'order_credit_' + Date.now().toString(36) } : await App.payments.createOrder({ amount: plan.chargeNow, receipt: `${van.id}:${s.start}:${s.end}`, notes: { van: van.name, plan: plan.type, deposit: plan.depositMethod } });
       const what = plan.type === 'part' ? '25% reservation' : 'Trip total';
       const pay = covered ? { status: 'paid', method: 'credit', label: 'VanYatra credit', paymentId: 'credit_' + Date.now().toString(36), signature: null }
         : await App.payments.checkout(order, { method: s.payMethod, description: `${request ? 'Authorise' : 'Pay'}: ${what}${plan.depositNow ? ' + refundable deposit' : ''}` });
+      App.track('payment_result', { status: pay.status, method: s.payMethod });
       if (pay.status === 'cancelled') { btn.disabled = false; btn.innerHTML = label; return App.toast('Payment cancelled — you haven’t been charged.'); }
       if (pay.status === 'failed') { s.payError = pay.reason + ' You haven’t been charged. Try again or choose another payment method.'; return draw(); }
       btn.innerHTML = '<span class="spinner" aria-hidden="true"></span> Confirming payment…';
@@ -366,6 +369,7 @@ App.pages.book = (el, { id }, q) => {
         payment: { method: pay.method, label: pay.label, orderId: order.id, paymentId: pay.paymentId, plan, creditUsed: plan.credit }, specialRequests: s.specialRequests
       });
       clearProgress();
+      App.track('booking', { id: b.id, total: b.pricing.total, status: b.status, plan: plan.type });
       App.go('#/booking/' + b.id + '/confirmed');
     } catch (err) {
       s.payError = err.message; draw();

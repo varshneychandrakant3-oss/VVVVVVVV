@@ -491,6 +491,39 @@ const JOURNEYS = {
     return 'plans, spots, guide ok';
   },
 
+  // Analytics: nothing is recorded until the visitor allows it; then the funnel counts each step
+  async analytics() {
+    T.assert(T.$('#consent-bar'), 'Analytics notice not shown to a new visitor');
+    await T.go('#/search'); await T.go('#/vans/v1');
+    T.assert(!(App.db.events || []).length, 'Events recorded before consent');
+    T.$('[data-consent="granted"]').click(); await T.wait(100);
+    T.assert(!T.$('#consent-bar'), 'Notice did not go away');
+    await T.login('traveller@vanyatra.in', '/');
+    const [s, e] = T.futureRange(95, 4);
+    const van = App.db.vans.find(v => v.status === 'published' && v.instantBook && App.isAvailable(v.id, s, e) && v.minNights <= 4);
+    await T.go('#/search?dest=' + van.destinationId);
+    T.$('[data-chip="instant"]').click(); await T.wait(150);
+    await T.go('#/vans/' + van.id);
+    T.$('#bc-dates .drf-btn').click(); await T.until(() => T.$('.drp'), 3000, 'picker');
+    const pickDay = async (d) => { for (let i = 0; i < 6 && !T.$(`.drp [data-d="${d}"]`); i++) { T.$('.drp [data-nav="1"]').click(); await T.wait(60); } T.$(`.drp [data-d="${d}"]`).click(); await T.wait(120); };
+    await pickDay(s); await pickDay(e);
+    T.$('#book-btn').click(); await T.until(() => T.$('#book-form'), 6000, 'checkout');
+    for (const w of ['.prot-table', '[name=phone]', '[name=payPlan]']) { T.$('#book-form').requestSubmit(); await T.until(() => T.$(w), 6000, w); }
+    T.$('#book-form').agree.checked = true; T.$('#book-form').requestSubmit();
+    await T.clickModal('successful'); await T.until(() => /confirmed/.test(location.hash), 8000, 'confirmation');
+    const names = new Set(App.db.events.map(x => x.name));
+    for (const n of ['page_view', 'search', 'filter_use', 'van_view', 'date_select', 'begin_checkout', 'checkout_step', 'payment_attempt', 'payment_result', 'booking']) T.assert(names.has(n), 'Event not recorded: ' + n);
+    const f = App.analytics.funnel();
+    T.assert(f.every(st => st.sessions >= 1), 'Funnel has an empty step: ' + JSON.stringify(f));
+    await T.login('admin@vanyatra.in', '/admin/analytics');
+    T.assert(T.$$('.funnel li').length === 6, 'Admin funnel missing');
+    // Turning it off deletes what was collected
+    await T.go('#/account/profile'); const c = T.$('#analytics-ok'); c.checked = false; c.dispatchEvent(new Event('change', { bubbles: true }));
+    T.assert(!App.db.events.length && App.analytics.consent() === 'denied', 'Opting out did not delete events');
+    T.noOverflow();
+    return f.map(st => st.sessions).join('→');
+  },
+
   // An unverified traveller can't pay until identity is verified
   async gate() {
     await T.login('sam@example.com', '/');

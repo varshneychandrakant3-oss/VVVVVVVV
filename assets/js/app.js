@@ -71,6 +71,7 @@ App.render = () => {
   main.innerHTML = '';
   main.className = 'page page-' + route.page;
   const fn = App.pages[route.page] || App.pages.notFound;
+  App.track('page_view', { page: route.page });
   try { fn(main, route.params, route.query); }
   catch (e) { console.error(e); main.innerHTML = String(App.emptyState('⚠️', 'Something went wrong', e.message, App.h`<a class="btn" href="#/">Go home</a>`)); }
   if (!App._keepScroll) window.scrollTo({ top: 0, behavior: 'instant' });
@@ -276,6 +277,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   App.runExpiryChecks();
   App.renderFooter();
   App.render();
+  App.renderConsent();
   // In-page anchors would clash with the hash router, so the skip link focuses <main> directly
   document.querySelector('.skip-link').addEventListener('click', (e) => { e.preventDefault(); document.getElementById('main').focus(); });
 });

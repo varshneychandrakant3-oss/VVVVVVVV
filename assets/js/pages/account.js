@@ -290,6 +290,7 @@ const profileTab = (m, me) => {
       <button class="btn">Update password</button></form>
     <div class="card"><h2>Notifications</h2>
       ${[['email', 'Booking updates by email', true], ['whatsapp', 'WhatsApp: booking confirmation, pickup reminder with map pin, trip-day tips', false], ['sms', 'Trip reminders by SMS', true], ['marketing', 'Trip ideas & offers', false]].map(([k, l, d]) => h`<label class="check"><input type="checkbox" data-pref="${k}" ${(me.prefs?.[k] ?? d) ? 'checked' : ''}> ${l}</label>`)}</div>
+    <div class="card"><h2>Analytics</h2><label class="check"><input type="checkbox" id="analytics-ok" ${App.analytics.consent() === 'granted' ? 'checked' : ''}> Help improve VanYatra by counting anonymous page visits and booking steps (no ads, no third-party trackers)</label></div>
     <div class="card"><h2>Your data</h2><p class="small muted">Download a copy of everything we hold about you, or ask us to delete your account.</p>
       <div class="row gap wrap"><button class="btn" id="export">${App.icon('download')} Download my data</button><button class="btn btn-danger" id="delete">Request account deletion</button></div></div>`);
   m.querySelector('#profile-form').onsubmit = (e) => { e.preventDefault(); const d = App.formData(e.target); me.name = d.name.trim() || me.name; me.city = d.city.trim(); App.save(); App.renderHeader(); App.toast('Profile updated', 'good'); };
@@ -306,6 +307,7 @@ const profileTab = (m, me) => {
     }
     App.audit('user.password_change', me.email); App.save(); e.target.reset(); App.toast('Password updated. Other devices were signed out.', 'good');
   };
+  m.querySelector('#analytics-ok').onchange = (e) => { App.analytics.setConsent(e.target.checked ? 'granted' : 'denied'); App.toast(e.target.checked ? 'Thanks — analytics on' : 'Analytics off; collected events deleted', 'good'); };
   m.querySelectorAll('[data-pref]').forEach(c => c.onchange = () => { me.prefs = { ...(me.prefs || {}), [c.dataset.pref]: c.checked }; App.save(); App.toast('Preferences saved', 'good'); });
   m.querySelector('#export').onclick = () => {
     const { password, ...profile } = me;
