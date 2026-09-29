@@ -179,10 +179,17 @@ App.pages.ownerLanding = (el) => {
   <section class="container section">
     <div class="earn-calc card">
       <div><h2>How much could you earn?</h2>
-        <label class="field"><span>Nightly price: <strong id="ec-p">${App.money(avg)}</strong></span><input type="range" id="ec-price" min="2500" max="15000" step="100" value="${avg}"></label>
+        <div class="grid-2">
+          <label class="field"><span>Van type</span><select id="ec-type">${App.VAN_TYPES.map(t => h`<option>${t}</option>`)}</select></label>
+          <label class="field"><span>Region</span><select id="ec-region">${App.db.destinations.map(d => h`<option value="${d.id}">${d.name}</option>`)}</select></label>
+        </div>
+        <label class="field"><span>Nightly price: <strong id="ec-p">${App.money(avg)}</strong> <span class="small muted" id="ec-hint"></span></span><input type="range" id="ec-price" min="2500" max="20000" step="100" value="${avg}" aria-describedby="ec-hint"></label>
         <label class="field"><span>Nights booked per month: <strong id="ec-n">${nights}</strong></span><input type="range" id="ec-nights" min="2" max="28" value="${nights}"></label>
       </div>
-      <div class="earn-out"><span class="muted">Estimated monthly payout</span><strong id="ec-out"></strong><span class="small muted">After ${Math.round(App.C.ownerCommissionRate * 100)}% platform commission. Excludes cleaning fees you keep.</span></div>
+      <div class="earn-out"><span class="muted">Estimated monthly payout</span><strong id="ec-out"></strong>
+        <dl class="price-lines" id="ec-lines"></dl>
+        <span class="small muted" id="ec-season"></span>
+        <span class="small muted">Payouts go to your verified bank account 24 hours after each trip starts. Extras, delivery and a driver add more.</span></div>
     </div>
   </section>
   <section class="container section">
@@ -199,15 +206,37 @@ App.pages.ownerLanding = (el) => {
     </div>
     <p class="small muted">Requirements are configured per country. <a href="#/help/owners">See full owner requirements</a>.</p>
   </section>`);
+  // What similar vans charge on VanYatra (median), used to suggest a price
+  const market = (type, region) => {
+    const pick = (f) => App.db.vans.filter(v => v.status === 'published' && f(v)).map(v => v.pricePerNight).sort((a, b) => a - b);
+    const list = [pick(v => v.type === type && v.destinationId === region), pick(v => v.type === type), pick(() => true)].find(l => l.length);
+    return { median: list[Math.floor(list.length / 2)], n: list.length };
+  };
+  const setPrice = () => {
+    const m = market(el.querySelector('#ec-type').value, el.querySelector('#ec-region').value);
+    el.querySelector('#ec-price').value = m.median;
+    el.querySelector('#ec-hint').textContent = `(typical for similar vans: ${App.money(m.median)})`;
+  };
   const upd = () => {
     const p = +el.querySelector('#ec-price').value, n = +el.querySelector('#ec-nights').value;
+    const d = App.get.dest(el.querySelector('#ec-region').value);
+    const rental = p * n, commission = Math.round(rental * App.C.ownerCommissionRate);
+    const trips = Math.max(1, Math.round(n / 4)), cleaning = trips * 1200; // average trip of 4 nights
+    const payout = rental - commission + cleaning;
     el.querySelector('#ec-p').textContent = App.money(p);
     el.querySelector('#ec-n').textContent = n;
-    el.querySelector('#ec-out').textContent = App.money(p * n * (1 - App.C.ownerCommissionRate));
+    el.querySelector('#ec-out').textContent = App.money(payout);
+    el.querySelector('#ec-lines').innerHTML = String(h`<div><dt>${App.money(p)} × ${App.fmt.nights(n)}</dt><dd>${App.money(rental)}</dd></div>
+      <div><dt>Cleaning fees (about ${App.plural(trips, 'trip')})</dt><dd>+${App.money(cleaning)}</dd></div>
+      <div><dt>VanYatra commission (${Math.round(App.C.ownerCommissionRate * 100)}% of rental)</dt><dd>−${App.money(commission)}</dd></div>
+      <div class="total"><dt>You receive</dt><dd>${App.money(payout)}</dd></div>`);
+    el.querySelector('#ec-season').textContent = d ? `${d.name}’s season is ${d.bestTime}: over ${d.bestMonths.length} busy months that’s about ${App.money(payout * d.bestMonths.length)}. Travellers pay the service fee and GST on top; you don’t.` : '';
   };
+  el.querySelector('#ec-type').onchange = () => { setPrice(); upd(); };
+  el.querySelector('#ec-region').onchange = () => { setPrice(); upd(); };
   el.querySelector('#ec-price').oninput = upd;
   el.querySelector('#ec-nights').oninput = upd;
-  upd();
+  setPrice(); upd();
 };
 
 /* ================= HELP & POLICIES ================= */

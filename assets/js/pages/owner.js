@@ -102,6 +102,7 @@ const vansTab = (m, { vans }) => {
         <div class="ov-body">
           <div class="row-between"><h3>${v.name || 'Untitled van'}</h3>${App.pill(v.status)}</div>
           <p class="small muted">${v.type} · ${v.pickup.city || '—'} · ${money(v.pricePerNight)}/night · ${r.count ? '★ ' + r.avg.toFixed(1) : 'no reviews'}</p>
+          ${(() => { const hl = App.listingHealth(v); return h`<details class="health"><summary><span class="badge badge-${hl.tone}">Listing health ${hl.score}/100</span></summary><ul class="plain health-list">${hl.items.map(i => h`<li class="${i.ok ? 'ok' : ''}">${App.icon(i.ok ? 'check' : 'info')} <span><strong>${i.label}</strong>${i.ok ? '' : h`<span class="small muted"> — ${i.tip}</span>`}</span><span class="small muted">${i.points} pts</span></li>`)}</ul></details>`; })()}
           <div class="mini-steps" aria-label="Verification progress">${steps.map((s, i) => h`<span class="ms ms-${s}" title="${App.ONBOARDING_STEPS[i].title}: ${App.VERIFICATION_STATUS[s].label}"></span>`)}</div>
           <div class="row gap wrap">
             <a class="btn btn-sm" href="#/owner/vans/${v.id}">Manage</a>
@@ -228,8 +229,14 @@ const calendarTab = (m, { vans }) => {
     <div class="grid-2 align-start">
       <div class="card" id="cal"></div>
       <div class="card"><h2>Blocked periods</h2><ul class="plain list-rows" id="blocked-list"></ul>
-        <form id="block-form" class="stack"><h3>Block a range</h3><div class="grid-2"><label class="field"><span>From</span><input type="date" name="start" min="${App.today()}" required></label><label class="field"><span>To</span><input type="date" name="end" min="${App.today()}" required></label></div><label class="field"><span>Note</span><input name="note" placeholder="Service, personal use…"></label><button class="btn">Block dates</button></form>
-        <h3>Seasonal pricing</h3><p class="small muted">Base ${money(van.pricePerNight)}/night, Fri–Sat ${money(van.weekendPrice)}. <a href="#/owner/vans/${van.id}">Edit pricing</a></p>
+        <form id="block-form" class="stack"><h3>Block a range</h3><div class="field"><span id="blk-l">Nights to block</span><div id="blk-dates" role="group" aria-labelledby="blk-l"></div><small class="muted">Blocks every night from the first date up to the day it’s free again.</small></div><label class="field"><span>Note</span><input name="note" placeholder="Service, personal use…"></label><button class="btn">Block dates</button></form>
+        <h3>Pricing tips</h3><p class="small muted">Base ${money(van.pricePerNight)}/night, Fri–Sat ${money(van.weekendPrice)}${van.seasons?.length ? ` · ${App.plural(van.seasons.length, 'season')}` : ''}. <a href="#/owner/onboarding?van=${van.id}&step=9">Edit prices, seasons & deals</a></p>
+        <ul class="tips">${App.pricingTips(van).map(t => h`<li>${App.icon('chart-line')} <span>${t}</span></li>`)}</ul>
+        <h3>Calendar sync</h3>
+        <p class="small muted">Use the same van on other sites? Export VanYatra bookings to Google Calendar or Airbnb, and import their bookings here so dates are never double-booked.</p>
+        <div class="row gap wrap"><button type="button" class="btn btn-sm" id="ics-export">${App.icon('download')} Export .ics</button>
+          <label class="btn btn-sm btn-ghost"><input type="file" id="ics-import" accept=".ics,text/calendar" class="sr-only">${App.icon('calendar-days')} Import .ics</label></div>
+        <p class="small muted">Automatic two-way sync by calendar link needs the live server (see the roadmap); files work today.</p>
       </div>
     </div>`);
   m.querySelector('#cal-van').onchange = (e) => App.go('#/owner/calendar?van=' + e.target.value);
@@ -262,13 +269,42 @@ const calendarTab = (m, { vans }) => {
     }
   });
   drawList();
+  const blk = App.dateRangeField(m.querySelector('#blk-dates'), { vanId: van.id, labels: ['From', 'Free again'] });
   m.querySelector('#block-form').onsubmit = (e) => {
     e.preventDefault();
     const d = App.formData(e.target);
-    if (d.end < d.start) return App.toast('End date must be after start date.', 'bad');
-    if (!App.isAvailable(van.id, d.start, App.addDays(d.end, 1))) return App.toast('That range overlaps an existing booking or block.', 'bad');
+    if (!d.start || !d.end || d.end <= d.start) return App.toast('Choose the nights to block.', 'bad');
+    if (!App.isAvailable(van.id, d.start, d.end)) return App.toast('That range overlaps an existing booking or block.', 'bad');
     const before = van.blocked.map(r => ({ ...r }));
-    van.blocked.push({ start: d.start, end: d.end, note: d.note }); e.target.reset(); saveBlocked(before); App.toast('Dates blocked', 'good');
+    // Stored as the first and last blocked day
+    van.blocked.push({ start: d.start, end: App.addDays(d.end, -1), note: d.note || 'Blocked' });
+    van.blocked.sort((a, b) => a.start.localeCompare(b.start));
+    e.target.note.value = ''; blk.set('', '', { silent: true }); saveBlocked(before); App.toast('Dates blocked', 'good');
+  };
+  m.querySelector('#ics-export').onclick = () => {
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(new Blob([App.icsFor(van)], { type: 'text/calendar' }));
+    a.download = `vanyatra-${van.id}.ics`; a.click();
+    setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+  };
+  m.querySelector('#ics-import').onchange = async (e) => {
+    const file = e.target.files[0]; if (!file) return;
+    const events = App.parseIcs(await file.text()).filter(r => r.end >= App.today());
+    const before = van.blocked.map(r => ({ ...r }));
+    const taken = App.unavailableDates(van.id);
+    let added = 0, clash = 0;
+    for (const r of events) {
+      if (van.blocked.some(x => x.start === r.start && x.end === r.end)) continue;
+      // A night already booked on VanYatra: warn instead of silently overlapping
+      let overlap = false;
+      for (let d = r.start; d <= r.end; d = App.addDays(d, 1)) if (taken.has(d) && !van.blocked.some(x => d >= x.start && d <= x.end)) overlap = true;
+      if (overlap) { clash++; continue; }
+      van.blocked.push({ start: r.start, end: r.end, note: 'Imported: ' + r.note }); added++;
+    }
+    van.blocked.sort((a, b) => a.start.localeCompare(b.start));
+    if (added) saveBlocked(before);
+    App.toast(`${App.plural(added, 'period')} imported${clash ? ` · ${clash} clash with VanYatra bookings — check them` : ''}.`, clash ? 'bad' : 'good');
+    e.target.value = '';
   };
 };
 

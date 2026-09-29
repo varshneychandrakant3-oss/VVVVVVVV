@@ -420,6 +420,7 @@ input[type=range] { width: 100%; accent-color: var(--primary); }
 .price-lines { margin: 16px 0 0; display: grid; gap: 8px; }
 .price-lines > div { display: flex; justify-content: space-between; gap: 12px; }
 .price-lines dt, .price-lines dd { margin: 0; }
+.price-lines dd { white-space: nowrap; }
 .price-lines .total { border-top: 1px solid var(--line); padding-top: 10px; font-weight: 800; font-size: 1.1rem; }
 .price-lines .muted { font-size: .9rem; }
 .mobile-book-bar { position: fixed; left: 0; right: 0; bottom: 0; z-index: 40; background: var(--surface); border-top: 1px solid var(--line); display: flex; align-items: center; justify-content: space-between; padding: 10px 16px calc(10px + env(safe-area-inset-bottom)); box-shadow: 0 -6px 20px rgba(0, 0, 0, .08); }
@@ -1078,3 +1079,13 @@ button, a, label, select { touch-action: manipulation; }
 .video-placeholder { display: flex; gap: 12px; align-items: flex-start; border: 1.5px dashed var(--line); border-radius: var(--radius-sm); padding: 14px; margin-top: 12px; }
 .video-placeholder > div { display: grid; gap: 4px; }
 .video-placeholder .ic { color: var(--primary); }
+
+/* Owner insights */
+.health summary { cursor: pointer; list-style: none; display: inline-block; }
+.health summary::-webkit-details-marker { display: none; }
+.health-list { margin: 8px 0; display: grid; gap: 6px; }
+.health-list li { display: flex; gap: 8px; align-items: flex-start; justify-content: space-between; font-size: .9rem; }
+.health-list li > span:first-of-type { flex: 1; }
+.health-list li .ic { color: var(--serious); margin-top: 2px; } .health-list li.ok .ic { color: var(--good); }
+.tips { list-style: none; padding: 0; display: grid; gap: 8px; margin: 8px 0 16px; font-size: .92rem; }
+.tips li { display: flex; gap: 8px; align-items: flex-start; } .tips .ic { color: var(--primary); margin-top: 2px; }

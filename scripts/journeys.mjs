@@ -117,6 +117,10 @@ const JOURNEYS = {
     await T.go('#/vans/v6'); const crumb = T.$$('.crumbs a').find(a => a.innerText === 'Goa'); crumb.click(); await T.wait(600);
     T.assert(location.hash === '#/destinations/goa' && /Goa/.test(T.$('main h1').innerText), 'Goa breadcrumb went to ' + location.hash);
     await T.go('#/no-such-page'); T.assert(/couldn’t find that page/.test(T.text()), '404 page missing');
+    // Earnings calculator: type × region → market price, commission and payout breakdown
+    await T.go('#/list-your-van');
+    const reg = T.$('#ec-region'); reg.value = 'goa'; reg.dispatchEvent(new Event('change', { bubbles: true })); await T.wait(100);
+    T.assert(/typical for similar vans/.test(T.text('#ec-hint')) && /commission/.test(T.text('#ec-lines')) && T.rupees(T.text('#ec-out')) > 0, 'Earnings calculator incomplete');
     T.assert(!bad.length, 'Broken links: ' + bad.join(', '));
     return seen.size + ' pages';
   },
@@ -272,7 +276,7 @@ const JOURNEYS = {
     await T.clickModal('successful'); await T.until(() => /confirmed/.test(location.hash), 8000, 'confirmation');
     const b = App.db.bookings.at(-1);
     T.assert(b.pricing.total === quote.total && b.payment.plan.type === 'part' && b.payment.plan.paid === plan.dueNow && b.depositMethod === 'upi' && b.driver.provided, 'Booking did not store the plan and options');
-    T.assert(/charged automatically/.test(T.text()) && /paid by UPI/.test(T.text()), 'Confirmation does not explain the plan and deposit');
+    await T.until(() => /charged automatically/.test(T.text()) && /paid by UPI/.test(T.text()), 4000, 'confirmation explaining the plan and deposit');
     T.assert(!localStorage.getItem('vanyatra.checkout.v1'), 'Saved checkout not cleared after booking');
     // The balance is charged automatically when due; the UPI deposit comes back after the trip
     if (b.status === 'confirmed') {
@@ -510,7 +514,19 @@ const JOURNEYS = {
     await T.go('#/owner/bookings');
     const acc = T.$('[data-accept]');
     if (acc) { const id = acc.dataset.accept; acc.click(); await T.clickModal('Accept'); await T.wait(500); T.assert(App.get.booking(id).status === 'confirmed', 'Accept did not confirm'); }
+    await T.go('#/owner/vans');
+    T.assert(/Listing health \d+\/100/i.test(T.text()), 'Listing health score missing');
     await T.go('#/owner/calendar');
+    T.assert(T.$$('.tips li').length >= 2, 'Pricing tips missing');
+    // Calendar sync: export has the van's bookings and blocks; import adds another site's bookings
+    const calVan = App.get.van(T.$('#cal-van').value);
+    const ics = App.icsFor(calVan);
+    T.assert(/BEGIN:VCALENDAR/.test(ics) && (ics.match(/BEGIN:VEVENT/g) || []).length >= (calVan.blocked || []).length, 'Calendar export incomplete');
+    const [i1, i2] = T.futureRange(230, 3);
+    const other = ['BEGIN:VCALENDAR', 'BEGIN:VEVENT', 'DTSTART;VALUE=DATE:' + i1.replace(/-/g, ''), 'DTEND;VALUE=DATE:' + i2.replace(/-/g, ''), 'SUMMARY:Airbnb booking', 'END:VEVENT', 'END:VCALENDAR'].join('\r\n');
+    const dt = new DataTransfer(); dt.items.add(new File([other], 'airbnb.ics', { type: 'text/calendar' }));
+    const imp = T.$('#ics-import'); imp.files = dt.files; imp.dispatchEvent(new Event('change', { bubbles: true })); await T.wait(600);
+    T.assert(App.get.van(calVan.id).blocked.some(b => b.start === i1 && b.end === App.addDays(i2, -1) && /Imported/.test(b.note)), 'Calendar import did not block the dates');
     const f = T.$('input[name=start]').form; const [s, e] = T.futureRange(200, 2);
     f.start.value = s; f.end.value = e; f.note.value = 'Journey test'; f.requestSubmit(); await T.wait(900);
     const vanId = T.$('#cal-van').value;
