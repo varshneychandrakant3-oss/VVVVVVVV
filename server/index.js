@@ -12,15 +12,21 @@ import * as verify from './verify.js';
 import * as digilocker from './digilocker.js';
 import * as market from './market.js';
 
-const TYPES = { '.html': 'text/html; charset=utf-8', '.css': 'text/css; charset=utf-8', '.js': 'text/javascript; charset=utf-8', '.json': 'application/json', '.svg': 'image/svg+xml', '.png': 'image/png', '.jpg': 'image/jpeg', '.ico': 'image/x-icon', '.woff2': 'font/woff2', '.webmanifest': 'application/manifest+json', '.geojson': 'application/geo+json' };
+const TYPES = { '.html': 'text/html; charset=utf-8', '.css': 'text/css; charset=utf-8', '.js': 'text/javascript; charset=utf-8', '.json': 'application/json', '.svg': 'image/svg+xml', '.png': 'image/png', '.jpg': 'image/jpeg', '.ico': 'image/x-icon', '.woff2': 'font/woff2', '.webmanifest': 'application/manifest+json', '.geojson': 'application/geo+json', '.xml': 'application/xml', '.txt': 'text/plain; charset=utf-8' };
+
+// Public files: the app shell and assets, the service worker (at the root), and the pages
+// pre-rendered for search engines (scripts/prerender.mjs)
+const PUBLIC_FILES = ['index.html', 'sw.js', '404.html', 'sitemap.xml', 'robots.txt'];
+const PUBLIC_DIRS = ['assets/', 'vans/', 'destinations/', 'help/', 'guide/', 'deals/'];
 
 function serveStatic(req, res, pathname) {
   // Only index.html and /assets/ are public; everything else (server/, data/, .env) is not
-  const rel = pathname === '/' ? 'index.html' : pathname.slice(1);
+  let rel = pathname === '/' ? 'index.html' : pathname.slice(1);
+  if (rel.endsWith('/')) rel += 'index.html';
   // Public files: the app shell, its assets, and the service worker (which must sit at the root)
-  if (rel !== 'index.html' && rel !== 'sw.js' && !rel.startsWith('assets/')) throw new HttpError(404, 'Not found');
+  if (!PUBLIC_FILES.includes(rel) && !PUBLIC_DIRS.some(d => rel.startsWith(d))) throw new HttpError(404, 'Not found');
   const full = path.resolve(ROOT, rel);
-  if (!full.startsWith(path.join(ROOT, 'assets')) && full !== path.join(ROOT, 'index.html') && full !== path.join(ROOT, 'sw.js')) throw new HttpError(404, 'Not found');
+  if (!PUBLIC_DIRS.some(d => full.startsWith(path.join(ROOT, d))) && !PUBLIC_FILES.some(f => full === path.join(ROOT, f))) throw new HttpError(404, 'Not found');
   let data;
   try { data = fs.readFileSync(full); } catch { throw new HttpError(404, 'Not found'); }
   res.writeHead(200, { 'Content-Type': TYPES[path.extname(full)] || 'application/octet-stream', 'Cache-Control': 'no-cache', ...SECURITY_HEADERS });

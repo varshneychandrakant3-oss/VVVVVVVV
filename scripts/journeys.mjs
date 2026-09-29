@@ -36,14 +36,15 @@ const sleep = (ms) => new Promise(r => setTimeout(r, ms));
 const freePort = () => new Promise(r => { const s = net.createServer().listen(0, () => { const p = s.address().port; s.close(() => r(p)); }); });
 
 /* ---------- App hosts ---------- */
-const TYPES = { '.html': 'text/html; charset=utf-8', '.js': 'text/javascript', '.css': 'text/css', '.json': 'application/json', '.geojson': 'application/json', '.png': 'image/png', '.svg': 'image/svg+xml', '.webmanifest': 'application/manifest+json' };
+const TYPES = { '.xml': 'application/xml', '.txt': 'text/plain', '.html': 'text/html; charset=utf-8', '.js': 'text/javascript', '.css': 'text/css', '.json': 'application/json', '.geojson': 'application/json', '.png': 'image/png', '.svg': 'image/svg+xml', '.webmanifest': 'application/manifest+json' };
 // Like GitHub Pages: plain files, no /api (so the app uses its in-browser backend)
 async function startStatic() {
   const port = await freePort();
   const server = http.createServer((req, res) => {
-    const rel = decodeURIComponent(new URL(req.url, 'http://x').pathname).replace(/^\/+/, '') || 'index.html';
+    let rel = decodeURIComponent(new URL(req.url, 'http://x').pathname).replace(/^\/+/, '') || 'index.html';
+    if (rel.endsWith('/')) rel += 'index.html';
     const file = path.join(ROOT, rel);
-    if (!file.startsWith(ROOT) || !(rel === 'index.html' || rel === 'sw.js' || rel.startsWith('assets/')) || !fs.existsSync(file) || fs.statSync(file).isDirectory()) { res.writeHead(404); return res.end('Not found'); }
+    if (!file.startsWith(ROOT) || !(['index.html', 'sw.js', '404.html', 'sitemap.xml', 'robots.txt'].includes(rel) || ['assets/', 'vans/', 'destinations/', 'help/', 'guide/', 'deals/'].some(d => rel.startsWith(d))) || !fs.existsSync(file) || fs.statSync(file).isDirectory()) { res.writeHead(404); return res.end('Not found'); }
     res.writeHead(200, { 'Content-Type': TYPES[path.extname(file)] || 'application/octet-stream' });
     fs.createReadStream(file).pipe(res);
   }).listen(port);
@@ -733,6 +734,24 @@ const JOURNEYS = {
     T.assert(btn, 'Visitor ID not in the review queue'); btn.click(); await T.wait(900);
     T.assert(App.db.travellers.u_cust6.identity.status === 'verified', 'Approval not saved');
     return tabs.length + ' sections';
+  },
+  // Pre-rendered pages (npm run prerender): structured data for search engines, then the app boots on the same screen
+  seo: async function () {
+    const html = await (await fetch('vans/v1/')).text();
+    const doc = new DOMParser().parseFromString(html, 'text/html');
+    const ld = [...doc.querySelectorAll('script[type="application/ld+json"]')].map(x => JSON.parse(x.textContent));
+    T.assert(ld.some(x => x['@type'] === 'Product' && x.offers) && ld.some(x => x['@type'] === 'BreadcrumbList'), 'Van JSON-LD missing');
+    T.assert(doc.querySelector('link[rel=canonical]') && doc.querySelector('meta[property="og:image"]') && doc.querySelector('main h1'), 'Van page meta/content missing');
+    const faq = new DOMParser().parseFromString(await (await fetch('help/faq/')).text(), 'text/html');
+    T.assert([...faq.querySelectorAll('script[type="application/ld+json"]')].some(x => /FAQPage/.test(x.textContent)), 'FAQPage JSON-LD missing');
+    T.assert(/<loc>/.test(await (await fetch('sitemap.xml')).text()), 'Sitemap empty');
+    // The Node server forbids framing (X-Frame-Options), so the boot check runs on the static host
+    if (App.backend === 'server') return ld.length + ' JSON-LD blocks';
+    const f = document.createElement('iframe'); f.style.cssText = 'width:360px;height:700px'; f.src = 'destinations/goa/'; document.body.append(f);
+    await T.until(() => f.contentWindow.App && f.contentDocument.querySelector('main h1') && !f.contentDocument.querySelector('.prerendered') && /goa/i.test(f.contentDocument.querySelector('main h1').innerText), 10000, 'pre-rendered page boot');
+    T.assert(f.contentDocument.querySelector('link[rel=canonical]').href.endsWith('destinations/goa/') && (f.contentDocument.querySelector('link[rel=canonical]').href), 'Canonical not kept');
+    f.remove();
+    return ld.length + ' JSON-LD blocks, page boots';
   }
 };
 

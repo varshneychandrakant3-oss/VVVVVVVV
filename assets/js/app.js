@@ -86,7 +86,27 @@ App.render = () => {
   const dnav = main.querySelector('.dash-nav nav'), act = dnav && dnav.querySelector('a.active');
   if (act) dnav.scrollLeft = act.offsetLeft - dnav.clientWidth / 2 + act.clientWidth / 2;
   const h1 = main.querySelector('h1');
-  document.title = (h1 ? h1.innerText.replace(/\s+/g, ' ').trim() + ' · ' : '') +'VanYatra — Camper van rentals in India';
+  document.title = (h1 ? h1.innerText.replace(/\s+/g, ' ').trim() + ' · ' : '') + 'VanYatra — Camper van rentals in India';
+  App.setMeta(route, main);
+};
+
+// Description, canonical and share tags for the current screen (pre-rendered pages
+// start with the same values, so crawlers and link previews agree with visitors)
+const PRE = { van: (p) => `vans/${p.id}/`, destination: (p) => `destinations/${p.id}/`, destinations: () => 'destinations/', help: (p) => (p.topic ? `help/${p.topic}/` : 'help/'), guide: () => 'guide/', deals: (p) => (p.id ? '' : 'deals/'), home: () => '' };
+App.setMeta = (route, main) => {
+  const set = (sel, attr, val, make) => { let e = document.head.querySelector(sel); if (!e && make) { e = document.createElement(make[0]); Object.entries(make[1]).forEach(([k, v]) => e.setAttribute(k, v)); document.head.append(e); } if (e) e.setAttribute(attr, val); };
+  const van = route.page === 'van' && App.get.van(route.params.id), dest = route.page === 'destination' && App.get.dest(route.params.id);
+  const desc = van ? `${van.type} in ${van.pickup.city}: sleeps ${van.sleeps}, from ${App.fmt.money(van.pricePerNight)} a night. ${van.description.slice(0, 90)}…`
+    : dest ? `${dest.tagline}. Best time: ${dest.bestTime}.`
+    : (main.querySelector('p.lead, .hero-sub, main p')?.innerText || 'Discover destinations, find verified camper vans and book your road trip across India with transparent pricing.').slice(0, 160);
+  set('meta[name="description"]', 'content', desc);
+  set('meta[property="og:title"]', 'content', document.title, ['meta', { property: 'og:title' }]);
+  set('meta[property="og:description"]', 'content', desc, ['meta', { property: 'og:description' }]);
+  const pic = van ? van.photos[0] : dest ? dest.hero : null;
+  if (pic) set('meta[property="og:image"]', 'content', App.photo(pic, 1200), ['meta', { property: 'og:image' }]);
+  const clean = PRE[route.page] && PRE[route.page](route.params);
+  const siteRoot = new URL(document.querySelector('base')?.href || '.', location.href);
+  if (clean !== undefined && clean !== null) set('link[rel="canonical"]', 'href', new URL(clean, siteRoot).href, ['link', { rel: 'canonical' }]);
 };
 
 App.renderHeader = () => {
@@ -277,6 +297,9 @@ App.pages.notFound = (el) => {
 window.addEventListener('hashchange', App.render);
 document.addEventListener('DOMContentLoaded', async () => {
   if ('scrollRestoration' in history) history.scrollRestoration = 'manual';
+  // Pre-rendered pages (scripts/prerender.mjs) say which screen they are
+  const pre = document.documentElement.dataset.route;
+  if (pre && !location.hash) history.replaceState(null, '', pre);
   App.load();
   await App.syncSession();
   App.runExpiryChecks();

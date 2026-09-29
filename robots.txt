@@ -1,0 +1,4 @@
+User-agent: *
+Allow: /
+Disallow: /VVVVVVVV/#/account
+Sitemap: https://varshneychandrakant3-oss.github.io/VVVVVVVV/sitemap.xml

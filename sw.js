@@ -11,7 +11,7 @@
  * The files to cache are read from index.html, so there is no list to maintain.
  * Change VERSION on a release to prompt open tabs to refresh.
  */
-const VERSION = '2026-09-29.1';
+const VERSION = '2026-09-29.2';
 const SHELL = 'vanyatra-shell-' + VERSION;
 const IMAGES = 'vanyatra-images';
 const IMAGE_LIMIT = 150;
@@ -54,10 +54,14 @@ self.addEventListener('fetch', (event) => {
     event.respondWith((async () => {
       try {
         const res = await fetch(req);
-        const cache = await caches.open(SHELL);
-        cache.put('./index.html', res.clone());
+        // Only the app shell is kept; pre-rendered pages (/vans/…) boot the same app
+        const shell = url.pathname === scope.pathname || url.pathname === scope.pathname + 'index.html';
+        if (shell && res.ok) (await caches.open(SHELL)).put('./index.html', res.clone());
         return res;
       } catch {
+        // Offline on a clean link: open the cached app on the matching screen
+        const rest = url.pathname.slice(scope.pathname.length).replace(/(index\.html)?$/, '').replace(/\/$/, '');
+        if (rest && url.pathname.startsWith(scope.pathname)) return Response.redirect(scope.href + '#/' + rest, 302);
         return (await caches.match('./index.html')) || Response.error();
       }
     })());
