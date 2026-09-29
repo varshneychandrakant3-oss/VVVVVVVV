@@ -9,6 +9,43 @@ const photoCaption = (van, i) => App.PHOTO_GUIDE.find(g => g.id === van.photoLab
 
 const publishedVans = () => App.db.vans.filter(v => v.status === 'published');
 
+/* Home: numbers from real bookings and reviews, traveller stories, and how VanYatra compares */
+const socialProof = () => {
+  const trips = App.db.bookings.filter(b => b.status === 'completed').length;
+  const rs = App.db.reviews.filter(r => r.status === 'published');
+  const avg = rs.length ? rs.reduce((a, r) => a + r.rating, 0) / rs.length : 0;
+  const vans = publishedVans();
+  const stories = rs.filter(r => r.rating === 5 && r.text.length > 90 && App.get.van(r.vanId)?.status === 'published')
+    .filter((r, i, arr) => arr.findIndex(x => App.get.van(x.vanId).destinationId === App.get.van(r.vanId).destinationId) === i).slice(0, 3);
+  const Y = App.icon('check', { label: 'Yes' }), N = App.icon('x', { label: 'No' }), M = h`<span class="small muted">Varies</span>`;
+  const rows = [
+    ['Owners and renters ID-verified', Y, M, N],
+    ['Insured for self-drive rental', Y, Y, M],
+    ['All-in price before you pay', Y, M, N],
+    ['Deposit protection with photo evidence', Y, M, N],
+    ['24×7 roadside help', Y, M, N],
+    ['Free date change if a mountain road closes', Y, N, N],
+    ['Wake up at the lake, not the car park', Y, N, Y]
+  ];
+  return h`<section class="section container">
+    <div class="stats-band">
+      <div><strong>${App.fmt.number(trips)}</strong><span>trips completed</span></div>
+      <div><strong>★ ${avg.toFixed(1)}</strong><span>from ${App.plural(rs.length, 'review')}</span></div>
+      <div><strong>${vans.length}</strong><span>verified vans</span></div>
+      <div><strong>${App.db.destinations.length}</strong><span>regions across India</span></div>
+    </div>
+    ${stories.length ? h`<div class="section-head"><div><p class="eyebrow">Stories</p><h2>Trips travellers loved</h2></div></div>
+    <div class="stories">${stories.map(r => { const v = App.get.van(r.vanId), d = App.get.dest(v.destinationId), a = App.get.user(r.authorId); return h`<article class="story card">
+      ${App.img(r.photos?.[0] || v.photos[0], { w: 480, alt: `${v.name} in ${d?.name}`, sizes: '(min-width: 900px) 33vw, 100vw' })}
+      <div><p>“${r.text}”</p><p class="small muted">— ${a?.name.split(' ')[0]}, ${d?.name} · ${App.get.verifiedStay(r) ? 'verified stay' : ''} · <a href="#/vans/${v.id}">${v.name}</a></p></div></article>`; })}</div>` : ''}
+    <div class="section-head"><div><p class="eyebrow">Why VanYatra</p><h2>How it compares</h2></div></div>
+    <div class="table-wrap compare-wrap"><table class="compare-table">
+      <thead><tr><th scope="col"><span class="sr-only">Feature</span></th><th scope="col" class="us">VanYatra</th><th scope="col">Car + hotels</th><th scope="col">Unverified rentals<span class="small muted">(classifieds, social media)</span></th></tr></thead>
+      <tbody>${rows.map(([k, a, b, c]) => h`<tr><th scope="row">${k}</th><td class="us">${a}</td><td>${b}</td><td>${c}</td></tr>`)}</tbody>
+    </table></div>
+  </section>`;
+};
+
 /* Shared search form used on home and destination pages */
 const searchForm = (q = {}, compact = false) => h`
   <form class="search-form ${compact ? 'compact' : ''}" id="search-form" role="search" aria-label="Find a camper van">
@@ -114,6 +151,7 @@ App.pages.home = (el) => {
       <div><span class="trust-ic">${App.icon('phone')}</span><h3>24×7 support</h3><p>Roadside assistance and a real human on the phone, day or night.</p></div>
     </div>
   </section>
+  ${socialProof()}
 
   <section class="section container">
     <div class="section-head"><div><p class="eyebrow">Explore by map</p><h2>Vans and campsites near your route</h2></div><a class="link-arrow" href="#/map">Open full map →</a></div>
