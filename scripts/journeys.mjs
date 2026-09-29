@@ -741,6 +741,45 @@ const JOURNEYS = {
     T.assert(App.db.travellers.u_cust6.identity.status === 'verified', 'Approval not saved');
     return tabs.length + ' sections';
   },
+  // Spacing: buttons in a row line up and don't touch; blocks after cards, grids, forms and
+  // lists aren't glued to them (the kind of crowding a reviewer spotted on the home page)
+  spacing: async function () {
+    const vis = (e) => { const r = e.getBoundingClientRect(), cs = getComputedStyle(e); return r.width > 0 && r.height > 0 && cs.visibility !== 'hidden' && cs.display !== 'none'; };
+    const name = (e) => e.tagName.toLowerCase() + (e.id ? '#' + e.id : '') + (typeof e.className === 'string' && e.className.trim() ? '.' + e.className.trim().split(/\s+/).slice(0, 2).join('.') : '');
+    const audit = () => {
+      const out = [];
+      document.querySelectorAll('main *').forEach(p => {
+        const kids = [...p.children].filter(k => vis(k) && getComputedStyle(k).display !== 'inline' && !['absolute', 'fixed'].includes(getComputedStyle(k).position));
+        for (let i = 1; i < kids.length; i++) {
+          const a = kids[i - 1], b = kids[i], ra = a.getBoundingClientRect(), rb = b.getBoundingClientRect();
+          if (rb.top < ra.bottom - 2 || Math.min(ra.right, rb.right) - Math.max(ra.left, rb.left) < 20) continue;
+          if (rb.top - ra.bottom < 4 && a.matches('.card, .grid-2, .grid-3, .steps-3, form, ul, dl, .opt-cards, .btn, .drf') && !b.matches('label, .field')) out.push(`${Math.round(rb.top - ra.bottom)}px gap: ${name(a)} → ${name(b)}`);
+        }
+        const bs = [...p.children].filter(k => vis(k) && k.matches('.btn'));
+        for (let i = 1; i < bs.length; i++) {
+          const a = bs[i - 1].getBoundingClientRect(), b = bs[i].getBoundingClientRect(), d = Math.abs((a.top + a.bottom) - (b.top + b.bottom)) / 2;
+          if (d > 1.5 && d < Math.max(a.height, b.height) / 2) out.push(`buttons out of line by ${Math.round(d)}px in ${name(p)}`);
+          if (d < 2 && b.left > a.left && b.left - a.right < 6) out.push(`buttons touching in ${name(p)}`);
+        }
+      });
+      return out;
+    };
+    const problems = [];
+    const check = async (route) => { await T.go(route); document.querySelectorAll('.section').forEach(s => { s.style.contentVisibility = 'visible'; }); await T.wait(150); for (const x of audit()) problems.push(route + ': ' + x); };
+    for (const r of ['#/login', '#/signup']) await check(r);
+    await T.login('traveller@vanyatra.in', '/');
+    const routes = ['#/', '#/destinations', '#/destinations/goa', '#/search', '#/vans/v1', '#/book/v1', '#/deals', '#/deals/diwali', '#/plan', '#/guide', '#/help', '#/help/support', '#/list-your-van',
+      '#/account/bookings', '#/account/profile', '#/account/payments', '#/account/verification', '#/account/saved'];
+    for (const r of routes) await check(r);
+    const owner = ['overview', 'vans', 'bookings', 'calendar', 'earnings', 'messages', 'reviews', 'documents', 'analytics'].map(t => '#/owner/' + t);
+    await T.login('meera@vanyatra.in', '/owner');
+    for (const r of owner) await check(r);
+    const admin = ['overview', 'users', 'listings', 'verifications', 'bookings', 'disputes', 'reviews', 'destinations', 'analytics', 'notifications', 'audit'].map(t => '#/admin/' + t);
+    await T.login('admin@vanyatra.in', '/admin');
+    for (const r of admin) await check(r);
+    T.assert(!problems.length, [...new Set(problems)].join(' | '));
+    return (routes.length + owner.length + admin.length + 2) + ' pages';
+  },
   // Hindi (draft): switch, chrome and home page translated, still fits at 360px, choice remembered
   lang: async function () {
     T.$('.footer-lang').click();
@@ -850,9 +889,12 @@ async function run(mode) {
 }
 
 // Screenshots for visual review (demo mode):
-//   node scripts/journeys.mjs --screens out/ "#/vans/v1" "traveller@vanyatra.in#/account/verification" ...
+//   node scripts/journeys.mjs [--full] --screens out/ "#/vans/v1" "traveller@vanyatra.in#/account/verification" ...
 // A route may be prefixed with an email to sign in first, suffixed with @selector to scroll
 // to it, and then with !selector to click it (e.g. to open a picker).
+// --full saves the whole page as tiles, --tile px high (default 1000)
+const FULL = args.includes('--full');
+const TILE = Number(opt('tile', 1000));
 async function screens(dir, routes) {
   fs.mkdirSync(dir, { recursive: true });
   const host = await startStatic(), chrome = await launchChrome();
@@ -865,10 +907,24 @@ async function screens(dir, routes) {
     const js = `(async () => { await T.until(() => window.App && App.backend, 10000); ${email ? `await T.login(${JSON.stringify(email)}, '/');` : ''} await T.go(${JSON.stringify(hash)}); await T.wait(900); ${sel ? `document.querySelector(${JSON.stringify(sel)})?.scrollIntoView({ block: 'start', behavior: 'instant' }); scrollBy(0, -70); await T.wait(300);` : 'scrollTo(0, 0);'} ${click ? `document.querySelector(${JSON.stringify(click)})?.click(); await T.wait(500);` : ''} })()`;
     const r = await chrome.send('Runtime.evaluate', { expression: js, awaitPromise: true });
     if (r.exceptionDetails) console.log('✗', spec, r.exceptionDetails.exception?.description?.split('\n')[0]);
-    const shot = await chrome.send('Page.captureScreenshot', { format: 'png' });
-    const file = path.join(dir, `${String(i + 1).padStart(2, '0')}-${hash.replace(/[^\w]+/g, '-').replace(/^-|-$/g, '') || 'home'}.png`);
-    fs.writeFileSync(file, Buffer.from(shot.data, 'base64'));
-    console.log('📸', file);
+    const base = path.join(dir, `${String(i + 1).padStart(2, '0')}-${hash.replace(/[^\w]+/g, '-').replace(/^-|-$/g, '') || 'home'}`);
+    if (FULL) {
+      // The whole page, in tiles of TILE px (sections that skip rendering off-screen are drawn first)
+      await chrome.send('Runtime.evaluate', { expression: "document.querySelectorAll('.section').forEach(s => s.style.contentVisibility = 'visible'); document.getElementById('consent-bar')?.remove(); scrollTo(0, 0)" });
+      await sleep(400);
+      const { cssContentSize } = await chrome.send('Page.getLayoutMetrics');
+      const height = Math.min(Math.ceil(cssContentSize.height), 12000);
+      for (let y = 0, n = 1; y < height; y += TILE, n++) {
+        const clip = { x: 0, y, width: WIDTH, height: Math.min(TILE, height - y), scale: 1 };
+        const shot = await chrome.send('Page.captureScreenshot', { format: 'png', clip, captureBeyondViewport: true });
+        fs.writeFileSync(`${base}-${n}.png`, Buffer.from(shot.data, 'base64'));
+      }
+      console.log('📸', base, Math.ceil(height / TILE) + ' tiles');
+    } else {
+      const shot = await chrome.send('Page.captureScreenshot', { format: 'png' });
+      fs.writeFileSync(base + '.png', Buffer.from(shot.data, 'base64'));
+      console.log('📸', base + '.png');
+    }
   }
   chrome.close(); host.stop();
 }

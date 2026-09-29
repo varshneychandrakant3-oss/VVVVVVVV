@@ -124,6 +124,34 @@ Approved after the P2 review. Lighthouse mobile, Node server, two runs each:
 - trim the demo seed data from the main bundle when a server is present
 - pre-render the home page shell
 
+### After P2: spacing and alignment review (29 Sep 2026)
+Reported in review: the home page looked crowded, with the buttons under "How it works" pressed against the cards and out of line. Every main page was then checked at 1024, 1100, 1200, 1280 and 360px.
+
+- **Buttons:**
+  - Before: buttons lined up on the text baseline, so a button with an icon sat 4 px off one without.
+  - After: they line up on their centre. A new `.btn-row` gives rows of buttons even gaps and wraps on phones.
+  - The home page's button row now has space above it.
+- **Header:**
+  - Before: seven links, the language switch and the account menu didn't fit below about 1200px, so links wrapped onto two lines ("Find a / van").
+  - After: from 1024 to 1199px the header uses the menu button, like tablets. Links never wrap.
+- **Van cards:**
+  - Before: "New on VanYatra · Host ★" squeezed the van type and town into two lines.
+  - After: the rating moves to its own line when both don't fit.
+- **Stories:** the three cards fill the row instead of leaving an empty fourth column.
+- **Space between blocks:** added where a note, button, form or heading touched the grid, list or form above it. Places fixed:
+  - the booking card ("Minimum stay", "Select dates…")
+  - sign-in and sign-up
+  - the support form
+  - "Extras" and "Best for" on the van page
+  - "Before you go" notes
+  - the earnings calculator
+  - Profile
+  - owner and admin overview lists
+  - the owner calendar
+- **Menus:** the Reviews item in the account, owner and admin menus shows a star icon like the others, instead of a text ★ that sat off-line.
+- **New `spacing` journey:** checks 40 pages at every width, including the owner and admin dashboards. It fails if buttons in a row are out of line or touching, or if a block is glued to the card, grid, form or list above it.
+- `npm run journeys -- --full --screens out/ "#/…"` saves whole-page screenshots in tiles for visual review.
+
 ### Open TODOs from P2
 - **Performance ≥ 90 is not reached yet.** The build step is done (see above). The next steps are listed there, plus self-hosting a Latin subset of the font.
 - **Hindi:** have a native speaker review it. Then extract strings for search results, the van page, checkout and account.

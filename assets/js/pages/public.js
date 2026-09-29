@@ -117,7 +117,7 @@ App.pages.home = (el) => {
       <li><span class="step-n">2</span><h3>${App.t('Choose your van')}</h3><p>${App.t('Compare real photos, beds, amenities and live availability. Every owner is verified.')}</p></li>
       <li><span class="step-n">3</span><h3>${App.t('Book & hit the road')}</h3><p>${App.t('Pay securely, see every rupee up front, and get your trip plan and pickup details instantly.')}</p></li>
     </ol>
-    <p class="center"><a class="btn btn-primary" href="#/plan">${App.icon('route')} ${App.t('Plan a trip')}</a> <a class="btn btn-ghost" href="#/guide">${App.t('New to van life? Start here')}</a> <a class="btn btn-ghost" href="#/deals">${App.icon('sparkles')} ${App.t('Deals')}</a></p>
+    <div class="btn-row btn-row-center section-actions"><a class="btn btn-primary" href="#/plan">${App.icon('route')} ${App.t('Plan a trip')}</a> <a class="btn btn-ghost" href="#/guide">${App.t('New to van life? Start here')}</a> <a class="btn btn-ghost" href="#/deals">${App.icon('sparkles')} ${App.t('Deals')}</a></div>
   </section>
 
   <section class="section container">

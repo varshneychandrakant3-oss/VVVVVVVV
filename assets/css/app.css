@@ -119,16 +119,16 @@ button, input, select, textarea { font: inherit; color: inherit; }
 #site-nav > a { padding: 10px 12px; border-radius: 10px; color: var(--ink); text-decoration: none; font-weight: 600; }
 #site-nav > a:hover, #site-nav > a.active { background: var(--primary-soft); color: var(--primary); }
 .nav-auth { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; padding-top: 8px; border-top: 1px solid var(--line); margin-top: 6px; }
-@media (min-width: 1024px) {
+@media (min-width: 1200px) {
   .nav-toggle { display: none; }
   #site-nav { display: flex; position: static; flex-direction: row; align-items: center; padding: 0; background: none; border: 0; box-shadow: none; flex: 1; gap: 2px; }
-  #site-nav > a { padding: 8px 12px; font-size: .95rem; }
+  #site-nav > a { padding: 8px 12px; font-size: .95rem; white-space: nowrap; }
   .nav-auth { margin: 0 0 0 auto; padding: 0; border: 0; flex-wrap: nowrap; }
 }
 .dropdown { position: relative; }
 .dropdown-menu { position: absolute; right: 0; top: calc(100% + 8px); min-width: 260px; max-width: calc(100vw - 32px); background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); box-shadow: var(--shadow-lg); padding: 6px; z-index: 60; display: flex; flex-direction: column; }
 .dropdown-menu[hidden] { display: none; }
-@media (max-width: 1023px) { .dropdown-menu { left: 0; right: auto; } }
+@media (max-width: 1199px) { .dropdown-menu { left: 0; right: auto; } }
 .dropdown-menu > a, .dropdown-menu > button { padding: 10px 12px; border-radius: 8px; text-decoration: none; color: var(--ink); background: none; border: 0; text-align: left; cursor: pointer; font-weight: 550; }
 .dropdown-menu > a:hover, .dropdown-menu > button:hover { background: var(--surface-2); }
 .menu-head { padding: 10px 12px; display: flex; flex-direction: column; gap: 2px; border-bottom: 1px solid var(--line); margin-bottom: 4px; }
@@ -735,7 +735,8 @@ button, a, label, select { touch-action: manipulation; }
 .tabbar { display: none; }
 .menu-scrim { display: none; }
 
-@media (max-width: 1023px) {
+/* Header with the menu button: phones, tablets and small laptops (seven links need ~1200px) */
+@media (max-width: 1199px) {
   .header-inner { gap: 8px; }
   .nav-toggle { order: 3; margin-left: 0; font-size: 1.3rem; }
   .nav-auth { margin: 0 0 0 auto; padding: 0; border: 0; order: 2; flex-wrap: nowrap; gap: 6px; }
@@ -1170,4 +1171,32 @@ button, a, label, select { touch-action: manipulation; }
 #site-nav > .nav-lang { align-self: flex-start; margin-top: 8px; }
 #site-footer .lang-switch { border-color: rgba(255,255,255,.3); color: #fff; }
 .lang-draft { display: block; margin-top: 6px; opacity: .8; }
-@media (min-width: 1024px) { #site-nav > .nav-lang { margin: 0 0 0 4px; padding: 4px 10px; min-height: 32px; font-size: .9rem; } }
+@media (min-width: 1200px) { #site-nav > .nav-lang { margin: 0 0 0 4px; padding: 4px 10px; min-height: 32px; font-size: .9rem; } }
+
+/* ---------- Spacing and alignment ---------- */
+/* Buttons sit on the text's centre line, so a row with and without icons lines up */
+.btn { vertical-align: middle; }
+/* A row of buttons: wraps on phones with even gaps */
+.btn-row { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; }
+.btn-row-center { justify-content: center; }
+.section-actions { margin-top: 28px; }
+/* Van cards: the type/place label and the rating share a line when they fit;
+   otherwise the rating moves below instead of squeezing the label */
+.van-card-body > .row-between { flex-wrap: wrap; gap: 4px 10px; align-items: center; }
+.van-card-body > .row-between .eyebrow { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%; }
+.van-card-body .new-badge { flex-wrap: nowrap; white-space: nowrap; }
+.van-card-body h3 { margin: 4px 0 2px; }
+/* Stories: cards fill the row instead of leaving an empty column */
+.stories { grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); }
+/* Notes under fields and buttons get room to breathe */
+.bc-min { margin: 6px 0 12px; }
+.booking-card .btn-lg + p, .booking-card #book-btn + p { margin-top: 10px; }
+.field > small, .field > .muted.small { margin-top: 4px; }
+.auth-card form + p, .auth-card form + .center { margin-top: 20px; }
+.auth-card label.check + .btn, form label.check + .btn { margin-top: 16px; }
+/* Blocks that follow a grid of cards, lists or cards */
+.grid-3 + .card, .grid-2 + .card, .opt-cards + p, .gtk + p, ul + p.small, dl + p.small, .grid-2 + p.small, .grid-3 + p.small { margin-top: 16px; }
+.grid-2 + .btn, .grid-3 + .btn, .list-rows + * { margin-top: 16px; }
+form + h2, form + h3 { margin-top: 28px; }
+.amen-list li { display: flex; align-items: center; gap: 8px; }
+.results-meta { margin-top: 10px; }
