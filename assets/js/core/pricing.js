@@ -27,6 +27,8 @@
 
   // Destinations where snow chains and heaters matter
   App.HIMALAYAN = ['ladakh', 'spiti', 'himachal', 'rishikesh'];
+  // Covered by the Mountain Promise (landslides, pass closures, snow)
+  App.MOUNTAIN_REGIONS = [...App.HIMALAYAN, 'meghalaya'];
 
   /* Protection plans (like Outdoorsy's tiers). The deposit is a share of the van's deposit. */
   App.PROTECTION = [

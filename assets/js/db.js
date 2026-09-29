@@ -463,6 +463,52 @@ App.api = {
     await App.syncMarket();
     return u;
   },
+  // Mountain Promise: an official closure blocks a covered trip → free date change or full credit
+  addClosure({ destinationId, title, from, to, source }) {
+    App.db.closures = App.db.closures || [];
+    const c = { id: App.uid('cl'), destinationId, title, from, to, source, createdAt: new Date().toISOString() };
+    App.db.closures.unshift(c);
+    const hit = App.db.bookings.filter(b => ['confirmed', 'requested'].includes(b.status) && App.get.van(b.vanId)?.destinationId === destinationId && b.start <= to && from <= b.end);
+    for (const b of hit) {
+      b.promise = { closureId: c.id, offeredAt: c.createdAt };
+      App.notify(b.customerId, `Mountain Promise: ${title} (${App.fmt.dateRange(from, to)}) affects your trip ${b.id}. Change your dates for free or take full credit.`, '#/account/bookings');
+      App.sendWhatsApp(b.customerId, 'closure_alert', `VanYatra Mountain Promise: ${title}. Your trip ${b.id} is covered — change dates free or take full credit in the app.`);
+      App.notify(b.ownerId, `${title} affects booking ${b.id}. The traveller may move dates or take credit under the Mountain Promise.`, '#/owner/bookings');
+    }
+    App.audit('closure.add', `${c.id} ${destinationId} ${from}–${to}: ${title}`);
+    App.save();
+    return { closure: c, affected: hit.length };
+  },
+  usePromise(bookingId, choice) {
+    const b = App.get.booking(bookingId);
+    if (!b?.promise || b.promise.used) throw new Error('The Mountain Promise isn’t available for this trip.');
+    if (choice.type === 'move') {
+      const nights = App.nightsBetween(b.start, b.end);
+      if (App.nightsBetween(choice.start, choice.end) !== nights) throw new Error(`Choose ${App.fmt.nights(nights)}, the same length as your trip.`);
+      // Free on the new dates, not counting this trip's own nights
+      const taken = App.unavailableDates(b.vanId, b.id);
+      for (let d = choice.start; d < choice.end; d = App.addDays(d, 1)) if (taken.has(d)) throw new Error('The van isn’t free on those dates.');
+      if (choice.start < App.today()) throw new Error('Choose dates from today onwards.');
+      const from = App.fmt.dateRange(b.start, b.end);
+      b.start = choice.start; b.end = choice.end;
+      b.promise.used = { type: 'move', at: new Date().toISOString(), from };
+      App.notify(b.ownerId, `${b.id} moved from ${from} to ${App.fmt.dateRange(b.start, b.end)} under the Mountain Promise (no fee).`, '#/owner/bookings');
+      App.notify(b.customerId, `Your trip ${b.id} is now ${App.fmt.dateRange(b.start, b.end)}. No fee was charged.`, '#/account/bookings');
+    } else {
+      const paid = b.payment?.plan ? b.payment.plan.paid : b.pricing.total;
+      const me = App.get.user(b.customerId);
+      me.credit = (me.credit || 0) + paid;
+      b.status = 'cancelled'; b.cancelledBy = 'customer'; b.cancelReason = 'Mountain Promise: route closed'; b.refund = 0; b.creditIssued = paid;
+      if (b.payment?.plan) b.payment.plan.balance = 0;
+      if (b.depositStatus === 'paid') { App.db.transactions.unshift({ id: App.uid('tx'), type: 'refund', bookingId: b.id, customerId: b.customerId, ownerId: b.ownerId, amount: b.pricing.deposit, at: new Date().toISOString(), status: 'refunded', note: 'Deposit returned' }); b.depositStatus = 'refunded'; }
+      b.promise.used = { type: 'credit', at: new Date().toISOString(), amount: paid };
+      App.notify(b.customerId, `${App.money(paid)} VanYatra credit added for ${b.id} (Mountain Promise). Use it on any van, any time.`, '#/account/payments');
+      App.notify(b.ownerId, `${b.id} was cancelled under the Mountain Promise (route closure). Those dates are open again.`, '#/owner/bookings');
+    }
+    App.audit('promise.' + choice.type, b.id);
+    App.save();
+    return b;
+  },
   // A deposit claim or trip issue. Inspections (if any) are attached as evidence.
   openDispute(bookingId, by, reason, amount) {
     const b = App.get.booking(bookingId);

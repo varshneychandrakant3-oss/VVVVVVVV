@@ -219,6 +219,7 @@ App.pages.book = (el, { id }, q) => {
       ${row('Driver', s.options.driver ? 'Provided by the owner' : `${s.driver.name}${s.driver.check?.status === 'verified' ? ' · licence verified' : ''}`, 3)}
     </dl>
 
+    ${App.MOUNTAIN_REGIONS.includes(van.destinationId) ? h`<p class="small">${App.icon('mountain')} <strong>Mountain Promise included:</strong> if an official closure blocks your route, change dates free or take full credit. <a href="#/help/mountain-promise" target="_blank">Details</a></p>` : ''}
     <h2>How would you like to pay?</h2>
     ${s.payError ? h`<div class="alert alert-bad" role="alert"><strong>Payment didn’t go through.</strong> ${s.payError}</div>` : ''}
     <fieldset class="field"><legend>Payment plan</legend><div class="choice-grid">

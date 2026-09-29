@@ -431,6 +431,34 @@ const JOURNEYS = {
     return b.id + ' · claim ' + App.fmt.money(d.amount);
   },
 
+  // Mountain Promise: a recorded closure lets the traveller move dates free or take credit
+  async promise() {
+    await T.login('traveller@vanyatra.in', '/');
+    const b0 = App.db.bookings.find(x => x.customerId === App.me().id && ['confirmed', 'requested'].includes(x.status) && App.MOUNTAIN_REGIONS.includes(App.get.van(x.vanId)?.destinationId));
+    T.assert(b0, 'No upcoming mountain trip in the demo data');
+    const id = b0.id, dest = App.get.van(b0.vanId).destinationId, nights = App.nightsBetween(b0.start, b0.end);
+    await T.go('#/vans/' + b0.vanId); T.assert(/Mountain Promise included/.test(T.text()), 'Van page lacks the promise');
+    // Admin records an official closure over the trip
+    await T.login('admin@vanyatra.in', '/admin/destinations');
+    const f = T.$('#closure-form'); f.destinationId.value = dest; f.title.value = 'Main highway closed after landslide'; f.source.value = 'https://example.gov.in/notice';
+    f.start.value = App.get.booking(id).start; f.end.value = App.get.booking(id).start; f.requestSubmit(); await T.wait(300);
+    T.assert(App.get.booking(id).promise?.closureId, 'Closure did not reach the affected trip');
+    // Traveller moves dates for free
+    await T.login('traveller@vanyatra.in', '/account/bookings');
+    await T.go('#/account/bookings');
+    T.assert(T.$(`[data-promise-move="${id}"]`), 'Trip card lacks the promise options');
+    let s = App.addDays(App.today(), 150);
+    while (!App.isAvailable(App.get.booking(id).vanId, s, App.addDays(s, nights))) s = App.addDays(s, 3);
+    App.api.usePromise(id, { type: 'move', start: s, end: App.addDays(s, nights) });
+    const b = App.get.booking(id);
+    T.assert(b.start === s && b.promise.used?.type === 'move', 'Dates not moved');
+    let err = ''; try { App.api.usePromise(id, { type: 'credit' }); } catch (e) { err = e.message; }
+    T.assert(err, 'Promise could be used twice');
+    await T.go('#/help/mountain-promise'); T.assert(/Change your dates for free/.test(T.text()), 'Policy page missing');
+    T.noOverflow();
+    return id + ' moved to ' + App.fmt.dateRange(b.start, b.end);
+  },
+
   // An unverified traveller can't pay until identity is verified
   async gate() {
     await T.login('sam@example.com', '/');

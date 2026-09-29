@@ -52,6 +52,8 @@ const tripCard = (b) => {
       ${b.status === 'requested' ? h`<p class="small muted">Waiting for the owner to respond. You haven’t been charged.</p>` : ''}
       ${b.status === 'cancelled' ? h`<p class="small muted">Cancelled by ${b.cancelledBy || 'you'}${b.refund !== undefined ? ` · refund ${money(b.refund)}` : ''}</p>` : ''}
       ${b.status === 'declined' ? h`<p class="small muted">The owner couldn’t accept this request. Your authorisation was released.</p>` : ''}
+      ${b.promise && !b.promise.used && upcoming ? h`<div class="callout promise-callout"><strong>${App.icon('mountain')} Mountain Promise</strong> — ${(App.db.closures || []).find(c => c.id === b.promise.closureId)?.title || 'An official closure'} affects this trip. <div class="row gap wrap"><button class="btn btn-sm btn-primary" data-promise-move="${b.id}">Change dates free</button><button class="btn btn-sm btn-ghost" data-promise-credit="${b.id}">Take full credit</button><a class="link small" href="#/help/mountain-promise">How it works</a></div></div>` : ''}
+      ${b.promise?.used ? h`<p class="small good">${App.icon('check')} Mountain Promise used: ${b.promise.used.type === 'move' ? `dates changed from ${b.promise.used.from}` : `${money(b.promise.used.amount)} credit added`}.</p>` : ''}
       <div class="trip-actions">
         <strong>${money(b.pricing.total)}</strong>
         ${upcoming ? h`<a class="btn btn-sm" href="#/account/trips/${b.id}">${App.icon('map')} Itinerary</a>` : ''}
@@ -83,6 +85,24 @@ const tripsTab = (m, me, mine) => {
 
 const bindTripActions = (m) => {
   m.querySelectorAll('[data-cancel]').forEach(b => b.onclick = () => cancelFlow(b.dataset.cancel));
+  m.querySelectorAll('[data-promise-credit]').forEach(x => x.onclick = async () => {
+    const b = App.get.booking(x.dataset.promiseCredit);
+    if (!(await App.confirm('Take full credit?', `Your trip is cancelled and ${money(b.payment?.plan ? b.payment.plan.paid : b.pricing.total)} is added to your VanYatra credit to use on any van, any time.`, 'Take credit'))) return;
+    try { App.api.usePromise(b.id, { type: 'credit' }); App.toast('Credit added to your account.', 'good'); App.render(); } catch (e) { App.toast(e.message, 'bad'); }
+  });
+  m.querySelectorAll('[data-promise-move]').forEach(x => x.onclick = async () => {
+    const b = App.get.booking(x.dataset.promiseMove);
+    const nights = App.nightsBetween(b.start, b.end);
+    let range = null;
+    const res = await App.modal({
+      title: 'Choose new dates',
+      body: h`<p class="small muted">Same length (${App.fmt.nights(nights)}), no fee. Greyed dates are taken.</p><div id="pm-dates"></div>`,
+      onMount: (mm) => { range = App.dateRangeField(mm.querySelector('#pm-dates'), { vanId: b.vanId, minNights: nights, clearable: false }); },
+      actions: [{ label: 'Cancel', value: null }, { label: 'Move my trip', primary: true, value: () => range.get() }]
+    });
+    if (!res?.start || !res?.end) return;
+    try { App.api.usePromise(b.id, { type: 'move', start: res.start, end: res.end }); App.toast('Trip moved — no fee.', 'good'); App.render(); } catch (e) { App.toast(e.message, 'bad'); }
+  });
   m.querySelectorAll('[data-review]').forEach(b => b.onclick = () => reviewFlow(b.dataset.review));
   m.querySelectorAll('[data-receipt]').forEach(b => b.onclick = () => App.receipt(b.dataset.receipt));
   m.querySelectorAll('[data-issue]').forEach(b => b.onclick = () => issueFlow(b.dataset.issue));

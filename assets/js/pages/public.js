@@ -497,6 +497,7 @@ App.pages.van = (el, { id }, q) => {
         </section>
         ${van.instantBook ? h`<div class="callout">${App.icon('zap')} <strong>Instant book</strong> — your booking is confirmed straight away, no waiting.</div>` : h`<div class="callout">${App.icon('clock')} <strong>Request to book</strong> — the owner responds within 24 hours. You're only charged if they accept.</div>`}
         ${trustPanel(van)}
+        ${App.MOUNTAIN_REGIONS.includes(van.destinationId) ? h`<div class="callout promise-callout"><strong>${App.icon('mountain')} Mountain Promise included</strong> — if an official closure (landslide, pass closure, snow) blocks your route, change dates for free or take full credit. <a href="#/help/mountain-promise">How it works</a></div>` : ''}
         <section class="block"><h2>About this van</h2><p>${van.description}</p>${van.video ? h`<button type="button" class="btn btn-ghost" id="video-btn">${App.icon('camera')} Watch the video walkthrough</button>` : ''}</section>
         ${goodToKnow(van)}
         ${tripOptions(van)}

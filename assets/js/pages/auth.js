@@ -272,6 +272,17 @@ const POLICY = {
       <li><strong>Retention:</strong> booking and tax records are kept as long as required by law; KYC documents are deleted 90 days after an owner closes their account unless needed for an open dispute.</li>
       <li><strong>Cookies:</strong> only essential cookies by default; analytics cookies only with consent.</li>
     </ul>`],
+  'mountain-promise': ['Mountain Promise', h`
+    <p>Mountain roads close. Landslides in the monsoon, snow on high passes, and official closures of routes like Rohtang, Baralacha La or Khardung La can stop a trip that was planned for months. If that happens, you don’t lose your money.</p>
+    <h2>What’s covered</h2>
+    <ul><li>Trips with vans based in Ladakh, Spiti, Manali & Kullu, Rishikesh & Garhwal and Meghalaya.</li>
+      <li>An <strong>official closure</strong> — announced by the district administration, the Border Roads Organisation, the state disaster management authority or the police — that blocks the region’s main routes during your trip dates.</li></ul>
+    <h2>Your choice</h2>
+    <ul><li><strong>Change your dates for free</strong> to any dates the van is free, for the same number of nights.</li>
+      <li><strong>Or take full credit</strong> — everything you paid, as VanYatra credit to use on any van, any time. Deposits paid by UPI are returned in full.</li></ul>
+    <h2>How it works</h2>
+    <p>Our team records closures from official sources. If one affects your trip, we tell you in the app (and on WhatsApp if you’ve opted in), and the options appear on your trip. You don’t need to prove anything.</p>
+    <p class="small muted">Not covered: personal changes of plan (see the <a href="#/help/cancellation">cancellation policy</a>), bad weather without an official closure, or closures announced before you booked.</p>`],
   owners: ['Owner requirements', h`
     <p>Requirements for listing a van in <strong>${App.C.name}</strong>. Rules vary by state — our team confirms during review.</p>
     <h2>Identity (KYC)</h2><ul class="ticks">${App.C.kyc.documents.map(d => h`<li>${d.label}</li>`)}</ul>

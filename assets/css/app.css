@@ -1050,3 +1050,4 @@ button, a, label, select { touch-action: manipulation; }
 .compare-grid figure > div { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
 .compare-grid img { width: 100%; aspect-ratio: 4 / 3; object-fit: cover; border-radius: 8px; }
 .sign-card { display: grid; gap: 10px; justify-items: start; margin-top: 16px; }
+.promise-callout .row { margin-top: 8px; }

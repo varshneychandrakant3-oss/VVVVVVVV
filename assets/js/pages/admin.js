@@ -380,11 +380,32 @@ const reviews = (m) => {
 
 /* ---------- Destinations ---------- */
 const destinations = (m) => {
+  const closures = App.db.closures || [];
   m.innerHTML = String(h`<div class="row-between wrap"><h1>Destinations & content</h1><button class="btn btn-primary" id="add-dest">＋ Add destination</button></div>
+    <section class="card"><h2>${App.icon('mountain')} Road closures (Mountain Promise)</h2>
+      <p class="small muted">Record official closures only (district administration, BRO, state disaster management, police). Travellers with covered trips in that region and period are told straight away and can move dates or take credit.</p>
+      ${closures.length ? h`<ul class="plain list-rows">${closures.map(c => h`<li><div><strong>${c.title}</strong><div class="small muted">${App.get.dest(c.destinationId)?.name} · ${App.fmt.dateRange(c.from, c.to)}${c.source ? h` · <a href="${c.source}" target="_blank" rel="noopener">source</a>` : ''}</div></div><span class="small muted">${App.timeAgo(c.createdAt)}</span></li>`)}</ul>` : ''}
+      <form id="closure-form" class="grid-2">
+        <label class="field"><span>Region</span><select name="destinationId">${App.db.destinations.filter(d => App.MOUNTAIN_REGIONS.includes(d.id)).map(d => h`<option value="${d.id}">${d.name}</option>`)}</select></label>
+        <label class="field"><span>What’s closed</span><input name="title" required placeholder="e.g. Baralacha La closed after snowfall"></label>
+        <div class="field span-2"><span>Dates</span><div id="cl-dates"></div></div>
+        <label class="field span-2"><span>Official source (link)</span><input name="source" type="url" placeholder="https://…"></label>
+        <div><button class="btn btn-primary">Record closure</button></div>
+      </form></section>
     <div class="table-wrap"><table class="table"><thead><tr><th>Destination</th><th>Best time</th><th>Family</th><th class="num">Vans</th><th class="num">Campsites</th><th></th></tr></thead><tbody>
     ${App.db.destinations.map(d => h`<tr><td><div class="row gap"><img class="thumb" src="${photo(d.hero, 120)}" alt=""><div><strong>${d.name}</strong><div class="small muted">${d.tagline}</div></div></div></td><td>${d.bestTime}</td><td>${'★'.repeat(d.familyScore)}</td><td class="num">${App.db.vans.filter(v => v.destinationId === d.id && v.status === 'published').length}</td><td class="num">${d.campsites.length}</td>
       <td class="actions"><button class="btn btn-sm btn-ghost" data-edit="${d.id}">Edit</button><a class="btn btn-sm btn-ghost" href="#/destinations/${d.id}">View</a></td></tr>`)}
     </tbody></table></div>`);
+  App.dateRangeField(m.querySelector('#cl-dates'), { labels: ['From', 'Until'], clearable: false });
+  m.querySelector('#closure-form').onsubmit = (e) => {
+    e.preventDefault();
+    const f = e.target; const d = App.formData(f);
+    if (!f.checkValidity()) return f.reportValidity();
+    if (!d.start || !d.end) return App.toast('Choose the closure dates.', 'bad');
+    const r = App.api.addClosure({ destinationId: d.destinationId, title: d.title.trim(), from: d.start, to: d.end, source: d.source.trim() });
+    App.toast(`Closure recorded. ${App.plural(r.affected, 'trip')} affected — travellers notified.`, 'good');
+    App.render();
+  };
   const edit = async (d) => {
     const isNew = !d;
     d = d || { id: '', name: '', region: '', lat: 22, lng: 79, tagline: '', hero: '', gallery: [], bestTime: '', bestMonths: [], familyScore: 3, familyNotes: '', highlights: [], attractions: [], activities: [], routes: [], campsites: [] };
