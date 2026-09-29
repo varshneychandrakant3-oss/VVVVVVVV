@@ -108,7 +108,7 @@ App.render = () => {
   const dnav = main.querySelector('.dash-nav nav'), act = dnav && dnav.querySelector('a.active');
   if (act) dnav.scrollLeft = act.offsetLeft - dnav.clientWidth / 2 + act.clientWidth / 2;
   const h1 = main.querySelector('h1');
-  document.title = (h1 ? h1.textContent.replace(/\s+/g, ' ').trim() + ' · ' : '') + 'VanYatra — Camper van rentals in India';
+  document.title = (h1 ? [...h1.childNodes].map(n => (n.nodeName === 'BR' ? ' ' : n.textContent)).join('').replace(/\s+/g, ' ').trim() + ' · ' : '') + 'VanYatra — Camper van rentals in India';
   App.setMeta(route, main);
 };
 
