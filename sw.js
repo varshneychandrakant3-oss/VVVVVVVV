@@ -11,7 +11,7 @@
  * The files to cache are read from index.html, so there is no list to maintain.
  * Change VERSION on a release to prompt open tabs to refresh.
  */
-const VERSION = '2026-09-29.6';
+const VERSION = '2026-09-29.7';
 const SHELL = 'vanyatra-shell-' + VERSION;
 const IMAGES = 'vanyatra-images';
 const IMAGE_LIMIT = 150;
@@ -23,7 +23,8 @@ self.addEventListener('install', (event) => {
     const html = await res.clone().text();
     const files = [...html.matchAll(/(?:src|href)="(assets\/[^"#?]+)"/g)].map(m => './' + m[1]);
     await cache.put('./index.html', res);
-    await cache.addAll([...new Set([...files, './assets/data/india-boundary.geojson'])]);
+    // Bypass the browser's HTTP cache, or a new version could be installed with old files
+    await cache.addAll([...new Set([...files, './assets/data/india-boundary.geojson'])].map(f => new Request(f, { cache: 'reload' })));
   })());
 });
 
@@ -73,7 +74,7 @@ self.addEventListener('fetch', (event) => {
     event.respondWith((async () => {
       const cache = await caches.open(SHELL);
       const hit = await cache.match(req, { ignoreSearch: true });
-      const refresh = fetch(req).then(res => { if (res.ok) cache.put(req, res.clone()); return res; }).catch(() => null);
+      const refresh = fetch(req, { cache: 'no-cache' }).then(res => { if (res.ok) cache.put(req, res.clone()); return res; }).catch(() => null);
       return hit || (await refresh) || Response.error();
     })());
     return;
